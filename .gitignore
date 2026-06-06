@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Secrets / API keys — never commit
+.env
+.env.local
+*.key
+
+# Local model-output caches / large artifacts
+.cache/
+*.parquet
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
