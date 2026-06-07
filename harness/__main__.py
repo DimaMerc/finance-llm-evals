@@ -45,8 +45,17 @@ def cmd_run(a):
     path = _resolve(a.case)
     variants = models.VARIANTS if a.all else [a.model]
     for v in variants:
-        result, rubric = run_case(path, variant=v, mode=a.judge)
-        print(render(result, rubric, variant=v, mode=a.judge))
+        mo, label = None, v
+        if v == "live":
+            from .rubric import load_case
+            from . import live
+            case = load_case(path)
+            print(f"[live] fetching the press release and calling LM Studio at {a.endpoint} ...")
+            ans = live.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
+            mo, label = ans, "live:" + str(ans.get("_model_id", "?"))
+            print(f"[live] model={ans.get('_model_id')}  (parsed {len([k for k in ans if not k.startswith('_')])} sections; raw {len(ans.get('_raw',''))} chars)")
+        result, rubric = run_case(path, variant=v, mode=a.judge, model_output=mo)
+        print(render(result, rubric, variant=label, mode=a.judge))
 
 
 def cmd_suite(a):
@@ -107,8 +116,12 @@ def main():
     ap = argparse.ArgumentParser(prog="harness", description="finance-llm-evals scoring harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list").set_defaults(fn=cmd_list)
-    r = sub.add_parser("run"); r.add_argument("--case", required=True); r.add_argument("--model", default="oracle")
+    r = sub.add_parser("run"); r.add_argument("--case", required=True); r.add_argument("--model", default="oracle",
+        help="oracle | scale_slip | fabricate_probe | flip_eps_beat | basis_mismatch | live")
     r.add_argument("--all", action="store_true"); r.add_argument("--judge", default="mock", choices=["mock", "llm"])
+    r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
+    r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")
+    r.add_argument("--max-tokens", type=int, default=4000)
     r.set_defaults(fn=cmd_run)
     s = sub.add_parser("suite"); s.add_argument("--model", default="oracle"); s.add_argument("--judge", default="mock", choices=["mock", "llm"])
     s.set_defaults(fn=cmd_suite)

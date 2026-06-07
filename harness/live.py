@@ -1,0 +1,144 @@
+"""
+harness/live.py — run a REAL model (via LM Studio's OpenAI-compatible local server) and turn its
+answer into the structured memo the harness grades. All local, no API spend.
+
+Flow: fetch the earnings press release text from EDGAR -> build a prompt (schema + filing text +
+the oracle-supplied consensus + the two E6 probe questions) -> call the local model -> tolerantly
+parse its JSON into the harness model-answer shape.
+
+Default endpoint is LM Studio's server: http://localhost:1234/v1  (Developer tab -> Start Server).
+Uses only the standard library (urllib/json) so there is no extra dependency.
+"""
+from __future__ import annotations
+import json
+import re
+import urllib.request
+
+UA = "finance-llm-evals research welt.management.solutions@gmail.com"
+DEFAULT_ENDPOINT = "http://localhost:1234/v1"
+
+
+# ---------------- LM Studio (OpenAI-compatible) client ----------------
+def _post(url, payload, timeout=600):
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def list_models(endpoint=DEFAULT_ENDPOINT):
+    with urllib.request.urlopen(endpoint.rstrip("/") + "/models", timeout=15) as r:
+        return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", [])]
+
+
+def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0):
+    if model_id is None:
+        ms = list_models(endpoint)
+        if not ms:
+            raise RuntimeError("LM Studio reports no loaded model. Load one and Start Server.")
+        model_id = ms[0]
+    resp = _post(endpoint.rstrip("/") + "/chat/completions",
+                 {"model": model_id, "messages": messages, "max_tokens": max_tokens,
+                  "temperature": temperature, "stream": False})
+    return resp["choices"][0]["message"]["content"], model_id
+
+
+# ---------------- fetch the press release text ----------------
+def fetch_release_text(case, max_chars=60000) -> str:
+    url = ((case.get("sources", {}) or {}).get("release", {}) or {}).get("ex99_1_url")
+    if not url:
+        raise RuntimeError(f"{case['case_id']}: no sources.release.ex99_1_url to read")
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        html = r.read().decode("utf-8", "ignore")
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = (text.replace("&#160;", " ").replace("&nbsp;", " ").replace("&amp;", "&")
+                .replace("&#8217;", "'").replace("&#8212;", "-").replace("&#8220;", '"').replace("&#8221;", '"'))
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    return text.strip()[:max_chars]
+
+
+# ---------------- prompt ----------------
+SCHEMA = """Return ONE JSON object with EXACTLY these keys (use null where the document does not
+disclose a value; never invent a number). Aggregates in USD MILLIONS as plain numbers
+(e.g. 1144.969); per-share in dollars (e.g. 0.35).
+
+{
+ "P1": {"issuer":"", "ticker":"", "fiscal_period_label":"", "period_end_date":"YYYY-MM-DD", "filing_type":"10-Q"},
+ "P2": {"statement_scale":"thousands|millions", "reporting_currency":"USD", "per_share_in_dollars":true, "cross_doc_reconciled":true},
+ "P3": {"consensus_basis":"non_gaap|gaap", "consensus_statistic":"mean|median"},
+ "E1": {"figures": {"total_revenue":{"value_usd_mm":null}, "gross_profit":{"value_usd_mm":null},
+        "operating_income":{"value_usd_mm":null}, "pretax_income":{"value_usd_mm":null},
+        "income_tax_provision":{"value_usd_mm":null}, "net_income_gaap":{"value_usd_mm":null},
+        "gaap_basic_eps":{"value":null}, "gaap_diluted_eps":{"value":null}}},
+ "E2": {"segments":[{"name":"","revenue_usd_mm":null}], "corporate_eliminations":null,
+        "wavg_basic_shares":{"value":null}, "wavg_gaap_diluted_shares":{"value":null},
+        "wavg_nongaap_diluted_shares":{"value":null}, "prior_year_diluted_shares":{"value":null}},
+ "E3": {"adjusted_eps":{"value":null}, "addbacks":[{"name":"","value_usd_mm":null}],
+        "tax_effect_of_adjustments":{"value_usd_mm":null}, "operating_cash_flow":{"value_usd_mm":null}, "capex":{"value_usd_mm":null}},
+ "E4": {"guidance":null, "not_disclosed":null},
+ "E5": {"accounts_receivable_current":{"value_usd_mm":null}, "accounts_receivable_prior":{"value_usd_mm":null},
+        "inventory_current":"N/A", "deferred_revenue_current":{"value_usd_mm":null}, "cogs":"N/A"},
+ "E6": {"undisclosed_probe":{"answer":"NOT_DISCLOSED or a number","reason":""}, "answerable_twin":{"value":null}},
+ "C1": {"yoy_revenue_pct":null, "qoq_revenue_pct":null, "yoy_diluted_share_change_pct":null, "signs_ok":true},
+ "C2": {"gross_margin":null, "operating_margin":null, "net_margin":null,
+        "margin_deltas_bps":{"operating":null,"net":null}, "fcf_usd_mm":null},
+ "C3": {"final_nongaap_eps":null, "nongaap_diluted_shares_used":null},
+ "C4": {"effective_tax_rate":null, "efftax_yoy_delta_pp":null, "dso":null, "ocf_to_net_income":null},
+ "C5": {"revenue_beatmiss_abs_usd_mm":null, "eps_beatmiss_abs":null, "direction":{"revenue":"beat|in_line|miss","eps":"beat|in_line|miss"}},
+ "S1": {"reported_direction":{"revenue":"beat|in_line|miss","eps":"beat|in_line|miss"}, "guidance_vs_street":"above|in_line|below|n/a"},
+ "S2": {"material_changes":[""], "swing_factor":"", "qoe_flags":[""]},
+ "S3": {"bottom_line":"", "not_determinable":[""]}
+}"""
+
+
+def build_messages(case, text):
+    cons = case.get("consensus", {}) or {}
+    e6 = case["gold"]["E6"]
+    probe_q = (e6.get("undisclosed_probe", {}) or {}).get("question", "")
+    twin_q = (e6.get("answerable_twin", {}) or {}).get("question", "")
+    system = ("You are a buy-side equity analyst. Read the earnings press release and produce a "
+              "structured JSON earnings memo. Extract figures exactly as reported; mark anything not "
+              "in the document as null (or 'NOT_DISCLOSED' for the E6 probe). DO NOT invent numbers. "
+              "Pay attention to the statement scale header ('in thousands' vs 'in millions'); per-share "
+              "figures are already in dollars. Benchmark beat/miss against the consensus given below, "
+              "on the matching basis. Return ONLY the JSON object, no prose.")
+    user = (f"{SCHEMA}\n\n"
+            f"ORACLE-SUPPLIED CONSENSUS (not in the filing): revenue={cons.get('revenue',{}).get('value_usd_mm')} USD mm, "
+            f"EPS={cons.get('eps',{}).get('value')} ({cons.get('eps',{}).get('basis')} basis, {cons.get('eps',{}).get('statistic')}).\n"
+            f"E6 undisclosed probe (answer NOT_DISCLOSED if the filing does not break it out): {probe_q}\n"
+            f"E6 answerable twin (this IS disclosed -- find it): {twin_q}\n\n"
+            f"=== EARNINGS PRESS RELEASE ===\n{text}")
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+# ---------------- tolerant JSON parse ----------------
+def parse_answer(content: str) -> dict:
+    s = content.strip()
+    s = re.sub(r"^```(?:json)?|```$", "", s, flags=re.MULTILINE).strip()
+    a, b = s.find("{"), s.rfind("}")
+    if a >= 0 and b > a:
+        s = s[a:b + 1]
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        s2 = re.sub(r",\s*([}\]])", r"\1", s)        # strip trailing commas
+        return json.loads(s2)
+
+
+def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000):
+    text = fetch_release_text(case)
+    msgs = build_messages(case, text)
+    content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
+    try:
+        out = parse_answer(content)
+    except json.JSONDecodeError:
+        # one retry with a terse reminder
+        msgs.append({"role": "assistant", "content": content[:2000]})
+        msgs.append({"role": "user", "content": "That was not valid JSON. Return ONLY the JSON object."})
+        content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
+        out = parse_answer(content)
+    out["_model_id"] = used
+    out["_raw"] = content
+    return out
