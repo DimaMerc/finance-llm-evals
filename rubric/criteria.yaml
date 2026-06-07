@@ -1,0 +1,1252 @@
+# rubric/criteria.yaml — machine-readable atomic scoring criteria for the 17 earnings-analysis checkpoints
+#
+# Phase-2 deliverable. The Phase-4 harness loads this file to score a model's earnings memo.
+# Schema and scoring semantics are documented in rubric/rubric.md; the judge prompts that grade
+# the `judge`/`refusal`/`entailment` atoms are in rubric/judge.md.
+#
+# AGGREGATION LENS (synthesis decision): the CHECKPOINT is the PRIMARY scoring unit and the six
+# PLAN.md categories are a SECONDARY diagnostic rollup. Both fall out of ONE graded atom set:
+#   INNER  (per checkpoint k, HealthBench): raw_pos(k)=sum(positive points in k);
+#          awarded(k)=sum(m*points) over ALL atoms in k (incl. met negatives, which subtract);
+#          checkpoint_raw(k)=awarded(k)/raw_pos(k);
+#          checkpoint_score(k)=clip(checkpoint_raw,0,1)   # reported; RAW retained for taxonomy/gap
+#   CASE HEADLINE = sum_k checkpoint_weights[k] * checkpoint_score(k)  in [0,1]
+#   CATEGORY ROLLUP (diagnostic, NOT re-aggregated into the case): for category t,
+#          sum(awarded points of atoms tagged t across all 17 checkpoints, incl. met negatives)
+#          / sum(positive points tagged t)              # reported raw, may be < 0
+# Gates (see `gates:`) set m=0 on dependent atoms BEFORE inner pooling; zeroed atoms STAY in their
+# checkpoint denominators so gating lowers the affected checkpoint scores. The harness reports
+# Suite_ungated, Suite_gated, Suite_AllPass, GAP = ungated - gated, each in Oracle and end-to-end mode.
+#
+# ATOM SHAPE
+#   id:            unique stable id (CHECKPOINT.n)
+#   checkpoint:    one of P1..P3 E1..E6 C1..C5 S1..S3
+#   category:      one of {extraction, numerical, entailment, reasoning, calibration, structure}
+#   criterion:     ONE self-contained statement (HealthBench/PRBench style)
+#   points:        signed, nonzero, ~[-10,+10]. positive=should-include; negative=should-NOT (subtracts when met)
+#   grader:        deterministic | entailment | judge | refusal
+#   gate:          none | hard | scoped | in_checkpoint   (a gate atom fires the matching gates[] entry)
+#   tolerance:     (deterministic value atoms) figure-type band key -> see `tolerances:` block
+#   per_figure:    (optional, bool) if true, this atom is a TEMPLATE: the harness expands it into one
+#                  atom per entry in `figures:`, inheriting checkpoint/category/grader/gate and using
+#                  each figure's own `points` and `tolerance_key`. `points` on the template = sum over
+#                  the figure list (kept in sync so the STATIC positive-point pools are correct;
+#                  this static sum is the CEILING / all-figures-present mass — see PRUNE below).
+#   figures:       (optional, when per_figure) list of {figure_name, tolerance_key, points} the harness
+#                  materializes (gold_value comes from the case manifest; ids become id.<figure_name>).
+#   tags:          failure-taxonomy bucket(s) for the Phase-5 table
+#
+# EXPAND / PRUNE SEMANTICS for per_figure templates (rubric.md §5.1, §2.6):
+#   - expand: per_segment_row / per_addback_row / per_bridge_row  -> the manifest supplies an N-row
+#     list; the row pool's points are SPLIT EVENLY over the N disclosed rows (points_per_row = pool/N).
+#     Sub-atom points are kept EXACT (rational) in computation; only final reported checkpoint/case/
+#     suite scores round to 3 decimals, so the per-checkpoint denominator invariant holds for any N.
+#   - prune: per_manifest  -> any figure the manifest marks N/A / not-present-for-the-case is REMOVED
+#     from BOTH numerator and denominator before pooling; the matching "correctly marked N/A" atom is
+#     then the only scored atom for that figure. raw_pos(k) is computed on the MATERIALIZED (post-prune)
+#     figure set. The static template points (all figures present) are therefore a CEILING; the per-CASE
+#     positive mass is the post-prune mass. AllPass quantifies over IN-SCOPE (non-N/A) atoms only.
+
+meta:
+  rubric_version: "2.1.0"          # 2.0.0 atom set (unchanged ids/points/gates) + checkpoint-primary aggregation + data-driven figure expansion
+
+  # --- SECONDARY category rollup weights (diagnostic; rubric.md §1). Sum to 1.0. ---
+  weights:
+    extraction:   0.22
+    numerical:    0.26
+    entailment:   0.14
+    reasoning:    0.20
+    calibration:  0.12
+    structure:    0.06
+
+  # --- PRIMARY aggregation: 17 checkpoint weights. Sum to 1.0. ---
+  #     stage subtotals: planning .130 | extraction .360 | calculation .325 | synthesis .185
+  checkpoint_weights:
+    P1: 0.040
+    P2: 0.040
+    P3: 0.050
+    E1: 0.075
+    E2: 0.065
+    E3: 0.070
+    E4: 0.045
+    E5: 0.045
+    E6: 0.060
+    C1: 0.060
+    C2: 0.065
+    C3: 0.075
+    C4: 0.060
+    C5: 0.065
+    S1: 0.060
+    S2: 0.070
+    S3: 0.055
+
+  refusal_beta: 0.5                 # FailSafeQA F-beta for the calibration refusal axis (rubric.md §5)
+  clip_per_checkpoint: true         # checkpoint_score clipped to [0,1] before the W_k sum; RAW unclipped retained for taxonomy/gap
+  clip_per_case: false              # the weighted case headline is already in [0,1]; not separately clipped
+  clip_suite: [0.0, 1.0]            # only the suite mean is clipped
+
+  # Validation invariants the harness asserts at load (rubric.md §2.6; enforced by rubric/validate.py):
+  #   - sum(weights) == 1.0
+  #   - sum(checkpoint_weights) == 1.0
+  #   - every checkpoint P1..S3 present in checkpoint_weights AND in criteria
+  #   - every category in `weights` populated by >=1 atom
+  #   - every gate's fired_by + dependents[] resolve to real checkpoint/atom ids
+  #   - every atom's tolerance / figures[].tolerance_key resolves in `tolerances`
+  #   - per_figure templates: sum(figures[].points) == template points
+  #   - no atom is double-categorized; entailment category <-> entailment grader (and v.v.)
+  #   - per-CHECKPOINT mass assertion (each checkpoint's +/- mass matches rubric.md §3.3)
+  # NOTE: total atom count and +/- mass are DERIVED -- printed by validate.py and mirrored into
+  # rubric.md §2.6/§3.1/§3.3 (do not hard-code a stale literal here; the validator is the source).
+
+tolerances:                         # Phase-1 bands; scale folded into the number BEFORE compare
+  eps:              { type: abs,   band: 0.01 }                            # +/- $0.01
+  growth_rate:      { type: pp,    band: 0.1 }                             # <= 0.1 percentage point
+  margin_level:     { type: pp,    band: 0.1 }                             # <= 0.1 pp
+  margin_delta_bps: { type: bps,   band: 15, internal_consistency: true }  # <=15bps AND = model's own (cur-prior)
+  aggregate:        { type: rel,   band: 0.005, or_exact: true }           # exact to reported precision OR <= 0.5%
+  fcf:              { type: rel,   band: 0.005 }                           # <= 0.5% on the computed difference
+  beat_miss_eps:    { type: abs,   band: 0.01 }                            # EPS beat/miss
+  beat_miss_rev:    { type: rel,   band: 0.005 }                           # revenue beat/miss
+  ratio:            { type: rel,   band: 0.005 }                           # eff tax rate LEVEL, DSO/DIO, OCF/NI
+  # F12 (polish): the effective-tax-rate LEVEL band is RELATIVE (ratio = 0.5%), so its pp-equivalent
+  # SCALES WITH THE RATE; a fixed 0.15pp band is only ~RSS near a ~21% rate and is slightly TIGHT at
+  # higher rates. So tax_rate_delta_pp is a FLOOR-RSS band, not a fixed value: the harness compares the
+  # delta against band = max(floor_pp, rel_per_level * effective_rate * sqrt(2)), where effective_rate
+  # is the model's own current-period level (read from C4.efftax_level). Internally consistent AND = the
+  # model's own (cur-prior) levels. floor_pp 0.15 approximates RSS for typical ~20-25% rates and widens
+  # with the rate; rel_per_level 0.005 mirrors the `ratio` level tolerance; sqrt(2) is the two-leg RSS.
+  tax_rate_delta_pp: { type: pp_floor_rss, floor_pp: 0.15, rel_per_level: 0.005, rss_factor: 1.4142135623730951, level_ref: C4.efftax_level, internal_consistency: true }
+
+# ============================== GATES (rubric.md §4) ==============================
+# Gates are deterministic predicates checked against gold. When fired, set m=0 on every atom
+# resolved from dependents[] (by checkpoint -> all its atoms, or by atom id) BEFORE inner pooling,
+# and flag the case AllPass=0. Zeroed atoms stay in their checkpoint denominators.
+gates:
+  - id: GATE.P1
+    tier: hard
+    checkpoint: P1
+    fired_by: P1.2
+    condition: "fiscal_period_label != gold OR period_end_date != gold OR filing_type wrong (Q4-as-standalone-10-Q) OR year-ago/prior-quarter column read as current OR wrong source document"
+    dependents: [E1, E2, E3, E4, E5, E6, C1, C2, C3, C4, C5, S1, S2, S3]
+  - id: GATE.P2
+    tier: hard
+    checkpoint: P2
+    fired_by: P2.1
+    # F2: blast radius is an EXPLICIT ATOM/figure-id list = the AGGREGATE-scaled value atoms and their
+    # citation legs in E1..E5, PLUS all of C1..C5 (every calc derives from scaled aggregates).
+    # EXCLUDED (per-share are already in dollars, Phase-1 P2.3 -- NOT scaled): the eps-keyed sub-figures
+    # E1.value.gaap_basic_eps / E1.value.gaap_diluted_eps (+ their E1.cite legs) and
+    # E4.ranges.guidance_eps_low / guidance_eps_high (+ their E4.cite legs). The S1-S3 clause is DROPPED
+    # (S1.n_contradiction already catches scaled-number contradictions deterministically; a "contradiction
+    # op referencing a scaled number" is not a deterministic predicate, so it cannot be a gate dependent).
+    condition: "declared scale per statement != gold (1000x) OR currency != gold OR per-share figure multiplied by aggregate scale OR cross-document scale not reconciled to common base"
+    dependents:
+      # E1..E5 AGGREGATE value legs (eps-keyed per-share sub-figures excluded):
+      - E1.value:aggregate          # total_revenue, gross_profit, operating_income, pretax_income, income_tax_provision, net_income_gaap (NOT *_eps)
+      - E1.cite:aggregate
+      - E1.gaap_distinct
+      - E2.segments
+      - E2.wavg_diluted
+      - E2.nongaap_diluted
+      - E2.prioryr_shares
+      - E2.cite
+      - E3.addbacks:aggregate       # addback_rows aggregate legs (adjusted_eps is eps-keyed -> excluded)
+      - E3.taxeffect_line
+      - E3.ocf_capex
+      - E3.cite
+      - E4.ranges:aggregate         # guidance_revenue_low/high only (guidance_eps_* are eps -> excluded)
+      - E5.values
+      - E5.cite
+      # C1..C5 in full (all derive from scaled aggregates):
+      - C1
+      - C2
+      - C3
+      - C4
+      - C5
+  - id: GATE.FABRICATION
+    tier: hard
+    # F4: SEPARATE detection from blast radius.
+    #  (a) DETECTION (untouched): the negative penalty atom applies its negative in the numerator.
+    #      fired_by lists every fabrication-detection hook (E1/E6 + the NEW E2-E5 value-leg hooks).
+    #  (b) BLAST RADIUS: VOID the POSITIVE credit of the fabricated figure's value+cite atoms only
+    #      (set m=0 on those POSITIVES). voids_positive names the positive value/cite legs to zero.
+    #  (c) CASCADE to the whole chain ONLY when the fabricated FIELD is the P1/P2 frame (see cascade_if).
+    #  Net effect: a fabricated figure is hard-zeroed ONCE (its positive voided) and penalized ONCE
+    #  (its negative applied) -- not double-counted beyond the single intended hard-zero.
+    tier_note: "per-figure void; cascades only on a frame fabrication"
+    scope: figure
+    fired_by: [E1.n_halluc, E2.n_halluc, E3.n_halluc, E4.n_halluc, E5.n_halluc, E6.n_fabricate]
+    condition: "an extraction atom returns a value with NO citation AND the value is not in the filing (hallucination), OR a confident fabricated value on a genuinely-undisclosed E6 probe"
+    voids_positive: [self.value_leg, self.cite_leg]   # zero the fabricated figure's POSITIVE value+cite sub-atoms
+    cascade_if: "fabricated_field in {fiscal_period, period_end, filing_type, source_doc, scale, currency}"
+    cascade_dependents:   # applied ONLY when cascade_if holds (the fabricated field IS the frame)
+      - GATE.P1           # frame=period/filing/source -> P1 blast radius
+      - GATE.P2           # frame=scale/currency       -> P2 blast radius
+  - id: GATE.P3
+    tier: scoped
+    checkpoint: P3
+    fired_by: P3.3
+    condition: "consensus_basis committed at P3 != basis of the provided snapshot OR designated mean/median statistic dropped/swapped"
+    dependents: [C5, S1]
+  - id: GATE.C1SIGN
+    tier: in_checkpoint
+    checkpoint: C1
+    fired_by: C1.sign
+    condition: "a growth rate or the delta-share-count sign is flipped"
+    dependents: [C1]
+  - id: GATE.C5SIGN
+    tier: in_checkpoint
+    checkpoint: C5
+    # F16: fires on C5.direction (sign flip) ONLY. A GAAP-vs-street basis mismatch AT the checkpoint
+    # is handled by C5.basis_guard as a NORMAL penalty atom (and the basis decision is already the P3
+    # scoped gate); it does NOT fire GATE.C5SIGN.
+    fired_by: [C5.direction]
+    condition: "a beat called a miss (or vice versa) -- a sign flip at the directional call"
+    dependents: [C5]
+
+# ============================== PLANNING ==============================
+criteria:
+
+  # ---- P1 — pin filing/issuer/period (deterministic, HARD GATE) ----
+  - id: P1.1
+    checkpoint: P1
+    category: extraction
+    criterion: "Issuer and ticker/CIK match gold exactly (string/CIK match)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [wrong_source]
+  - id: P1.2
+    checkpoint: P1
+    category: extraction
+    criterion: "Fiscal-period label and period-end date match gold, including fiscal-vs-calendar distinction; the year-ago/prior-quarter comparative column is not mistaken for the current period."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.P1
+    tags: [wrong_period]
+  - id: P1.3
+    checkpoint: P1
+    category: extraction
+    criterion: "Filing type is correct: fiscal Q4 is recognized as reported inside the 10-K, not as a standalone 10-Q."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [wrong_period, wrong_source]
+  - id: P1.4
+    checkpoint: P1
+    category: extraction
+    criterion: "13-week vs 14-week / 52- vs 53-week periods are noted where applicable."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [wrong_period]
+  - id: P1.5
+    checkpoint: P1
+    category: entailment
+    criterion: "The period claim is anchored to the cover-page / statement-header verbatim string and page, not merely asserted."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: P1.6
+    checkpoint: P1
+    category: structure
+    criterion: "A pinned-header object is produced carrying all gating fields {issuer, ticker/CIK, fiscal_period_label, period_end_date, filing_type}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+  # ---- P2 — lock currency & scale (deterministic, HARD GATE) ----
+  - id: P2.1
+    checkpoint: P2
+    category: extraction
+    criterion: "Declared scale per statement matches gold, read from the verbatim header (a '$1,234,567 in thousands' figure is understood as ~$1.23B, not $1.23M)."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.P2
+    tags: [unit_scale]
+  - id: P2.2
+    checkpoint: P2
+    category: extraction
+    criterion: "Reporting currency matches gold."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [unit_scale]
+  - id: P2.3
+    checkpoint: P2
+    category: numerical
+    criterion: "Per-share figures are treated as already in dollars and are NOT multiplied by the aggregate scale factor."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [unit_scale]
+  - id: P2.4
+    checkpoint: P2
+    category: numerical
+    criterion: "Cross-document scale is reconciled: release absolute dollars (or no header) vs 10-Q thousands/millions are brought to a common base before any cross-document tie; a leg with no declared header has scale inferred from magnitude and FLAGGED, not assumed."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [unit_scale]
+  - id: P2.5
+    checkpoint: P2
+    category: entailment
+    criterion: "Each scale/currency assertion cites the statement-header string and page."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+
+  # ---- P3 — scope figures + consensus basis (hybrid, SCOPED GATE) ----
+  - id: P3.1
+    checkpoint: P3
+    category: reasoning
+    criterion: "The scoped list covers all gold-required figures for the case (revenue total + by segment, relevant profit lines, GAAP diluted EPS, adjusted EPS, weighted-avg diluted shares, OCF, capex, guidance, working-capital lines) without padding with irrelevant items."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [missing_material_item]
+  - id: P3.2
+    checkpoint: P3
+    category: reasoning
+    criterion: "Sector-aware headline set: gross profit/gross margin is scoped ONLY where the issuer reports a cost-of-revenue line; for financials/asset-managers a missing gross-profit line is marked 'not applicable', not 'missing'."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [sector_mismatch]
+  - id: P3.3
+    checkpoint: P3
+    category: reasoning
+    criterion: "consensus_basis matches the basis of the provided snapshot (recognizes most published EPS consensus is non-GAAP), is fixed BEFORE any beat/miss is computed, and the designated mean/median statistic is carried forward."
+    points: 6
+    grader: deterministic
+    gate: scoped          # firing this is GATE.P3 -> zeros C5, S1
+    tags: [gaap_nongaap_confusion]
+  - id: P3.4
+    checkpoint: P3
+    category: extraction
+    criterion: "The source map routes each figure to the correct document (non-GAAP reconciliation/guidance/segment summary -> press release; GAAP statements/cash flow/ASC 280 footnote/working capital -> 10-Q) and does not claim a figure lives in a document that omits it."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [wrong_source]
+  - id: P3.5
+    checkpoint: P3
+    category: structure
+    criterion: "A scoping record object is produced {in_scope_figures, consensus_basis, consensus_statistic, eps/revenue metric to benchmark, source_map, sector_profile}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: P3.n1
+    checkpoint: P3
+    category: reasoning
+    criterion: "PENALTY: the scope is padded with irrelevant figures beyond the gold list (gaming via volume)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [padding]
+
+# ============================== EXTRACTION (hybrid: value + entailment) ==============================
+# Each extracted figure yields TWO atoms: a value atom (category=extraction, grader=deterministic)
+# and a citation atom (category=entailment, grader=entailment). Compound value/cite atoms below carry
+# `per_figure: true` + a `figures:` list so the harness materializes ONE atom per gold figure in the
+# case, picking each figure's own tolerance_key (EPS rows -> eps; aggregate line items -> aggregate).
+# The figure list mirrors the deliverable's required-figure set; the case manifest supplies gold values.
+
+  # ---- E1 — headline income statement ----
+  - id: E1.value
+    checkpoint: E1
+    category: extraction
+    criterion: "Each headline income-statement figure matches gold within its figure-type tolerance and is scale-correct (a thousands/millions slip auto-fails that figure)."
+    points: 10
+    grader: deterministic
+    gate: none
+    per_figure: true
+    prune: per_manifest           # F6: gross_profit (and any N/A figure) is pruned from num+denom for no-COGS issuers
+    figures:
+      - { figure_name: total_revenue,       tolerance_key: aggregate, points: 1.5 }
+      - { figure_name: gross_profit,         tolerance_key: aggregate, points: 1.0 }   # N/A-pruned for financials; see E1.sector_na
+      - { figure_name: operating_income,     tolerance_key: aggregate, points: 1.5 }
+      - { figure_name: pretax_income,        tolerance_key: aggregate, points: 1.0 }   # feeds C4 eff-tax-rate
+      - { figure_name: income_tax_provision, tolerance_key: aggregate, points: 1.0 }   # feeds C4 eff-tax-rate
+      - { figure_name: net_income_gaap,      tolerance_key: aggregate, points: 1.5 }
+      - { figure_name: gaap_basic_eps,       tolerance_key: eps,       points: 1.0 }
+      - { figure_name: gaap_diluted_eps,     tolerance_key: eps,       points: 1.5 }
+    tags: [hallucinated_number, unit_scale, false_precision]
+  - id: E1.gaap_distinct
+    checkpoint: E1
+    category: extraction
+    criterion: "GAAP figures are pulled as GAAP (the adjusted line is not silently substituted where GAAP is required) and basic vs diluted EPS are captured as distinct rows."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [gaap_nongaap_confusion, diluted_share_basis]
+  - id: E1.sector_na
+    checkpoint: E1
+    category: extraction
+    criterion: "Gross profit is captured where a cost-of-revenue line exists and correctly marked N/A (not fabricated, not 'missing') where the issuer has none. (The 'correctly marked N/A' credit for the gross_profit figure pruned from E1.value by the manifest -- F6 prune semantics, shared with E5.sector_na / C4.sector_na.)"
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [sector_mismatch]
+  - id: E1.cite
+    checkpoint: E1
+    category: entailment
+    criterion: "Each headline figure carries a {document, page, verbatim string} citation that actually ENTAILS the value (3-way NLI = entailed; judge given the gold page AND the model's candidate span)."
+    points: 8
+    grader: entailment
+    gate: none
+    per_figure: true
+    prune: per_manifest           # F6: cite leg pruned in lockstep with E1.value for any N/A figure
+    figures:
+      - { figure_name: total_revenue,       tolerance_key: aggregate, points: 1.2 }
+      - { figure_name: gross_profit,         tolerance_key: aggregate, points: 0.8 }
+      - { figure_name: operating_income,     tolerance_key: aggregate, points: 1.2 }
+      - { figure_name: pretax_income,        tolerance_key: aggregate, points: 0.8 }
+      - { figure_name: income_tax_provision, tolerance_key: aggregate, points: 0.8 }
+      - { figure_name: net_income_gaap,      tolerance_key: aggregate, points: 1.2 }
+      - { figure_name: gaap_basic_eps,       tolerance_key: eps,       points: 0.8 }
+      - { figure_name: gaap_diluted_eps,     tolerance_key: eps,       points: 1.2 }
+    tags: [mis_citation]
+  - id: E1.n_halluc
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a value is returned that is not present anywhere in the filing (hallucination)."
+    points: -8
+    grader: deterministic
+    gate: hard               # GATE.FABRICATION if also uncited
+    tags: [hallucinated_number]
+  - id: E1.n_falseprec
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a figure is reported with more significant digits than disclosed (false precision)."
+    points: -2
+    grader: deterministic
+    gate: none
+    tags: [false_precision]
+  - id: E1.n_wrongcite
+    checkpoint: E1
+    category: entailment
+    criterion: "PENALTY: a confident, authoritative-looking citation points to a page/table that does not contain the figure (plausible-but-wrong citation; entailment judge returns 'contradicted')."
+    points: -4
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E1.n_omit_musthave
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY (omission): total_revenue or gaap_diluted_eps is required + disclosed in gold but the model provides no value and no attempt. ATTEMPT requires a PARSEABLE candidate numeric value; an empty string, a placeholder, or a contentless non-answer (e.g. 'N/A -- see 10-Q') on a figure that IS disclosed counts as OMISSION (rubric.md §5.2). Never fires on a genuinely-absent item (E6 path) -- calibrated refusal is untouched."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission, missing_material_item]
+
+  # ---- E2 — segments + share counts ----
+  - id: E2.segments
+    checkpoint: E2
+    category: extraction
+    criterion: "Each segment revenue and the corporate/eliminations/'all other' line matches gold within tolerance, cited to the ASC 280 segment footnote."
+    points: 7
+    grader: deterministic
+    gate: none
+    per_figure: true
+    # per-case segment list (segment_1..segment_n + corporate_eliminations) is supplied by the manifest;
+    # the harness expands one atom per gold segment row. SPLIT semantics (F3, unified with E3.addbacks
+    # and C3.addbacks_steps): the segment_revenue_rows pool is split EVENLY over the N disclosed segments
+    # -> points_per_row = 5.0 / N, kept EXACT in computation.
+    figures:
+      - { figure_name: segment_revenue_rows, tolerance_key: aggregate, points: 5.0, expand: per_segment_row }
+      - { figure_name: corporate_eliminations, tolerance_key: aggregate, points: 2.0 }
+    tags: [segment_break, hallucinated_number]
+  - id: E2.wavg_diluted
+    checkpoint: E2
+    category: extraction
+    criterion: "Weighted-average DILUTED shares (period-average) are reported and match gold; basic and diluted are reported separately; period-END cover-page shares are NOT substituted for weighted-average (the single most commonly-missed trap)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [diluted_share_basis]
+  - id: E2.nongaap_diluted
+    checkpoint: E2
+    category: extraction
+    criterion: "Where the company reports a SEPARATE non-GAAP diluted share count (loss-quarter dilution case), it is captured distinctly from the GAAP diluted count, both cited; this count feeds the C3 bridge denominator."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [diluted_share_basis]
+  - id: E2.prioryr_shares
+    checkpoint: E2
+    category: extraction
+    criterion: "The year-ago weighted-average diluted count is captured (feeds the C1 buyback / share-count-change check)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [diluted_share_basis]
+  - id: E2.completeness
+    checkpoint: E2
+    category: structure
+    criterion: "Extraction completeness: the 'all other'/corporate/eliminations bucket is not silently dropped (the completeness leg; the actual sum-to-total tie-out is C5)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [segment_break]
+  - id: E2.cite
+    checkpoint: E2
+    category: entailment
+    criterion: "Each segment/share value cites the correct span (segment footnote / share reconciliation / non-GAAP table) in the correct document, and the cite entails the value."
+    points: 6
+    grader: entailment
+    gate: none
+    tags: [mis_citation, wrong_source]
+  - id: E2.n_periodend
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: period-end cover-page shares are used where weighted-average diluted is required."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [diluted_share_basis]
+  - id: E2.n_halluc
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a segment-revenue or share-count value is returned that is not present anywhere in the filing (fabrication; F4 GATE.FABRICATION hook on the E2 value legs)."
+    points: -8
+    grader: deterministic
+    gate: hard               # GATE.FABRICATION: voids the fabricated figure's positive value+cite legs
+    tags: [hallucinated_number]
+  - id: E2.n_omit_nongaap_diluted
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY (omission): the case discloses a DISTINCT non-GAAP diluted share count (required + disclosed) but the model provides no value and no attempt for it. ATTEMPT requires a PARSEABLE candidate numeric value; an empty string, a placeholder, or a contentless non-answer on a figure that IS disclosed counts as OMISSION (rubric.md §5.2). Fires ONLY when the count is genuinely disclosed -- never on a genuinely-absent item (those route through E6 and are rewarded)."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission, diluted_share_basis]
+
+  # ---- E3 — non-GAAP add-backs, OCF, capex ----
+  - id: E3.addbacks
+    checkpoint: E3
+    category: extraction
+    criterion: "Adjusted EPS and each named add-back match gold within tolerance, cited to the reconciliation table, each tagged pre-tax or after-tax as the company presents it, and explicitly labeled non-GAAP."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    # the per-case add-back set (SBC, amortization, restructuring, acquisition/divestiture, impairment,
+    # discrete-tax, ...) is supplied by the manifest; the harness expands one atom per disclosed add-back.
+    # SPLIT semantics (F3, unified with C3.addbacks_steps and E2.segments): the addback_rows pool is
+    # split EVENLY over the N disclosed add-backs -> points_per_row = 6.0 / N, kept EXACT in computation.
+    figures:
+      - { figure_name: adjusted_eps,    tolerance_key: eps,       points: 2.0 }
+      - { figure_name: addback_rows,    tolerance_key: aggregate, points: 6.0, expand: per_addback_row }
+    tags: [gaap_nongaap_confusion, hallucinated_number]
+  - id: E3.taxeffect_line
+    checkpoint: E3
+    category: extraction
+    criterion: "The company's 'income-tax effect of adjustments' is captured as its OWN reconciling line (not derived by applying an assumed blended rate to the summed add-backs)."
+    points: 5
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [nongaap_tax_effect]
+  - id: E3.ocf_capex
+    checkpoint: E3
+    category: extraction
+    criterion: "OCF and capex match gold within tolerance, cited to the cash-flow statement; the capex definition is recorded; the model flags when the release omitted the cash-flow statement and the figures come only from the 10-Q."
+    points: 5
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: operating_cash_flow, tolerance_key: aggregate, points: 2.5 }
+      - { figure_name: capex,               tolerance_key: aggregate, points: 2.5 }
+    tags: [fcf_definition, wrong_source]
+  - id: E3.reasoning_label
+    checkpoint: E3
+    category: reasoning
+    criterion: "Each add-back is correctly characterized on its disclosed pre-tax/after-tax basis and the capex definition is unambiguous enough to make the FCF check well-defined."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [nongaap_tax_effect, fcf_definition]
+  - id: E3.cite
+    checkpoint: E3
+    category: entailment
+    criterion: "Each value cites the correct document (non-GAAP/guidance -> press release; cash flow -> 10-Q) and the cite entails the value."
+    points: 6
+    grader: entailment
+    gate: none
+    tags: [mis_citation, wrong_source]
+  - id: E3.n_blendedtax
+    checkpoint: E3
+    category: extraction
+    criterion: "PENALTY: the tax effect is treated as a single blended rate applied to summed add-backs instead of the disclosed line."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [nongaap_tax_effect]
+  - id: E3.n_halluc
+    checkpoint: E3
+    category: extraction
+    criterion: "PENALTY: an add-back, adjusted-EPS, OCF, or capex value is returned that is not present anywhere in the filing (fabrication; F4 GATE.FABRICATION hook on the E3 value legs)."
+    points: -8
+    grader: deterministic
+    gate: hard               # GATE.FABRICATION: voids the fabricated figure's positive value+cite legs
+    tags: [hallucinated_number]
+  - id: E3.n_omit_musthave
+    checkpoint: E3
+    category: extraction
+    criterion: "PENALTY (omission): adjusted_EPS or operating_cash_flow is required + disclosed in gold but the model provides no value and no attempt. ATTEMPT requires a PARSEABLE candidate numeric value; an empty string, a placeholder, or a contentless non-answer on a figure that IS disclosed counts as OMISSION (rubric.md §5.2). Never fires on a genuinely-absent item (E6 path)."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission, missing_material_item]
+
+  # ---- E4 — forward guidance ----
+  - id: E4.ranges
+    checkpoint: E4
+    category: extraction
+    criterion: "Each guidance range matches gold (low/high endpoints), cited to the outlook section, with the basis (GAAP vs non-GAAP) captured and the guidance period (next-quarter vs full-year) correctly labeled."
+    points: 6
+    grader: deterministic
+    gate: none
+    per_figure: true
+    prune: per_manifest           # F6: partial guidance (e.g. revenue-only, or no-guide) prunes the absent endpoints from num+denom
+    figures:
+      - { figure_name: guidance_revenue_low,  tolerance_key: aggregate, points: 1.5 }
+      - { figure_name: guidance_revenue_high, tolerance_key: aggregate, points: 1.5 }
+      - { figure_name: guidance_eps_low,      tolerance_key: eps,       points: 1.5 }
+      - { figure_name: guidance_eps_high,     tolerance_key: eps,       points: 1.5 }
+    tags: [missing_material_item, gaap_nongaap_confusion]
+  - id: E4.withdrawal
+    checkpoint: E4
+    category: reasoning
+    criterion: "A withdrawal or downward revision of prior guidance is flagged (a frequent, material stock driver), not silently dropped."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [missing_material_item]
+  - id: E4.refuse_noguide
+    checkpoint: E4
+    category: calibration
+    criterion: "Where the company declines to guide, NOT_DISCLOSED is returned, not a fabricated range."
+    points: 4
+    grader: refusal
+    gate: none
+    tags: [sycophancy, hallucinated_number]
+  - id: E4.cite
+    checkpoint: E4
+    category: entailment
+    criterion: "Each guidance value cites the outlook section span and the cite entails the value."
+    points: 4
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E4.n_halluc
+    checkpoint: E4
+    category: extraction
+    criterion: "PENALTY: a guidance range/endpoint is fabricated where the company declined to guide or did not disclose it (fabrication; F4 GATE.FABRICATION hook on the E4 value legs)."
+    points: -8
+    grader: deterministic
+    gate: hard               # GATE.FABRICATION: voids the fabricated figure's positive value+cite legs
+    tags: [hallucinated_number]
+
+  # ---- E5 — balance-sheet working capital ----
+  - id: E5.values
+    checkpoint: E5
+    category: extraction
+    criterion: "Each working-capital line matches gold within tolerance for current AND prior period, cited to the balance sheet."
+    points: 7
+    grader: deterministic
+    gate: none
+    per_figure: true
+    prune: per_manifest           # F6: inventory/deferred_revenue/cogs are N/A-pruned per sector (num+denom)
+    # inventory/deferred_revenue/cogs are N/A-pruned per sector (see E5.sector_na); the manifest marks
+    # which are in-scope. Each in-scope line is graded current AND prior (two figures per line). The
+    # "correctly marked N/A" credit for a pruned line is the E5.sector_na atom (same prune semantics
+    # as E1.sector_na / C4.sector_na -- F6 unification).
+    figures:
+      - { figure_name: accounts_receivable_current, tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: accounts_receivable_prior,    tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: inventory_current,            tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: inventory_prior,              tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: deferred_revenue_current,     tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: deferred_revenue_prior,       tolerance_key: aggregate, points: 1.0 }
+      - { figure_name: cogs,                         tolerance_key: aggregate, points: 1.0 }
+    tags: [hallucinated_number]
+  - id: E5.sector_na
+    checkpoint: E5
+    category: calibration
+    criterion: "Sector-aware: inventory and DIO are marked N/A (not 'missing', not fabricated) for issuers with no inventory; deferred/unearned revenue is captured where the business model has it. (The 'correctly marked N/A' credit for any E5.values figure pruned by the manifest -- F6 prune semantics, shared with E1.sector_na / C4.sector_na.)"
+    points: 3
+    grader: refusal
+    gate: none
+    tags: [sector_mismatch]
+  - id: E5.cite
+    checkpoint: E5
+    category: entailment
+    criterion: "Each working-capital value cites the correct balance-sheet line and page, and the cite entails the value."
+    points: 4
+    grader: entailment
+    gate: none
+    prune: per_manifest           # F6: cite leg pruned in lockstep with E5.values for any N/A line
+    tags: [mis_citation]
+  - id: E5.n_halluc
+    checkpoint: E5
+    category: extraction
+    criterion: "PENALTY: a working-capital value is returned that is not present anywhere in the balance sheet (fabrication; F4 GATE.FABRICATION hook on the E5 value legs)."
+    points: -8
+    grader: deterministic
+    gate: hard               # GATE.FABRICATION: voids the fabricated figure's positive value+cite legs
+    tags: [hallucinated_number]
+
+  # ---- E6 — calibrated-refusal probe (+ answerable twin) ----
+  # F1: E6 is the ONE checkpoint whose HEADLINE score is NOT awarded/raw_pos. Its headline is the
+  # FailSafeQA F-beta:   checkpoint_score(E6) = LLMC_beta(R, G),  beta = 0.5   (rubric.md §2.2/§7).
+  #   G (grounded-refusal on the genuinely-undisclosed probe) in {0, 0.25, 1}:
+  #       bucket A (grounded refusal) -> 1 ; bucket B (vague hedge) -> 0.25 ;
+  #       bucket D (imported number)  -> 0.25 ; bucket C (fabrication) -> 0.
+  #   R (compliance on the answerable twin) in {0, 0.5, 1}:
+  #       twin value within tolerance AND cited -> 1 ; value right but cite wrong (or vice versa) -> 0.5 ;
+  #       twin refused/wrong -> 0.
+  #   LLMC_beta(R,G) = (1+beta^2)*R*G / (beta^2*G + R) ; refuse-all => R=0 => E6 headline = 0.
+  #   AllPass(E6) = grounded refusal AND twin retrieved (LLMC_beta == 1).
+  # The E6 +/- atoms below STILL feed the calibration CATEGORY rollup and the failure taxonomy
+  # (they are pooled into category=calibration as usual); they just do not form the E6 HEADLINE.
+  # F10: a single vague hedge fires AT MOST ONE penalty -- E6.n_vaguehedge fires XOR E6.reason counts
+  # as not-met (the penalty OR the lost positive, never both); see the n_vaguehedge note.
+  - id: E6.label
+    checkpoint: E6
+    category: calibration
+    criterion: "On the genuinely-undisclosed probe, the NOT_DISCLOSED label is correct (deterministic)."
+    points: 6
+    grader: refusal
+    gate: none
+    tags: [sycophancy, over_refusal]
+  - id: E6.reason
+    checkpoint: E6
+    category: calibration
+    criterion: "The refusal REASON is correct and grounded (judged against the gold reason; names why it is absent and which statement would carry it) -- a vague 'I can't verify' with no grounded reason does NOT meet this (scored as over-refusal)."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [over_refusal, sycophancy]
+  - id: E6.twin
+    checkpoint: E6
+    category: calibration
+    criterion: "On the answerable twin (figure disclosed but buried), the buried figure IS retrieved and cited; over-refusing it is penalized (deterministic on the retrieval -> drives R)."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+  - id: E6.twin_cite
+    checkpoint: E6
+    category: entailment
+    criterion: "The answerable-twin figure cites the buried span and the cite entails the value."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E6.n_fabricate
+    checkpoint: E6
+    category: calibration
+    criterion: "PENALTY (hard): a confident fabricated value is returned on the genuinely-undisclosed probe (G=0)."
+    points: -10
+    grader: refusal
+    gate: hard              # GATE.FABRICATION
+    tags: [sycophancy, hallucinated_number]
+  - id: E6.n_import
+    checkpoint: E6
+    category: calibration
+    criterion: "PENALTY: a prior-period or memorized number is imported to fill the gap."
+    points: -5
+    grader: refusal
+    gate: none
+    tags: [hallucinated_number]
+  - id: E6.n_vaguehedge
+    checkpoint: E6
+    category: calibration
+    criterion: "PENALTY: a vague generic hedge ('I can't verify that') with no grounded reason is offered in place of a specific 'not disclosed because X' (over-refusal, not caution). F10 MUTUAL EXCLUSION: this penalty fires XOR E6.reason counts as not-met for the same hedge -- on a bucket-B answer the harness applies the n_vaguehedge penalty and does NOT additionally count E6.reason's lost positive (never both for one hedge)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [over_refusal]
+
+# ============================== CALCULATION (deterministic) ==============================
+
+  # ---- C1 — growth + delta-shares ----
+  - id: C1.yoy_qoq
+    checkpoint: C1
+    category: numerical
+    criterion: "YoY = (current - year-ago same quarter)/year-ago and QoQ = (current - immediately-prior quarter)/prior, reported as SEPARATE labeled outputs, each within tolerance, neither substituted for the other."
+    points: 8
+    grader: deterministic
+    gate: none
+    tolerance: growth_rate
+    tags: [period_base_error, false_precision]
+  - id: C1.sign
+    checkpoint: C1
+    category: numerical
+    criterion: "Sign/direction of every growth figure is correct (a positive growth is never reported negative or vice versa)."
+    points: 4
+    grader: deterministic
+    gate: in_checkpoint    # firing this is GATE.C1SIGN -> zeros all C1 atoms
+    tags: [wrong_sign]
+  - id: C1.like_for_like
+    checkpoint: C1
+    category: reasoning
+    criterion: "The base is like-for-like: the restated base is used where a restatement/segment redefinition applies, not the originally-reported number, and the adjustment is noted."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [period_base_error]
+  - id: C1.dshares
+    checkpoint: C1
+    category: numerical
+    criterion: "The YoY diluted-share-count change = (current - year-ago diluted)/year-ago is computed and signed correctly (a LOWER count is the denominator effect that lifts EPS without higher earnings)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: growth_rate
+    tags: [wrong_sign]
+  - id: C1.structure
+    checkpoint: C1
+    category: structure
+    criterion: "Each growth output is a derivation that names its base figure and citation (operands traceable, not a bare number)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: C1.n_falseprec
+    checkpoint: C1
+    category: numerical
+    criterion: "PENALTY: a rate is reported to a precision the inputs do not justify (false precision)."
+    points: -2
+    grader: deterministic
+    gate: none
+    tags: [false_precision]
+
+  # ---- C2 — margins (bps) + FCF ----
+  - id: C2.levels
+    checkpoint: C2
+    category: numerical
+    criterion: "Each applicable margin = corresponding income/revenue, matching gold within <=0.1pp; gross margin is computed ONLY where E1 captured a gross-profit line (operating/pre-tax margin substitutes for financials)."
+    points: 7
+    grader: deterministic
+    gate: none
+    tolerance: margin_level
+    tags: [sector_mismatch]
+  - id: C2.deltas_bps
+    checkpoint: C2
+    category: numerical
+    criterion: "Each YoY margin delta is expressed in basis points, within <=15bps, correct sign, and internally consistent with the model's own two margin levels."
+    points: 5
+    grader: deterministic
+    gate: none
+    tolerance: margin_delta_bps
+    tags: [false_precision]
+  - id: C2.fcf
+    checkpoint: C2
+    category: numerical
+    criterion: "FCF = OCF - capex within <=0.5% relative; FCF is NOT equated to OCF; a non-standard 'adjusted/levered FCF' is flagged against the recorded capex definition (E3), not silently adopted."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: fcf
+    tags: [fcf_definition]
+  - id: C2.same_basis
+    checkpoint: C2
+    category: numerical
+    criterion: "Margins use same-basis inputs (GAAP margin from GAAP figures; no GAAP-income-over-adjusted-revenue mix), with operands traced to the cited E1/E3 figures (reuse, not re-extraction)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [gaap_nongaap_confusion]
+  - id: C2.n_fcf_eq_ocf
+    checkpoint: C2
+    category: numerical
+    criterion: "PENALTY: FCF is equated to OCF or capex is forgotten."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [fcf_definition]
+
+  # ---- C3 — GAAP->non-GAAP EPS bridge (STEP-CHECKED; partial credit, rubric.md §3.3; NO wrong-sign in-checkpoint fail) ----
+  - id: C3.s0
+    checkpoint: C3
+    category: numerical
+    criterion: "The bridge starts from GAAP net income (E1)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [gaap_nongaap_confusion]
+  - id: C3.addbacks_steps
+    checkpoint: C3
+    category: numerical
+    criterion: "Each disclosed add-back is present exactly once (none dropped or double-counted) and handled on its disclosed pre-tax/after-tax basis."
+    points: 6
+    grader: deterministic
+    gate: none
+    per_figure: true
+    # F3: the 6-point pool is SPLIT EVENLY over the N disclosed add-backs -> points_per_row = 6.0 / N
+    # (the fixed points_per_row:2 is DROPPED; it broke the C3 denominator for any case with N != 3, which
+    # the loss-quarter / discrete-tax cases REQUIRE). raw_pos(C3) from the static template (6) then holds
+    # for any N. Identical split semantics to E2.segments (5/N) and E3.addbacks (6/N). Sub-atom points
+    # kept EXACT in computation; only final reported scores round to 3 decimals (rubric.md §5.1).
+    figures:
+      - { figure_name: addback_bridge_steps, tolerance_key: aggregate, points: 6.0, expand: per_addback_row }
+    tags: [gaap_nongaap_confusion]
+  - id: C3.tax_step
+    checkpoint: C3
+    category: numerical
+    criterion: "The tax effect is taken from the company's disclosed 'income-tax effect of adjustments' line, NOT computed by applying a single blended statutory rate to the summed add-backs."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [nongaap_tax_effect]
+  - id: C3.share_step
+    checkpoint: C3
+    category: numerical
+    criterion: "The bridge divides by the non-GAAP diluted share count where the company reports one distinct from GAAP diluted (loss-quarter), and by weighted-average diluted (never basic/period-end) otherwise."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [diluted_share_basis]
+  - id: C3.final
+    checkpoint: C3
+    category: numerical
+    criterion: "The bridge reproduces the company-reported non-GAAP EPS within +/- $0.01."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: eps
+    tags: [gaap_nongaap_confusion]
+  - id: C3.regg
+    checkpoint: C3
+    category: reasoning
+    criterion: "The model neither omits a disclosed adjustment nor invents a non-standard add-back (Reg G / Item 10(e) discipline -- e.g., adding back recurring SBC as if one-time)."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [gaap_nongaap_confusion]
+  - id: C3.n_blended
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY: a blended statutory rate is applied to summed add-backs instead of the disclosed tax-effect line."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [nongaap_tax_effect]
+  - id: C3.n_badshares
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY: GAAP-diluted (or basic/period-end) shares are used where a distinct non-GAAP-diluted count applies."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [diluted_share_basis]
+  - id: C3.n_bridge_skipped
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY (omission): the case requires a GAAP->non-GAAP bridge (adjusted EPS disclosed) but the model produces NO bridge at all -- no derivation, not merely a wrong step. ATTEMPT requires a PARSEABLE candidate derivation; an empty string, a placeholder, or a contentless non-answer where the bridge IS required counts as OMISSION (rubric.md §5.2). Never fires where no non-GAAP reconciliation is disclosed."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission, gaap_nongaap_confusion]
+
+  # ---- C4 — QoE ratios ----
+  # F12: efftax SPLIT into a LEVEL check (ratio band) and a propagation-aware DELTA check
+  # (tax_rate_delta_pp = a FLOOR-RSS band: max(0.15pp, 0.005*eff_rate*sqrt(2)), AND internally consistent
+  # with the model's own two rate levels). The level band is RELATIVE, so the 0.15pp delta is a FLOOR that
+  # widens with the rate. Mirrors the C2 margin-delta RSS split. 5 points -> level 3 + delta 2.
+  - id: C4.efftax_level
+    checkpoint: C4
+    category: numerical
+    criterion: "Effective tax rate LEVEL = tax_provision/pretax_income is computed for current AND prior period within tolerance (the deterministic ground for an S2 'discrete tax benefit, not operating outperformance' claim)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: ratio
+    tags: [mis_attributed_beat]
+  - id: C4.efftax_delta
+    checkpoint: C4
+    category: numerical
+    criterion: "The YoY effective-tax-rate DELTA (in percentage points) matches gold within the propagation-aware tax_rate_delta_pp FLOOR-RSS band (max(0.15pp, 0.005*eff_rate*sqrt(2)) -- the 0.15pp is a floor that widens with the rate) AND is internally consistent with the model's own two rate levels (current - prior)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tolerance: tax_rate_delta_pp
+    tags: [mis_attributed_beat]
+  - id: C4.dso_dio
+    checkpoint: C4
+    category: numerical
+    criterion: "DSO (and DIO where inventory exists) are computed on a consistent day-count, current vs prior, within tolerance."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: ratio
+    tags: [working_capital_flag]
+  - id: C4.ocf_ni
+    checkpoint: C4
+    category: numerical
+    criterion: "OCF-to-net-income is computed; a ratio materially below 1.0 is the accrual-quality signal S2 consumes."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: ratio
+    tags: [working_capital_flag]
+  - id: C4.sector_na
+    checkpoint: C4
+    category: numerical
+    criterion: "Sector-aware: inventory/DIO returns N/A for no-inventory issuers rather than failing."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [sector_mismatch]
+
+  # ---- C5 — beat/miss + segment tie-out ----
+  - id: C5.beatmiss
+    checkpoint: C5
+    category: numerical
+    criterion: "Beat/miss is computed on the SAME basis as the consensus snapshot and against the pinned mean/median statistic: revenue as BOTH absolute and percent; EPS as ABSOLUTE only (per Phase-1: EPS +/- $0.01). Magnitude within tolerance."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    # F13: eps_beatmiss_pct REMOVED (EPS percent beat/miss is unstable near zero and collides with
+    # C5.near_zero; Phase-1 only specifies EPS +/- $0.01 absolute). Its 2.0 points redistributed to
+    # eps_beatmiss_abs (now 4.0). Revenue beat/miss stays BOTH absolute and percent. Pool stays 8.0.
+    figures:
+      - { figure_name: revenue_beatmiss_abs, tolerance_key: beat_miss_rev, points: 2.0 }
+      - { figure_name: revenue_beatmiss_pct, tolerance_key: beat_miss_rev, points: 2.0 }
+      - { figure_name: eps_beatmiss_abs,     tolerance_key: beat_miss_eps, points: 4.0 }
+    tags: [gaap_nongaap_confusion]
+  - id: C5.direction
+    checkpoint: C5
+    category: numerical
+    criterion: "Direction is correct and 'in-line' is used when the difference is within consensus dispersion (or, where dispersion is unavailable, within rounding noise) -- no false beat/miss inside the noise."
+    points: 4
+    grader: deterministic
+    gate: in_checkpoint    # wrong-sign here is GATE.C5SIGN
+    tags: [wrong_sign, false_precision]
+  - id: C5.basis_guard
+    checkpoint: C5
+    category: numerical
+    criterion: "The comparison does NOT pit GAAP EPS against a street/non-GAAP consensus (basis mismatch here is an in-checkpoint hard-fail)."
+    points: 3
+    grader: deterministic
+    gate: in_checkpoint
+    tags: [gaap_nongaap_confusion]
+  - id: C5.near_zero
+    checkpoint: C5
+    category: numerical
+    criterion: "Where the consensus base is near zero (breakeven/loss-quarter EPS), the percent beat/miss is suppressed or flagged as unstable and the absolute $/EPS difference governs the directional call."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [false_precision]
+  - id: C5.tieout
+    checkpoint: C5
+    category: numerical
+    criterion: "Segment revenues + corporate/eliminations tie to consolidated revenue within rounding (a break flags a wrong segment pull or a missed bucket)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: aggregate
+    tags: [segment_break]
+  - id: C5.repro
+    checkpoint: C5
+    category: structure
+    criterion: "Consensus provider/basis/statistic/as-of date is stated so the comparison is reproducible, and beat/miss is given as: revenue beat/miss as both absolute and percent; EPS beat/miss as absolute (+/- $0.01)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+# ============================== SYNTHESIS (judge) ==============================
+# The judge NEVER re-derives numbers; it consumes the deterministic gold and fires correctness +
+# contradiction operators only (see rubric/judge.md).
+
+  # ---- S1 — beat/miss + guidance direction calls ----
+  - id: S1.reported_dir
+    checkpoint: S1
+    category: reasoning
+    # F9: consistency is judged against GOLD_NUMBERS beat/miss (the deterministic gold), NOT the memo's
+    #     own C5 -- the contradiction op ALWAYS uses gold, even when the model's C5 was gated/zeroed.
+    # F11: AWARDED ONLY IF the corresponding C5 deterministic atom is present and met (a non-gated,
+    #     non-empty model C5 derivation passed alongside the memo). If C5 is empty/gated, S1.reported_dir
+    #     CANNOT be awarded on prose alone (blocks 'restate the gold delta in prose without computing').
+    criterion: "Reported beat/miss direction matches GOLD_NUMBERS for BOTH revenue and EPS (the deterministic gold beat/miss, NOT the memo's own C5). Contingent: awarded only if a non-empty, non-gated model C5 derivation accompanies the memo; if C5 is empty/gated this atom is not-met regardless of the prose."
+    points: 7
+    grader: judge
+    gate: none
+    tags: [wrong_sign, directional_error]
+  - id: S1.guidance_dir
+    checkpoint: S1
+    category: reasoning
+    criterion: "Guidance-vs-street direction matches gold, stated as a discrete above/in-line/below call on the correct matching basis, referencing E4 guidance and the guidance consensus -- not vague prose."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [missing_material_item]
+  - id: S1.forward_dominant
+    checkpoint: S1
+    category: reasoning
+    criterion: "Where the forward guidance (not the printed quarter) is the dominant signal, that is recognized."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [missing_material_item]
+  - id: S1.structure
+    checkpoint: S1
+    category: structure
+    criterion: "Both calls are stated as DISCRETE labels (beat/in-line/miss; above/in-line/below), not buried in prose."
+    points: 2
+    grader: judge
+    gate: none
+    tags: [structure]
+  - id: S1.n_contradiction
+    checkpoint: S1
+    category: calibration
+    # F9: contradiction is checked against GOLD_NUMBERS beat/miss, NOT the memo's own C5. The op ALWAYS
+    #     uses gold, even when the model's C5 was gated/zeroed (they diverge exactly when C5 is wrong).
+    criterion: "PENALTY: the prose directional call contradicts GOLD_NUMBERS beat/miss sign/magnitude (contradiction operator against the deterministic gold, NOT the memo's own C5)."
+    points: -6
+    grader: judge
+    gate: none
+    tags: [directional_error]
+  - id: S1.n_restate
+    checkpoint: S1
+    category: reasoning
+    criterion: "PENALTY: the consensus number is restated as if it were the result, without the computed beat/miss (restating consensus without computing)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [directional_error]
+
+  # ---- S2 — material changes + QoE red flags ----
+  - id: S2.material_changes
+    checkpoint: S2
+    category: reasoning
+    criterion: "Identifies the gold material changes (per-key-point: each required change is a correctness operator; missing a must-have item loses that point)."
+    points: 8
+    grader: judge
+    gate: none
+    tags: [missing_material_item]
+  - id: S2.swing_factor
+    checkpoint: S2
+    category: reasoning
+    criterion: "Correctly attributes the headline swing factor, tied to a cited computed figure -- e.g., 'beat driven by a discrete tax benefit (eff rate down X bps YoY, C4), not operating outperformance'; 'EPS up on a lower share count (Y% fewer diluted shares YoY, C1) despite flat net income'."
+    points: 6
+    grader: judge
+    gate: none
+    tags: [mis_attributed_beat]
+  - id: S2.qoe_flags
+    checkpoint: S2
+    category: reasoning
+    criterion: "Flags quality red flags present in the data: OCF materially below net income (C4), rising DSO/DIO (C4), deferred-revenue swings (E5), segment redefinition making YoY non-like-for-like (C1)."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [working_capital_flag, mis_attributed_beat]
+  - id: S2.grounding
+    checkpoint: S2
+    # F8: re-tagged entailment -> reasoning. This is a grounding-OF-REASONING judge check (does each
+    # flag rest on an upstream computed figure?), NOT a citation-NLI entailment leg, so it must live in
+    # the reasoning category to preserve the "entailment category <-> entailment grader" invariant.
+    category: reasoning
+    criterion: "Each flag is grounded in a cited, computed figure -- not a judge-trusted number with no upstream checkpoint behind it."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [hallucinated_number]
+  - id: S2.n_halluc_flag
+    checkpoint: S2
+    category: calibration
+    criterion: "PENALTY: invents a red flag the evidence does not support (contradiction operator)."
+    points: -5
+    grader: judge
+    gate: none
+    tags: [hallucinated_number]
+  - id: S2.n_sycophant
+    checkpoint: S2
+    category: calibration
+    criterion: "PENALTY: a sycophantic 'all good' synthesis ignores a disclosed risk / a low-quality beat is framed as operating strength."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [sycophancy, mis_attributed_beat]
+
+  # ---- S3 — calibrated bottom line ----
+  - id: S3.consistent
+    checkpoint: S3
+    category: reasoning
+    criterion: "The bottom line is consistent with the computed beat/miss and the quality flags (does not call a low-quality beat 'strong' without caveat; no contradiction with S1/C5)."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [mis_attributed_beat]
+  - id: S3.names_undisclosed
+    checkpoint: S3
+    category: calibration
+    criterion: "Explicitly names the not-disclosed / not-reconcilable items (carrying E6 forward) rather than papering over them -- calibrated uncertainty rewarded as a first-class positive."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [sycophancy]
+  - id: S3.calibrated_conf
+    checkpoint: S3
+    category: calibration
+    criterion: "Expresses calibrated confidence -- decisive where the data is clear, hedged where thin -- without fabricating precision and without blanket over-refusal that ignores what WAS determinable."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [false_precision, over_refusal]
+  - id: S3.structure
+    checkpoint: S3
+    category: structure
+    criterion: "The bottom line is 3-6 sentences delivering the quality-adjusted net read + 1-2 dominant swing factors + the quality caveat + the explicit not-disclosed statement."
+    points: 2
+    grader: judge
+    gate: none
+    tags: [structure]
+  - id: S3.n_newfigure
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: introduces a new figure not extracted/calculated upstream."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [hallucinated_number]
+  - id: S3.n_blanket_hedge
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: blanket/uninformative hedging across the bottom line that ignores what was determinable (over-refusal), or a vague 'I can't verify' standing in for a grounded read. F10 MUTUAL EXCLUSION: fires XOR S3.calibrated_conf counts as not-met for the same hedge -- the penalty OR the lost positive, never both."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [over_refusal]
+  - id: S3.n_no_uncertainty
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY (omission): the bottom line writes NOTHING about uncertainty / not-disclosed items where the case has a genuine gap to name -- silence about uncertainty must not be cheaper than an attempted-but-vague hedge (F10), so this is at least as costly as the n_blanket_hedge attempted-but-vague hedge (both -3). Distinct from n_blanket_hedge (which penalizes an over-hedge); this penalizes the absence of any uncertainty statement. ATTEMPT (anti-gaming): an empty string, a placeholder, or a contentless non-answer on a required+disclosed figure that IS disclosed counts as OMISSION (incurs the penalty, cannot dodge it); a correct 'not disclosed' on a genuinely-ABSENT figure routes through the E6 path and is rewarded (rubric.md §5.2)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [over_refusal]
+  - id: S3.n_overconfident
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: an overconfident bottom line that hides uncertainty / false precision / overstated conviction."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [sycophancy, false_precision]
