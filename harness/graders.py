@@ -15,6 +15,7 @@ Returns: dict atom_id -> Verdict, plus e6_RG = (R, G), plus the set of fired in-
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from types import SimpleNamespace
 from .tolerances import within
 
 
@@ -151,15 +152,27 @@ def grade(atoms, model, gold, rubric, mode="mock"):
         if a.id == "P1.1":
             verdicts[a.id] = det(_eq(P1m.get("issuer"), P1g.get("issuer")) and _eq(P1m.get("ticker"), P1g.get("ticker")) or _eq(P1m.get("ticker"), gold["manifest"].get("ticker")))
             continue
-        if a.id == "P1.2":      # GATE.P1
-            ok = _eq(P1m.get("fiscal_period_label"), P1g.get("fiscal_period_label")) and _eq(P1m.get("period_end_date"), P1g.get("period_end_date"))
-            verdicts[a.id] = det(ok, "period match (gate)")
+        if a.id == "P1.2":      # GATE.P1 -- period identity keyed on the unambiguous period-end DATE
+            # the verbose fiscal-period label is phrased many valid ways ("Q2 FY2026" ==
+            # "Second Quarter Fiscal 2026"); the period-END DATE pins the quarter unambiguously,
+            # so grade on that (plus filing_type, checked in P1.3) rather than an exact label string.
+            verdicts[a.id] = det(_eq(P1m.get("period_end_date"), P1g.get("period_end_date")), "period via end-date (gate)")
             continue
         if a.id == "P1.3":
             verdicts[a.id] = det(_eq(P1m.get("filing_type"), P1g.get("filing_type")))
             continue
-        if a.id == "P2.1":      # GATE.P2
-            verdicts[a.id] = det(_eq(P2m.get("statement_scale"), P2g.get("statement_scale")), "scale match (gate)")
+        if a.id == "P2.1":      # GATE.P2 -- detect a ~1000x scale misread from the FIGURES, not a label
+            # The model is asked to report aggregates in USD millions, so its "statement_scale" label is
+            # its working scale, not the filing's header word -- comparing label strings is meaningless.
+            # The real scale trap is a ~1000x magnitude error, so test the headline figure's magnitude.
+            mtr = value_of(model, SimpleNamespace(source_id="E1.value", figure_name="total_revenue"))
+            gtr = value_of(gold, SimpleNamespace(source_id="E1.value", figure_name="total_revenue"))
+            if mtr is None or gtr in (None, 0):
+                ok = True                                   # no figure evidence of a scale error
+            else:
+                ratio = abs(mtr / gtr)
+                ok = 0.1 <= ratio <= 10.0                   # within an order of magnitude = ok; ~1000x => fail
+            verdicts[a.id] = det(ok, "scale via figure magnitude (gate)")
             continue
         if a.id == "P2.2":
             verdicts[a.id] = det(_eq(P2m.get("reporting_currency", "USD"), P2g.get("reporting_currency", "USD")))

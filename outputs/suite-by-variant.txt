@@ -1,4 +1,4 @@
-# Flawed-model suite (offline, judge=mock) — gate tiers and the GAP they open
+# Flawed-model suite (offline, judge=mock) -- gate tiers and the GAP they open
 
 SUITE SUMMARY  (model=oracle, judge=mock)
   case                  gated   ungated   GAP    AllPass
@@ -9,10 +9,10 @@ SUITE SUMMARY  (model=oracle, judge=mock)
 
 SUITE SUMMARY  (model=scale_slip, judge=mock)
   case                  gated   ungated   GAP    AllPass
-  blk-2025q3            0.456   0.985    0.529   0
-  msft-fy2026q2         0.449   0.985    0.536   0
-  snow-fy2026q2         0.452   0.985    0.533   0
-  SUITE MEAN            0.452   0.985    0.532   0.00
+  blk-2025q3            0.456   0.952    0.496   0
+  msft-fy2026q2         0.449   0.951    0.502   0
+  snow-fy2026q2         0.452   0.951    0.499   0
+  SUITE MEAN            0.452   0.951    0.499   0.00
 
 SUITE SUMMARY  (model=basis_mismatch, judge=mock)
   case                  gated   ungated   GAP    AllPass

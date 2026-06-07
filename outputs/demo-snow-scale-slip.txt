@@ -43,8 +43,8 @@ misreads the statement header scale: the one error that poisons everything downs
   CASE snow-2026q2    model=scale_slip    judge=mock
 ========================================================================
   CaseScore (gated, headline) : 0.452
-  CaseScore (ungated)         : 0.985
-  GAP (ungated - gated)       : 0.533
+  CaseScore (ungated)         : 0.951
+  GAP (ungated - gated)       : 0.499
   AllPass                     : 0
   E6 calibration (R,G->F_b)   : R=1.00 G=1.00 -> 1.000
   Gates fired                 : GATE.P2
@@ -54,7 +54,7 @@ misreads the statement header scale: the one error that poisons everything downs
     P1   0.040  1.000   1.000  +1.00
     P2   0.040  0.619   0.619  +0.62
     P3   0.050  1.000   1.000  +1.00
-    E1   0.075  1.000   0.300  +1.00  <-- gated
+    E1   0.075  0.700   0.300  +0.70  <-- gated
     E2   0.065  1.000   0.103  +1.00  <-- gated
     E3   0.070  1.000   0.185  +1.00  <-- gated
     E4   0.045  1.000   0.833  +1.00  <-- gated
@@ -64,14 +64,14 @@ misreads the statement header scale: the one error that poisons everything downs
     C2   0.065  1.000   0.000  +1.00  <-- gated
     C3   0.075  1.000   0.000  +1.00  <-- gated
     C4   0.060  1.000   0.000  +1.00  <-- gated
-    C5   0.065  1.000   0.000  +1.00  <-- gated
+    C5   0.065  0.826   0.000  +0.83  <-- gated
     S1   0.060  1.000   1.000  +1.00
     S2   0.070  1.000   1.000  +1.00
     S3   0.055  1.000   1.000  +1.00
 
   Category rollup (diagnostic -- what KIND of error):
-    extraction   +0.918  ##################
-    numerical    +1.000  ####################
+    extraction   +0.842  #################
+    numerical    +0.959  ###################
     entailment   +1.000  ####################
     reasoning    +1.000  ####################
     calibration  +1.000  ####################

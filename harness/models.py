@@ -41,10 +41,16 @@ def make(case: dict, variant: str = "oracle") -> dict:
     if variant == "oracle":
         return m
     if variant == "scale_slip":
-        # misread the header scale; every figure value is still the right *number*, but the model
-        # has the wrong scale frame -> P2.1 fails -> GATE.P2. (high ungated, collapsed gated -> GAP)
+        # A real header misread ("in thousands" read as "in millions") corrupts every aggregate VALUE
+        # by ~1000x, while scale-INVARIANT ratios (growth, margins) stay internally consistent. So the
+        # value atoms + the figure-based GATE.P2 catch it, but C1/C2 rates still compute -> high-ish
+        # ungated, collapsed gated -> the GAP.
         wrong = "millions" if case["manifest"]["statement_scale"] != "millions" else "thousands"
         m["P2"]["statement_scale"] = wrong
+        factor = 1000.0 if case["manifest"]["statement_scale"] == "thousands" else 0.001
+        for node in (m.get("E1", {}).get("figures") or {}).values():
+            if isinstance(node, dict) and isinstance(node.get("value_usd_mm"), (int, float)):
+                node["value_usd_mm"] *= factor
         return m
     if variant == "fabricate_probe":
         m["E6"]["undisclosed_probe"]["answer"] = 999.0       # invents a value for an undisclosed item

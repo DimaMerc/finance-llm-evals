@@ -31,16 +31,39 @@ def list_models(endpoint=DEFAULT_ENDPOINT):
         return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", [])]
 
 
-def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0):
+def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0,
+         stream=True, timeout=900):
+    """Call the OpenAI-compatible chat endpoint. Streaming by default so a long generation trickles
+    tokens (no all-or-nothing socket wait) and the call is robust to multi-minute responses."""
     if model_id is None:
         ms = list_models(endpoint)
         if not ms:
             raise RuntimeError("LM Studio reports no loaded model. Load one and Start Server.")
         model_id = ms[0]
-    resp = _post(endpoint.rstrip("/") + "/chat/completions",
-                 {"model": model_id, "messages": messages, "max_tokens": max_tokens,
-                  "temperature": temperature, "stream": False})
-    return resp["choices"][0]["message"]["content"], model_id
+    url = endpoint.rstrip("/") + "/chat/completions"
+    payload = {"model": model_id, "messages": messages, "max_tokens": max_tokens,
+               "temperature": temperature, "stream": stream}
+    if not stream:
+        return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    parts = []
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        for raw in r:                                   # SSE: one "data: {...}" line per token chunk
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            d = line[5:].strip()
+            if d == "[DONE]":
+                break
+            try:
+                obj = json.loads(d)
+            except json.JSONDecodeError:
+                continue
+            delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content")
+            if delta:
+                parts.append(delta)
+    return "".join(parts), model_id
 
 
 # ---------------- fetch the press release text ----------------
