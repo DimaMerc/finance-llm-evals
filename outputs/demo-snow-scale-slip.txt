@@ -1,4 +1,4 @@
-DEMO — Snowflake FQ2'26 (in thousands). A model that does the analysis correctly but
+DEMO -- Snowflake FQ2'26 (in thousands). A model that does the analysis correctly but
 misreads the statement header scale: the one error that poisons everything downstream.
 
 ========================================================================
@@ -79,5 +79,5 @@ misreads the statement header scale: the one error that poisons everything downs
 ========================================================================
 
 The scale_slip model keeps a HIGH ungated score (its arithmetic is internally consistent)
-but GATE.P2 collapses the gated score — the GAP is exactly the diagnostic the eval exists to
+but GATE.P2 collapses the gated score -- the GAP is exactly the diagnostic the eval exists to
 surface: 'can do the math, cannot be trusted to read a statement header.'

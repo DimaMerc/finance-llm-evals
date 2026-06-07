@@ -93,13 +93,13 @@ def cmd_selftest(_):
 
 def cmd_demo(_):
     path = _resolve("snow")
-    print("DEMO — Snowflake FQ2'26 (in thousands). A model that does the analysis correctly but")
+    print("DEMO -- Snowflake FQ2'26 (in thousands). A model that does the analysis correctly but")
     print("misreads the statement header scale: the one error that poisons everything downstream.\n")
     for v in ("oracle", "scale_slip"):
         result, rubric = run_case(path, variant=v, mode="mock")
         print(render(result, rubric, variant=v, mode="mock"))
     print("\nThe scale_slip model keeps a HIGH ungated score (its arithmetic is internally consistent)")
-    print("but GATE.P2 collapses the gated score — the GAP is exactly the diagnostic the eval exists to")
+    print("but GATE.P2 collapses the gated score -- the GAP is exactly the diagnostic the eval exists to")
     print("surface: 'can do the math, cannot be trusted to read a statement header.'")
 
 
