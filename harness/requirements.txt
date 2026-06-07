@@ -1,0 +1,7 @@
+# Harness runtime deps.
+pyyaml>=6.0
+
+# Optional — only needed for a LIVE model run / LLM judge (`--judge llm`). The offline demo,
+# the deterministic scoring core, and all gating run without these.
+# anthropic>=0.40
+# openai>=1.40
