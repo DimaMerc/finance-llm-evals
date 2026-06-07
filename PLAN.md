@@ -53,17 +53,27 @@ workflow definition + eval creation + capability assessment + data curation
 > pass caught a real consensus error); SNOW re-confirmed by hand against EDGAR (its automated verify
 > pass hit a spend limit) and its EPS beat re-based to non-GAAP diluted for like-for-like consistency.
 
-## Phase 4 — Runnable harness  → `harness/`
-- [ ] Choose framework: **OpenAI Evals** or **DeepEval** (lean toward DeepEval
-      for rubric + LLM-judge ergonomics; decide in-session).
-- [ ] Wire model adapters (GPT-5 / Claude) + the deterministic + judge graders.
-- [ ] `python -m ...` runs the full suite and emits a scored report.
+## Phase 4 — Runnable harness  → `harness/`  ✅ done
+- [x] Choose framework: decided **purpose-built scorer** (not DeepEval/OpenAI Evals — the rubric's
+      gating/aggregation/`LLMC_β`/per_figure model doesn't map onto a generic metric abstraction;
+      the LLM-judge piece stays pluggable). Rationale in `harness/README.md`.
+- [x] Wire model adapters + the deterministic + judge graders. *(Deterministic core + all gating
+      exact & offline; entailment/judge/refusal `--judge mock` offline or `--judge llm` live;
+      `models.LiveModel` skeleton for a real GPT-5/Claude run.)*
+- [x] `python -m harness suite` runs the suite and emits the scored report (checkpoint vector +
+      CaseScore + category rollup + gated/ungated/GAP/AllPass). Plus `demo` and a `selftest` guard.
 
-## Phase 5 — Graded outputs + write-up  → `outputs/` + `README.md`
-- [ ] Run 20–50 model outputs; grade; write rationales.
+> Delivered: `harness/` (rubric.py · tolerances.py · graders.py · scoring.py · models.py · report.py ·
+> __main__.py + README + requirements). Oracle → 1.000/AllPass on all 3 cases; the three gate tiers
+> open differentiated GAPs (hard 0.53 · scoped 0.13 · in-checkpoint 0.05); `selftest` asserts it.
+
+## Phase 5 — Graded outputs + write-up  → `outputs/` + `README.md`  ◐ single demo done; full run deferred (spend)
+- [x] **Single demo** (offline, no spend): the SNOW scale-slip finding (GATE.P2, GAP 0.53) + the
+      gate-tier taxonomy, captured in `outputs/`. — `python -m harness demo`
+- [ ] Run 20–50 *live* model outputs; grade; write rationales. *(deferred — needs the spend cap raised)*
 - [ ] Build the **failure taxonomy** table from real traces.
 - [ ] A short calibration write-up (judge-vs-human agreement on a sample).
-- [ ] Polished README so a screener can run it and read the findings.
+- [x] README so a screener can run it and read the findings (`outputs/README.md`, `harness/README.md`).
 
 ## Phase 6 — Publish + apply
 - [ ] Push to GitHub (public).
