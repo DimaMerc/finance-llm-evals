@@ -1,0 +1,437 @@
+# =============================================================================
+# cases/blk-2025q3.case.yaml — GOLD case: BlackRock, Inc. fiscal Q3 2025
+# -----------------------------------------------------------------------------
+# Authored from primary SEC sources per cases/_TEMPLATE.case.yaml (rubric 2.1.0).
+# Flagship asset-manager vertical. Traps deliberately exercised:
+#   * sector-N/A: no gross_profit / inventory / COGS / deferred_revenue (asset manager).
+#   * non-GAAP "as adjusted": BLK reports as-adjusted operating margin (44.6%) and
+#     as-adjusted diluted EPS ($11.55) with a GAAP-to-as-adjusted reconciliation.
+#   * add-backs are presented AFTER-TAX in the net-income reconciliation; there is NO
+#     separate "income-tax effect of adjustments" reconciling line (tax is embedded
+#     in each after-tax add-back) -> E3.taxeffect_line = N/A (a discipline trap).
+#   * segment disaggregation that ties to total revenue is BY GEOGRAPHIC REGION
+#     (ASC 280 note): BlackRock operates as ONE operating segment.
+#   * share-count subtlety: HPS "Subco Units" became dilutive in Q3 2025 — GAAP
+#     diluted shares jumped to 165.18M (incl. 8.25M Subco Units + $70M incremental
+#     NI in the diluted numerator); period-END shares (155.12M) is the trap figure.
+#   * E6 not-disclosed: operating income/margin BY geographic region (one-segment
+#     issuer discloses only total REVENUE by region). Answerable twin: ETF base-fee
+#     revenue by client type ($2,130M), buried in the press-release BUSINESS RESULTS.
+# =============================================================================
+
+case_id: blk-2025q3
+rubric_version: "2.1.0"
+authored_from_primary_sources: true
+
+# ----------------------------------------------------------------------------- MANIFEST
+manifest:
+  ticker: "BLK"
+  cik: "0002012383"
+  issuer: "BlackRock, Inc."
+  sector: "asset_manager"
+  fiscal_period_label: "Q3 2025"
+  period_end_date: "2025-09-30"
+  filing_type: "10-Q"
+  is_fiscal_q4: false
+  fiscal_vs_calendar_note: "Fiscal year = calendar year (Dec 31 year-end); fiscal Q3 2025 = calendar Q3 2025 (three months ended Sep 30, 2025)."
+  reporting_currency: USD
+  statement_scale: "millions"          # 10-Q statements: "$ in Millions"; EPS/shares in dollars/whole shares
+  consensus_basis: "non_gaap"          # published EPS consensus matches the $11.55 as-adjusted, not $8.43 GAAP
+  consensus_statistic: "mean"
+  na_figures:
+    - gross_profit                     # no cost-of-revenue line (asset manager)
+    - inventory_current
+    - inventory_prior
+    - deferred_revenue_current         # no deferred/unearned revenue line on the face of the balance sheet
+    - deferred_revenue_prior
+    - cogs
+    - tax_effect_of_adjustments        # add-backs presented after-tax; no separate tax-effect reconciling line
+    - guidance                         # asset manager gives no quantitative revenue/EPS guidance
+    - dio                              # no inventory -> DIO N/A
+  expand_counts:
+    segment_rows: 3                    # Americas / Europe / Asia-Pacific (geographic disaggregation; no eliminations)
+    addback_rows: 6                    # after-tax non-GAAP adjustments in the net-income reconciliation (Q3 2025)
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenq:
+    accession: "0001193125-25-267043"
+    url: "https://www.sec.gov/Archives/edgar/data/2012383/000119312525267043/blk-20250930.htm"
+    primary_doc: "blk-20250930.htm"
+  release:
+    accession: "0001193125-25-237960"
+    index_url: "https://www.sec.gov/Archives/edgar/data/2012383/000119312525237960/"
+    ex99_1_url: "https://www.sec.gov/Archives/edgar/data/2012383/000119312525237960/blk-ex99_1.htm"
+
+# ----------------------------------------------------------------------------- CONSENSUS (C5 / S1)
+# Consensus is oracle-supplied (NOT in the filings). Non-GAAP (as-adjusted) basis, mean.
+# Primary snapshot: Investing.com earnings-call recap (Oct 14, 2025): EPS $11.31, revenue $6.29B.
+# Cross-check (dispersion proxy): Zacks Consensus Estimate (via Yahoo Finance, Oct 14, 2025): adjusted EPS $11.19.
+consensus:
+  revenue: { value_usd_mm: 6290.0, basis: "non_gaap", statistic: "mean" }   # $6.29B (as-adjusted basis = total revenue)
+  eps:     { value: 11.31,         basis: "non_gaap", statistic: "mean" }   # adjusted diluted EPS, dollars
+  dispersion:
+    revenue_range: null                                  # not published in the cited outlets
+    eps_range: "alt provider Zacks mean = $11.19 (vs Investing.com $11.31); spread ~$0.12 across providers"
+  guidance_consensus: null                               # BlackRock issues no quantitative EPS/revenue guidance
+  provider: "Investing.com earnings recap (mean street estimate; as-adjusted basis); cross-checked vs Zacks Consensus Estimate ($11.19 adj EPS) via Yahoo Finance"
+  snapshot_date: "2025-10-14"
+  source_url: "https://www.investing.com/news/transcripts/earnings-call-transcript-blackrock-q3-2025-beats-forecasts-stock-rises-93CH-4286744"
+
+# ----------------------------------------------------------------------------- COMPARATIVES (C1/C2/C4)
+comparatives:
+  year_ago:
+    period_label: "Q3 2024 (three months ended Sep 30, 2024)"
+    total_revenue:
+      value_usd_mm: 5197.0
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Total revenue, 3 Months Ended Sep. 30, 2024", verbatim: "Total revenue $ 6,509 $ 5,197 $ 17,208 $ 14,730" }
+    operating_income:
+      value_usd_mm: 2006.0
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Operating income, 3 Months Ended Sep. 30, 2024", verbatim: "Operating income 1,955 2,006 5,384 5,499" }
+    net_income_gaap:
+      value_usd_mm: 1631.0   # net income attributable to BlackRock, Inc. (GAAP)
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Net income attributable to BlackRock, Inc., 3 Months Ended Sep. 30, 2024", verbatim: "Net income attributable to BlackRock, Inc. $ 1,323 $ 1,631 $ 4,426 $ 4,699" }
+    wavg_diluted_shares:
+      value: 149608575
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Weighted-average common shares outstanding: Diluted, 3 Months Ended Sep. 30, 2024", verbatim: "Diluted 165,177,482 149,608,575 159,354,027 149,795,958" }
+    margins: { gross: "N/A", operating: 38.6, net: 31.38 }   # operating margin per BLK reconciliation; gross N/A (no COGS)
+    effective_tax_rate: 25.34            # 574 / 2,265
+    working_capital: { accounts_receivable: null, inventory: "N/A", deferred_revenue: "N/A" }
+    # NOTE: the 10-Q balance sheet comparative column is Dec 31, 2024 (year-end), NOT Sep 30, 2024;
+    # a year-ago-quarter AR balance is not on the face of THIS 10-Q, so a clean YoY DSO trend is not
+    # directly available from the balance sheet (see E5/C4 notes).
+  prior_qtr:
+    period_label: "Q2 2025 (three months ended Jun 30, 2025)"
+    total_revenue:
+      value_usd_mm: 5423.0
+      citation: { document: release, locator: "EX-99.1, RECONCILIATION OF GAAP OPERATING INCOME ... — Revenue, GAAP basis, Three Months Ended June 30, 2025 column", verbatim: "Revenue, GAAP basis $ 6,509 $ 5,197 $ 5,423 $ 17,208 $ 14,730" }
+  restatement_flag: false
+  segment_redefinition_flag: false
+  # NOTE: not a redefinition, but a non-GAAP DEFINITION change: beginning Q3 2025 (HPS deal) BlackRock's
+  # as-adjusted net income / as-adjusted diluted EPS / as-adjusted diluted shares now assume all Subco
+  # Units are exchanged into common stock; the prior-year as-adjusted figures were not re-presented on
+  # the new basis (the Subco assumption did not exist in 2024). Flagged for the YoY as-adjusted EPS read.
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+gold:
+
+  # ---- Planning ----
+  P1:
+    issuer: "BlackRock, Inc."
+    fiscal_period_label: "Q3 2025"
+    period_end_date: "2025-09-30"
+    filing_type: "10-Q"
+    citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — period header", verbatim: "3 Months Ended Sep. 30, 2025 Sep. 30, 2024 9 Months Ended Sep. 30, 2025 Sep. 30, 2024" }
+  P2:
+    statement_scale: "millions"
+    reporting_currency: USD
+    per_share_in_dollars: true
+    citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — scale header", verbatim: "Condensed Consolidated Statements of Income - USD ($) $ in Millions" }
+  P3:
+    in_scope_figures:
+      - total_revenue
+      - operating_income
+      - pretax_income
+      - income_tax_provision
+      - net_income_gaap            # attributable to BlackRock, Inc.
+      - gaap_basic_eps
+      - gaap_diluted_eps
+      - adjusted_diluted_eps       # non-GAAP
+      - as_adjusted_operating_margin
+      - revenue_by_region          # segment disaggregation (ties to total)
+      - wavg_basic_shares
+      - wavg_gaap_diluted_shares
+      - wavg_nongaap_diluted_shares
+      - prior_year_diluted_shares
+      - operating_cash_flow        # 9-month
+      - capex                      # 9-month
+      - accounts_receivable
+      - aum                        # context
+    consensus_basis: "non_gaap"
+    consensus_statistic: "mean"
+    sector_profile: "asset manager: no gross profit / gross margin (no cost-of-revenue line); top line = total revenue from investment advisory, administration & securities-lending fees, performance fees, technology services, and distribution fees; relevant margin = operating / as-adjusted operating margin; no inventory, no COGS, no deferred-revenue line item."
+    source_map:
+      total_revenue: tenq
+      operating_income: tenq
+      pretax_income: tenq
+      income_tax_provision: tenq
+      net_income_gaap: tenq
+      gaap_basic_eps: tenq
+      gaap_diluted_eps: tenq
+      adjusted_diluted_eps: release          # non-GAAP reconciliation -> press release
+      as_adjusted_operating_margin: release
+      revenue_by_region: tenq                # ASC 280 Segment Information footnote
+      wavg_basic_shares: tenq
+      wavg_gaap_diluted_shares: tenq
+      wavg_nongaap_diluted_shares: release   # "as adjusted" diluted shares -> press release
+      prior_year_diluted_shares: tenq
+      operating_cash_flow: tenq              # cash-flow statement (absent from the release)
+      capex: tenq
+      accounts_receivable: tenq
+      aum: release
+
+  # ---- Extraction ----
+  E1:
+    figures:
+      total_revenue:
+        value_usd_mm: 6509.0
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Total revenue, 3 Months Ended Sep. 30, 2025", verbatim: "Total revenue $ 6,509 $ 5,197 $ 17,208 $ 14,730" }
+      gross_profit:
+        value: N/A
+        na_reason: "Asset manager: no cost-of-revenue/COGS line on the income statement, so no gross-profit subtotal. Top line is total revenue; expenses are operating expenses (compensation, distribution, G&A). Gross margin is not a defined metric for this issuer."
+      operating_income:
+        value_usd_mm: 1955.0
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Operating income, 3 Months Ended Sep. 30, 2025", verbatim: "Operating income 1,955 2,006 5,384 5,499" }
+      pretax_income:
+        value_usd_mm: 1997.0
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Income before income taxes, 3 Months Ended Sep. 30, 2025", verbatim: "Income before income taxes 1,997 2,265 6,012 6,192" }
+      income_tax_provision:
+        value_usd_mm: 470.0
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Income tax expense, 3 Months Ended Sep. 30, 2025", verbatim: "Income tax expense 470 574 1,305 1,341" }
+      net_income_gaap:
+        value_usd_mm: 1323.0   # net income ATTRIBUTABLE TO BlackRock, Inc. (the EPS numerator base; total NI incl. NCI = 1,527)
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Net income attributable to BlackRock, Inc., 3 Months Ended Sep. 30, 2025", verbatim: "Net income attributable to BlackRock, Inc. $ 1,323 $ 1,631 $ 4,426 $ 4,699" }
+      gaap_basic_eps:
+        value: 8.54
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Earnings per share attributable to BlackRock, Inc. common stockholders: Basic, 3 Months Ended Sep. 30, 2025", verbatim: "Basic $ 8.54 $ 11.02 $ 28.57 $ 31.67" }
+      gaap_diluted_eps:
+        value: 8.43
+        citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Earnings per share ... Diluted, 3 Months Ended Sep. 30, 2025", verbatim: "Diluted $ 8.43 $ 10.9 $ 28.21 $ 31.37" }
+    # NOTE (E1.gaap_distinct trap): "Net income" (1,527) and "Net income attributable to BlackRock, Inc."
+    # (1,323) are DISTINCT — the $204mm gap is NCI (SubCo $70 + Consolidated Sponsored Inv. Products $134).
+    # The EPS numerator base is the ATTRIBUTABLE figure (1,323), and GAAP diluted EPS uses a $1,393 numerator
+    # (1,323 + $70 incremental NI from dilutive Subco securities). Do not substitute the $11.55 as-adjusted
+    # EPS where GAAP ($8.43) is required.
+  E2:
+    segments:   # ASC 280 disaggregation that ties to consolidated total revenue: BY GEOGRAPHIC REGION (one operating segment)
+      - name: "Americas"
+        revenue_usd_mm: 4181.0
+        citation: { document: tenq, locator: "Note 25 Segment Information — total revenue by geographic region, Three Months Ended September 30, 2025", verbatim: "Americas $ 4,181 $ 3,206 $ 11,221 $ 9,559" }
+      - name: "Europe"
+        revenue_usd_mm: 2065.0
+        citation: { document: tenq, locator: "Note 25 Segment Information — total revenue by geographic region, Three Months Ended September 30, 2025", verbatim: "Europe 2,065 1,788 5,226 4,555" }
+      - name: "Asia-Pacific"
+        revenue_usd_mm: 263.0
+        citation: { document: tenq, locator: "Note 25 Segment Information — total revenue by geographic region, Three Months Ended September 30, 2025", verbatim: "Asia-Pacific 263 203 761 616" }
+    corporate_eliminations: null   # none — the three regions sum exactly to total revenue (4,181 + 2,065 + 263 = 6,509)
+    wavg_basic_shares:
+      value: 154922231
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income / Note 24 EPS — Weighted-average common shares outstanding: Basic, 3 Months Ended Sep. 30, 2025", verbatim: "Basic 154,922,231 148,049,700 154,942,905 148,392,684" }
+    wavg_gaap_diluted_shares:
+      value: 165177482
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income / Note 24 EPS — Weighted-average common shares outstanding: Diluted, 3 Months Ended Sep. 30, 2025", verbatim: "Diluted 165,177,482 149,608,575 159,354,027 149,795,958" }
+    wavg_nongaap_diluted_shares:
+      value: 165.2   # millions; "as adjusted" diluted weighted-average shares (press release). Equals the GAAP diluted count (165.18M) this quarter because GAAP diluted already includes the 8.25M Subco Units.
+      citation: { document: release, locator: "EX-99.1, RECONCILIATION OF GAAP NET INCOME ... — Diluted weighted-average common shares outstanding, as adjusted (3), Three Months Ended Sep 30 2025", verbatim: "Diluted weighted-average common shares outstanding, as adjusted (3) 165.2 149.6 156.3 159.4 149.8" }
+    prior_year_diluted_shares:
+      value: 149608575
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Income — Weighted-average common shares outstanding: Diluted, 3 Months Ended Sep. 30, 2024 column", verbatim: "Diluted 165,177,482 149,608,575 159,354,027 149,795,958" }
+    # TRAP NOTE: period-END shares outstanding = 155,124,267 at Sep 30, 2025 (balance-sheet parenthetical) —
+    # must NOT be substituted for weighted-average diluted (165,177,482). Also: the press-release SUMMARY shows
+    # "Weighted-average diluted common shares (GAAP basis) 156.9" (excludes Subco Units, paired with the $1,323
+    # numerator) — an alternate presentation that also yields $8.43; the 10-Q income-statement figure
+    # (165,177,482, paired with the $1,393 diluted numerator) is the authoritative GAAP diluted share count.
+  E3:
+    adjusted_eps:
+      value: 11.55   # diluted EPS, as adjusted (non-GAAP)
+      citation: { document: release, locator: "EX-99.1, RECONCILIATION OF GAAP NET INCOME ... — Diluted earnings per common share, as adjusted (3), Three Months Ended Sep 30 2025", verbatim: "Diluted earnings per common share, as adjusted (3) $ 11.55 $ 11.46 $ 12.05 $ 34.89 $ 31.63" }
+    addbacks:   # net-income reconciliation adjustments, presented AFTER-TAX (Q3 2025); 6 non-zero rows
+      - name: "Amortization and impairment of intangible assets"
+        value_usd_mm: 189.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, RECONCILIATION OF GAAP NET INCOME ATTRIBUTABLE TO BLACKROCK TO ... AS ADJUSTED — Amortization and impairment of intangible assets (b), Three Months Ended Sep 30 2025", verbatim: "Amortization and impairment of intangible assets (b) 189 67 102 378 124" }
+      - name: "Acquisition-related compensation costs"
+        value_usd_mm: 198.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, net-income as-adjusted reconciliation — Acquisition-related compensation costs (b), Three Months Ended Sep 30 2025", verbatim: "Acquisition-related compensation costs (b) 198 8 57 318 23" }
+      - name: "Acquisition-related transaction costs"
+        value_usd_mm: 33.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, net-income as-adjusted reconciliation — Acquisition-related transaction costs (b), Three Months Ended Sep 30 2025", verbatim: "Acquisition-related transaction costs (b) 33 13 9 71 38" }
+      - name: "Contingent consideration fair value adjustments"
+        value_usd_mm: 94.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, net-income as-adjusted reconciliation — Contingent consideration fair value adjustments (b), Three Months Ended Sep 30 2025", verbatim: "Contingent consideration fair value adjustments (b) 94 (2 ) 97 263 (6 )" }
+      - name: "Noncontrolling interest - Subco Units"
+        value_usd_mm: 70.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, net-income as-adjusted reconciliation — Noncontrolling interest - Subco Units, Three Months Ended Sep 30 2025", verbatim: "Noncontrolling interest - Subco Units 70 - - 70 -" }
+      - name: "Net impact of hedged deferred cash compensation plans"
+        value_usd_mm: 0.0
+        basis: after_tax
+        citation: { document: release, locator: "EX-99.1, net-income as-adjusted reconciliation — Net impact of hedged deferred cash compensation plans (a), Three Months Ended Sep 30 2025", verbatim: "Net impact of hedged deferred cash compensation plans (a) - (2 ) (11 ) (2 ) (3 )" }
+    # "Income tax matters" row = $0 for Q3 2025 (it was $137 discrete benefit excluded in 2024). It is the
+    # exclusion of a discrete tax item, NOT a "tax effect of the adjustments" line.
+    tax_effect_of_adjustments: null
+    # E3.taxeffect_line = N/A: BlackRock presents each non-GAAP adjustment NET OF TAX (note (1): "Non-GAAP
+    # adjustments, excluding income tax matters, are net of tax"; "tax effected at the respective blended
+    # rates applicable to the adjustments"). There is NO single separate "income-tax effect of adjustments"
+    # reconciling line to extract — the correct answer is to recognize the add-backs are already after-tax.
+    operating_cash_flow:
+      value_usd_mm: 1650.0   # NINE MONTHS ended Sep 30, 2025 (10-Q cash-flow statement is cumulative YTD, not quarterly)
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Cash Flows — Net cash provided by/(used in) operating activities, 9 Months Ended Sep. 30, 2025", verbatim: "Net cash provided by/(used in) operating activities 1,650 2,338" }
+    capex:
+      value_usd_mm: 245.0    # NINE MONTHS ended Sep 30, 2025
+      definition: "purchases of property and equipment"
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Cash Flows — Investing activities: Purchases of property and equipment, 9 Months Ended Sep. 30, 2025", verbatim: "Purchases of property and equipment (245) (165)" }
+    # FLAG: the press release (EX-99.1) does NOT include a statement of cash flows; OCF and capex come ONLY
+    # from the 10-Q, and both are 9-month YTD figures, NOT quarterly. Any quarterly FCF claim is not directly
+    # supported; FCF here is a 9-month figure.
+  E4:
+    guidance: null
+    not_disclosed:
+      reason: "BlackRock, as an asset manager, does not issue quantitative forward revenue or EPS guidance. The EX-99.1 release and 10-Q contain qualitative outlook commentary (e.g., 'entering our seasonally strongest fourth quarter') and standard forward-looking-statements boilerplate, but NO numeric guidance ranges. Correct answer: NOT_DISCLOSED (no fabricated range)."
+  E5:
+    accounts_receivable_current:
+      value_usd_mm: 4796.0
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Financial Condition — Accounts receivable, Sep. 30, 2025", verbatim: "Accounts receivable 4,796 4,304" }
+    accounts_receivable_prior:
+      value_usd_mm: 4304.0   # Dec 31, 2024 (the 10-Q balance-sheet comparative column is year-end, NOT the year-ago quarter)
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Financial Condition — Accounts receivable, Dec. 31, 2024", verbatim: "Accounts receivable 4,796 4,304" }
+    inventory_current:
+      value: N/A
+      na_reason: "Asset manager: no inventory on the balance sheet (no physical goods). Inventory and DIO are not applicable."
+    inventory_prior:
+      value: N/A
+      na_reason: "Asset manager: no inventory on the balance sheet."
+    deferred_revenue_current:
+      value: N/A
+      na_reason: "No deferred/unearned revenue line item on the face of BlackRock's condensed balance sheet; advisory/admin fees are recognized as earned. (Any small contract liabilities are not separately disclosed as a balance-sheet line.)"
+    deferred_revenue_prior:
+      value: N/A
+      na_reason: "No deferred/unearned revenue line item on the face of the balance sheet."
+    cogs:
+      value: N/A
+      na_reason: "Asset manager: no cost of goods/revenue line; expenses are operating (compensation, distribution & servicing, G&A)."
+    # NOTE: the balance-sheet comparative is Dec 31, 2024 (year-end), not Sep 30, 2024; a year-ago-quarter AR
+    # is not on the face of this 10-Q, so a clean YoY DSO trend cannot be computed from the balance sheet alone.
+  E6:
+    undisclosed_probe:
+      question: "What was BlackRock's operating income (or operating margin) for the Americas region in Q3 2025?"
+      gold_answer: NOT_DISCLOSED
+      reason: "BlackRock operates as a SINGLE operating segment (asset management) under ASC 280; the CODM reviews operating income and operating margin on a CONSOLIDATED basis only. Note 25 (Segment Information) discloses total REVENUE by geographic region (Americas / Europe / Asia-Pacific) and long-lived assets by region — but NOT operating income or operating margin by region. The statement that would carry it (the ASC 280 segment footnote) explicitly reports profit measures only at the consolidated level, so a regional operating income / margin is genuinely not disclosed."
+      citation_to_absence: { document: tenq, locator: "Note 25 Segment Information", verbatim: "The Company operates in one asset management operating segment. ... allocates resources using key financial metrics including total revenue, operating income and net income attributable to BlackRock, Inc. ... The following table illustrates total revenue for the three and nine months ended September 30, 2025 and 2024 by geographic region." }
+    answerable_twin:
+      question: "What was BlackRock's base-fee and securities-lending revenue from ETF clients (ETFs, by client type) in Q3 2025?"
+      gold_value: 2130.0   # USD millions; buried in the EX-99.1 BUSINESS RESULTS "RESULTS BY CLIENT TYPE" table (Base fees column)
+      citation: { document: release, locator: "EX-99.1, BUSINESS RESULTS — RESULTS BY CLIENT TYPE, ETFs row, Q3 2025 'Base fees and securities lending revenue' column", verbatim: "ETFs 152,956 5,193,314 2,130 39 % 42 %" }
+
+  # ---- Calculation (computed golds) ----
+  C1:
+    yoy_revenue_pct: 25.25       # (6,509 - 5,197) / 5,197
+    qoq_revenue_pct: 20.03       # (6,509 - 5,423) / 5,423
+    yoy_diluted_share_change_pct: 10.41   # (165,177,482 - 149,608,575) / 149,608,575 — share count UP (acquisition stock + Subco), an EPS HEADWIND, not a buyback
+    derivation_note: "Revenue YoY off Q3 2024 (5,197) and QoQ off Q2 2025 (5,423), reported separately. The diluted share count ROSE 10.4% YoY (HPS stock consideration + newly-dilutive Subco Units) — the opposite of a buyback; this is a denominator HEADWIND that pulled GAAP diluted EPS down despite revenue growth."
+  C2:
+    gross_margin: { value: N/A, na_reason: "No gross-profit line (asset manager); operating margin substitutes." }
+    operating_margin: 30.0       # GAAP: operating income / total revenue = 1,955 / 6,509 = 30.04% (BLK reports 30.0%)
+    net_margin: 20.33            # net income attributable / total revenue = 1,323 / 6,509
+    margin_deltas_bps: { gross: "N/A", operating: -860, net: -1106 }   # YoY: op 30.0% vs 38.6% ~ -856/-860bps; net 20.33% vs 31.38% ~ -1106bps
+    fcf_usd_mm: 1405.0           # 9-MONTH FCF = OCF (1,650) - capex (245); NOT quarterly. (9M 2024 FCF = 2,338 - 165 = 2,173)
+    # NOTE: the headline GAAP operating-margin compression (~860bps) is driven by noncash acquisition-related
+    # expenses; AS-ADJUSTED operating margin was 44.6% vs 45.8% (~ -120bps). The GAAP-vs-adjusted gap is the story.
+  C3:                            # GAAP -> non-GAAP (as adjusted) net-income/EPS bridge, Q3 2025
+    bridge_steps:
+      - { step: "GAAP net income attributable to BlackRock", value_usd_mm: 1323.0, note: "bridge start (E1)" }
+      - { step: "+ Net impact of hedged deferred cash comp plans (after-tax)", value_usd_mm: 0.0, note: "rounds to 0 in Q3 2025" }
+      - { step: "+ Amortization and impairment of intangibles (after-tax)", value_usd_mm: 189.0, note: "acquisition-related, net of tax" }
+      - { step: "+ Acquisition-related compensation costs (after-tax)", value_usd_mm: 198.0, note: "net of tax" }
+      - { step: "+ Acquisition-related transaction costs (after-tax)", value_usd_mm: 33.0, note: "net of tax" }
+      - { step: "+ Contingent consideration fair value adjustments (after-tax)", value_usd_mm: 94.0, note: "net of tax" }
+      - { step: "+ Noncontrolling interest - Subco Units", value_usd_mm: 70.0, note: "include NCI on assumed-exchanged Subco Units" }
+      - { step: "= Net income attributable to BlackRock, as adjusted", value_usd_mm: 1907.0, note: "1,323+189+198+33+94+70 = 1,907" }
+    nongaap_diluted_shares_used: 165.2    # as-adjusted diluted weighted-average shares (millions)
+    nongaap_diluted_differs_from_gaap: false   # 165.2M as-adjusted == 165.18M GAAP diluted (GAAP diluted already includes Subco Units this quarter)
+    final_nongaap_eps: 11.55              # 1,907 / 165.2 = $11.54 (reported $11.55; within +/-$0.01)
+    # DISCIPLINE NOTE (E3.taxeffect_line / C3.tax_step trap): there is NO separate "income-tax effect of
+    # adjustments" line — every add-back above is already AFTER-TAX. A bridge that applies a blended rate to
+    # pre-tax add-backs would be WRONG for this issuer (the pre-tax add-backs live in the OPERATING-margin
+    # reconciliation; the NET-INCOME reconciliation rows used here are after-tax).
+  C4:
+    effective_tax_rate: 23.54    # 470 / 1,997
+    efftax_yoy_delta_pp: -1.81   # 23.54% (Q3 2025) - 25.34% (Q3 2024, = 574/2,265)
+    dso: 67.8                    # AR 4,796 / quarterly revenue 6,509 * 92 days (Q3 has 92 days). Prior-quarter DSO not cleanly computable: balance-sheet comparative is Dec 31, 2024, not a quarter-matched AR.
+    dio: { value: N/A, na_reason: "No inventory (asset manager) -> DIO not applicable." }
+    ocf_to_net_income: 0.35      # 9-month OCF 1,650 / 9-month total net income 4,707 = 0.351 (or 1,650 / 4,426 attributable = 0.373). Both legs are 9-month YTD; not a quarterly ratio.
+    # NOTE: the -1.81pp YoY effective-rate decline is a modest EPS tailwind (driven partly by discrete benefits:
+    # 9-month tax expense includes a $149mm capital-loss discrete benefit and a $62mm SBC-vesting benefit).
+  C5:
+    revenue_beatmiss_abs_usd_mm: 219.0    # 6,509 - 6,290 (consensus $6.29B)
+    revenue_beatmiss_pct: 3.48            # 219 / 6,290
+    eps_beatmiss_abs: 0.24                # as-adjusted $11.55 - consensus $11.31 (non-GAAP basis, like-for-like). (Zacks alt: $11.55 - $11.19 = +$0.36)
+    segment_tieout_ok: true               # 4,181 + 2,065 + 263 = 6,509 == consolidated total revenue (exact)
+    direction: { revenue: "beat", eps: "beat" }
+    # BASIS GUARD: beat/miss is computed as-adjusted-vs-as-adjusted ($11.55 reported vs $11.31 street). Comparing
+    # the consensus to GAAP diluted EPS ($8.43) would manufacture a false ~$2.88 "miss" — a basis-mismatch error.
+
+  # ---- Synthesis (reference golds for the LLM judge) ----
+  S1:
+    reported_direction: { revenue: "beat", eps: "beat" }
+    guidance_vs_street: "n/a"    # BlackRock issues no quantitative guidance, so there is no guidance-vs-street call
+  S2:
+    material_changes:
+      - "Revenue +25% YoY to $6,509mm and +20% QoQ, driven by markets, ~8-10% organic base fee growth, and the GIP/HPS/Preqin acquisitions; AUM at a record $13.46T with $205B of total net inflows (record iShares ETF flows)."
+      - "GAAP diluted EPS FELL 23% YoY to $8.43 (and GAAP operating margin compressed ~860bps to 30.0%) on noncash acquisition-related expenses (intangible amortization, acquisition comp/transaction costs, contingent-consideration FV adjustments) — a GAAP/as-adjusted divergence: as-adjusted diluted EPS was $11.55 (+1% YoY) and as-adjusted operating margin 44.6% (vs 45.8%)."
+      - "Diluted share count ROSE ~10% YoY (HPS stock consideration + newly-dilutive Subco Units), an EPS HEADWIND (a denominator effect that pulled GAAP EPS down, the opposite of a buyback) despite $375mm of repurchases in the quarter."
+      - "Effective tax rate fell ~1.8pp YoY to 23.5% (9-month figures include $149mm capital-loss and $62mm SBC-vesting discrete benefits), a modest EPS tailwind."
+    swing_factor: "The headline GAAP EPS decline is NOT operating deterioration — it is noncash acquisition accounting (HPS/GIP). Underlying (as-adjusted) operating income rose 23% YoY and as-adjusted EPS was roughly flat (+1%), held back by a ~10% higher diluted share count and lower nonoperating income, partially offset by the lower tax rate."
+    qoe_flags:
+      - "Watch the GAAP-vs-as-adjusted gap: ~$584mm of after-tax add-backs (mostly acquisition-related, several recurring-ish like intangible amortization) separate $8.43 GAAP from $11.55 as-adjusted EPS."
+      - "Cash-flow ratios are 9-month YTD only (the release omits the cash-flow statement): 9M OCF $1,650mm is below 9M net income $4,707mm (OCF/NI ~0.35); not necessarily a red flag for an asset manager (consolidated sponsored products, comp timing, seasonal flows) but the low ratio and the YTD-not-quarterly basis should be stated, not over-read."
+      - "Year-ago-quarter AR is not on the face of this 10-Q (balance-sheet comparative is Dec 31, 2024), so a clean YoY DSO trend is not computable from the filing."
+  S3:
+    bottom_line_reference: "BlackRock beat on both lines for Q3 2025 on a like-for-like (as-adjusted) basis — revenue $6,509mm vs ~$6.29B street (+3.5%) and as-adjusted diluted EPS $11.55 vs ~$11.31 (+$0.24) — on record $13.46T AUM and $205B of net inflows. The 23% drop in GAAP diluted EPS to $8.43 and the ~860bps GAAP operating-margin compression are accounting optics from noncash HPS/GIP acquisition charges, not operating weakness: as-adjusted operating income rose 23% YoY. The quality caveats: as-adjusted EPS was only ~flat (+1%) because the diluted share count rose ~10% YoY (acquisition stock + Subco Units) and nonoperating income was lower, cushioned by a ~1.8pp lower effective tax rate that includes discrete benefits; and the ~$584mm of after-tax add-backs include items (intangible amortization) that recur. Not determinable from the documents: any operating income/margin by geographic region (one-segment issuer), forward revenue/EPS guidance (none issued), and a clean quarterly FCF or YoY DSO trend (cash flows are 9-month YTD; the year-ago-quarter AR balance is not on the face of this 10-Q)."
+    not_determinable_items:
+      - "Operating income / operating margin by geographic region (BlackRock reports as one operating segment; only total revenue is disaggregated by region)."
+      - "Forward quantitative revenue/EPS guidance (BlackRock issues none)."
+      - "A quarterly free-cash-flow figure and a YoY DSO trend (cash-flow statement is 9-month YTD and absent from the release; balance-sheet comparative is year-end Dec 31, 2024, not the year-ago quarter)."
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: "independent adversarial re-fetch (SEC EDGAR primary docs + XBRL R-files) and Python recomputation"
+  verified_on: "2026-06-06"
+  figures_checked: 48
+  figures_confirmed: 48
+  unconfirmed: []                     # empty — every gold figure located, value + scale confirmed
+  verdict: "clean"
+  trap_coverage:
+    - "sector-N/A: gross_profit / inventory / cogs / deferred_revenue all correctly N/A with na_reason (no cost-of-revenue line; asset manager) — confirmed against the actual income statement and balance sheet."
+    - "non-GAAP as-adjusted: as-adjusted operating margin 44.6% (vs 45.8% YoY) and as-adjusted diluted EPS $11.55 captured with the GAAP-to-as-adjusted reconciliation — both verbatim in EX-99.1."
+    - "E3.taxeffect_line correctly null: EX-99.1 footnotes (1)/(3) confirm add-backs are net-of-tax at respective blended rates with NO separate 'income-tax effect of adjustments' reconciling line."
+    - "segment tie-out (E2/C5): Americas 4,181 + Europe 2,065 + Asia-Pacific 263 = 6,509 = consolidated total revenue, exact, no eliminations — confirmed in Note 25 Segment Information."
+    - "diluted-share subtlety: Subco Units became dilutive (8,254,724 shares) lifting GAAP diluted to 165,177,482 with a $1,393 diluted numerator (1,323+70); period-END shares 155,124,267 correctly flagged as the trap."
+    - "E6 not-disclosed probe: operating income/margin by geographic region is genuinely not disclosed (one operating segment; CODM reviews profit only consolidated) — validated against Note 25; answerable twin ETFs base+sec-lending revenue $2,130 confirmed verbatim in EX-99.1 RESULTS BY CLIENT TYPE."
+    - "GAAP-vs-non-GAAP EPS divergence: GAAP diluted $8.43 vs as-adjusted $11.55, with C5 basis-guard preventing a false ~$2.88 miss; consensus correctly pinned non-GAAP."
+    - "net income distinction trap: total NI 1,527 vs NI attributable 1,323 (NCI = 204 = Subco 70 + CSIP 134) confirmed on the income statement."
+  notes: >
+    Independently re-fetched the 10-Q (acc 0001193125-25-267043) XBRL R-files — R2 balance sheet,
+    R3 parenthetical, R4 income statement, R9 cash flows, R35 EPS, R36 segment information — and the
+    EX-99.1 press release (acc 0001193125-25-237960, blk-ex99_1.htm) via SEC EDGAR with the required
+    UA. Every gold figure's verbatim string was located in its cited document, the number matches, and
+    the scale is correct (millions for aggregates; dollars/whole-shares for per-share). Income-statement
+    (R4) confirmed: total revenue 6,509 (Q3'24 5,197); operating income 1,955 (2,006); pretax 1,997
+    (2,265); income tax 470 (574); net income total 1,527, attributable 1,323 (Q3'24 1,631); GAAP basic
+    EPS 8.54, diluted 8.43; wavg basic 154,922,231, GAAP diluted 165,177,482, prior-yr diluted
+    149,608,575; NCI gap 204 = Subco 70 + CSIP 134. Balance sheet (R2/R3): AR 4,796 (Sep 30 2025) /
+    4,304 (Dec 31 2024); period-end common shares 155,124,267. Cash flow (R9, 9-mo): OCF 1,650 (2,338),
+    capex 245 (165), FCF 9-mo = 1,405. Segment (R36): regions sum exactly to 6,509; one operating
+    segment, CODM reviews operating income only consolidated. EPS note (R35): diluted numerator 1,393 =
+    1,323 + 70 Subco incremental; Subco dilutive shares 8,254,724. EX-99.1: 'Diluted EPS of $8.43, or
+    $11.55 as adjusted'; as-adjusted NI 1,907 from add-backs 189/198/33/94/70 (+ hedged-comp 0); as-
+    adjusted diluted shares 165.2; operating margin GAAP 30.0% / as-adjusted 44.6% (Q3'24 38.6% /
+    45.8%); AUM 13,463,625 ($13.46T); ETFs base+sec-lending revenue 2,130; footnotes (1)/(3) confirm
+    add-backs net-of-tax with no separate tax-effect line (E3.taxeffect_line=null correct); 'Income tax
+    matters' row = 0 for Q3'25. Derivations (Python recompute, all within tolerance): C1 yoy_rev 25.25,
+    qoq_rev 20.03, yoy_share +10.41; C2 op margin 30.0, net margin 20.33, op delta ~-860bps, net delta
+    ~-1106bps, FCF 1,405; C3 bridge 1,323+189+198+33+94+70=1,907, /165.2=11.54 (reported 11.55, within
+    $0.01); C4 ETR 23.54 (prior 25.34), delta -1.81pp, DSO 67.8, OCF/NI 0.351; C5 rev beat +219/+3.48%,
+    EPS beat +0.24, segment tie-out exact. Consensus: the cited Investing.com recap URL independently
+    states forecast adjusted EPS $11.31 and forecast revenue $6.29B vs actual $11.55/$6.51B — a
+    confirmed two-sided beat; the load-bearing consensus number is verified at its source. Honest gaps
+    (no figure wrong, none load-bearing): (1) consensus REVENUE dispersion/range is not published by the
+    cited outlets (eps_range carries the inter-provider spread instead); (2) the cited outlets do not
+    name LSEG/FactSet/Visible Alpha as the contributor base, so the provider is recorded as the
+    publishing outlet (Investing.com / Zacks) rather than the underlying aggregator; (3) the secondary
+    Zacks $11.19 dispersion cross-check could not be independently re-confirmed via web search in this
+    pass — it is only a corroborating dispersion proxy (the case is transparent about this) and the
+    primary consensus is independently verified.

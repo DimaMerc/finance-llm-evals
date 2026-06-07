@@ -1,0 +1,460 @@
+# =============================================================================
+# cases/snow-fy2026q2.case.yaml
+# Snowflake Inc. (SNOW) — Fiscal Q2 2026, period ended 2025-07-31 (FY ends Jan 31).
+# Authored from primary SEC sources per cases/_TEMPLATE.case.yaml (rubric_version 2.1.0).
+#
+# WHY THIS CASE EXISTS (the traps it is designed to catch):
+#   * SCALE TRAP: statements are "in thousands" (P2 gold = thousands). $1,144,969 = ~$1.145B.
+#   * GAAP NET LOSS but NON-GAAP NET INCOME POSITIVE. Under the GAAP loss, GAAP diluted =
+#     GAAP basic (335,215k) because dilutive securities are anti-dilutive; the NON-GAAP
+#     diluted count (372,383k) INCLUDES them and is materially larger. Both captured (E2);
+#     C3.nongaap_diluted_differs_from_gaap = true.
+#   * SECTOR: SaaS issuer => HAS cost of revenue => gross_profit / gross_margin DO exist
+#     (not N/A). INVENTORY / COGS-as-inventory / DIO are N/A. Deferred revenue exists.
+#   * SINGLE reportable segment (ASC 280): no multi-segment profit breakout. The revenue
+#     DISAGGREGATION (Product vs Professional services & other) is the sum-to-total tie-out.
+#   * EFFECTIVE TAX RATE is anomalous: pre-tax LOSS with a small POSITIVE tax provision =>
+#     a near-zero NEGATIVE effective rate (a QoE nuance, not operating signal).
+#   * OCF/NI sign-flip: OCF positive, GAAP net income negative => ratio is negative and must
+#     be interpreted as "OCF positive despite a GAAP net loss (driven by ~$436M SBC add-back)".
+# =============================================================================
+
+case_id: snow-2026q2
+rubric_version: "2.1.0"
+authored_from_primary_sources: true
+
+# ----------------------------------------------------------------------------- MANIFEST
+manifest:
+  ticker: "SNOW"
+  cik: "0001640147"
+  issuer: "Snowflake Inc."
+  sector: "software"                # application/infra SaaS — HAS cost of revenue + gross profit; NO inventory
+  fiscal_period_label: "Fiscal Q2 2026 (three months ended July 31, 2025)"
+  period_end_date: "2025-07-31"
+  filing_type: "10-Q"
+  is_fiscal_q4: false
+  fiscal_vs_calendar_note: "FY ends January 31; fiscal Q2 2026 is calendar quarter May 1 - July 31, 2025. The prior sequential quarter is fiscal Q1 2026 (ended April 30, 2025); the year-ago quarter is fiscal Q2 2025 (ended July 31, 2024)."
+  reporting_currency: USD
+  statement_scale: "thousands"      # "(in thousands, except per share data)" — P2 gold
+  consensus_basis: "non_gaap"       # street EPS consensus benchmarked to Snowflake's non-GAAP net income per share
+  consensus_statistic: "mean"       # Investing.com analyst estimate (consensus mean)
+  na_figures: [inventory_current, inventory_prior, cogs, dio]   # F6 prune set (no inventory for a SaaS issuer)
+  expand_counts:
+    segment_rows: 2                 # revenue disaggregation: Product revenue + Professional services & other revenue
+    addback_rows: 6                 # SBC, amort of acquired intangibles, acquisition/strategic-investment exp, restructuring, asset impairment, amort of debt issuance costs (the tax-effect + NCI lines are separate reconciling lines, not "add-backs")
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenq:
+    accession: "0001640147-25-000187"
+    url: "https://www.sec.gov/Archives/edgar/data/1640147/000164014725000187/snow-20250731.htm"
+    primary_doc: "snow-20250731.htm"
+  release:
+    accession: "0001640147-25-000177"
+    index_url: "https://www.sec.gov/Archives/edgar/data/1640147/000164014725000177/"
+    ex99_1_url: "https://www.sec.gov/Archives/edgar/data/1640147/000164014725000177/fy2026q2earnings.htm"
+
+# ----------------------------------------------------------------------------- CONSENSUS (C5 / S1)
+# Oracle-supplied; NOT in the filings. Investing.com earnings recap published 2025-08-27 16:36,
+# same day as the print (so it is the Q2 FY2026 consensus). EPS consensus is non-GAAP; the
+# article benchmarks the beat against Snowflake's non-GAAP net income per share (the headline
+# $0.38 non-GAAP BASIC figure — see note). Revenue consensus is total revenue (~$1.09B).
+consensus:
+  revenue: { value_usd_mm: 1090.0, basis: "gaap", statistic: "mean" }   # total revenue, $1.09B; revenue is a GAAP top line (consensus is on the as-reported total)
+  eps:     { value: 0.27, basis: "non_gaap", statistic: "mean" }        # non-GAAP net income per share consensus
+  dispersion: { revenue_range: null, eps_range: null }                  # outlet did not publish high/low or stddev
+  guidance_consensus: null                                              # not reported in the cited article
+  provider: "Investing.com (consensus analyst estimate)"
+  snapshot_date: "2025-08-27"
+  source_url: "https://www.investing.com/news/earnings/snowflake-earnings-beat-by-011-revenue-topped-estimates-4213437"
+  note: >
+    Investing.com: "Snowflake reported second quarter EPS of $0.38, $0.11 better than the analyst
+    estimate of $0.27. Revenue for the quarter came in at $1.14B versus the consensus estimate of
+    $1.09B." The $0.38 the outlet compares to is Snowflake's non-GAAP net income per share -- BASIC.
+    Snowflake also reports non-GAAP DILUTED EPS of $0.35, which is the figure this case treats as the
+    adjusted EPS everywhere (E3.adjusted_eps, the C3 bridge, the E2 non-GAAP diluted share count). For
+    internal LIKE-FOR-LIKE consistency the deterministic EPS beat/miss (C5.eps_beatmiss_abs) is graded
+    on the non-GAAP DILUTED basis: $0.35 - $0.27 = +$0.08 (a beat). The headline +$0.11 uses the
+    non-GAAP BASIC actual ($0.38); grading the beat on basic while the memo extracts EPS on diluted
+    would be exactly the basic-vs-diluted mismatch the rubric penalizes. (Revenue consensus $1.09B is
+    Investing.com's documented total-revenue snapshot; another aggregator, ChartMill, quoted ~$1.11B --
+    real consensus dispersion across providers, which is why the eval freezes one cited snapshot.)
+
+# ----------------------------------------------------------------------------- COMPARATIVES (C1/C2/C4)
+comparatives:
+  year_ago:
+    period_label: "Fiscal Q2 2025 (three months ended July 31, 2024)"
+    total_revenue:
+      value_usd_mm: 868.823
+      citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Revenue, Three Months Ended July 31, 2024 column", verbatim: "Revenue $ 1,144,969 $ 868,823" }
+    operating_income:
+      value_usd_mm: -355.303
+      citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Operating loss, 3mo 2024", verbatim: "Operating loss (340,276) (355,303)" }
+    net_income_gaap:
+      value_usd_mm: -317.770
+      citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Net loss, 3mo 2024", verbatim: "Net loss (297,930) (317,770)" }
+    wavg_diluted_shares:
+      value: 334071           # thousands; GAAP basic & diluted (loss quarter)
+      citation: { document: release, locator: "Statements of Operations — Weighted-average shares (basic and diluted), 3mo 2024", verbatim: "Weighted-average shares used in computing net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted 335,215 334,071" }
+    margins: { gross: 66.84, operating: -40.89, net: -36.57 }    # %, computed from the year-ago column
+    effective_tax_rate: -1.21       # tax provision 3,786 / pretax loss (313,984) — anomalous (positive tax on a pre-tax loss)
+    working_capital: { accounts_receivable: null, inventory: "N/A", deferred_revenue: null }   # year-ago BALANCE-SHEET lines not in this filing (it shows 7/31/25 vs 1/31/25); see E5 for prior period-end
+  prior_qtr:
+    period_label: "Fiscal Q1 2026 (three months ended April 30, 2025)"
+    total_revenue:
+      value_usd_mm: 1042.074        # DERIVED: six-month FY26 total (2,187,043) minus Q2 total (1,144,969); see note
+      citation: { document: release, locator: "Statements of Operations — Six Months Ended July 31, 2025 Revenue (2,187,043) less Three Months (1,144,969)", verbatim: "Revenue $ 1,144,969 $ 868,823 $ 2,187,043 $ 1,697,532" }
+    prior_qtr_product_revenue:
+      value_usd_mm: 996.8           # PRIMARY (not derived): MD&A Key Business Metrics quarterly trend
+      citation: { document: tenq, locator: "MD&A — Key Business Metrics, Product revenue (in millions) quarterly trend, April 30, 2025 column", verbatim: "Product revenue (in millions) $ 1,090.5 $ 996.8 $ 943.3 $ 900.3 $ 829.3" }
+  restatement_flag: false
+  segment_redefinition_flag: false
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+gold:
+
+  # ---- Planning ----
+  P1:
+    issuer: "Snowflake Inc."
+    fiscal_period_label: "Fiscal Q2 2026 (three months ended July 31, 2025)"
+    period_end_date: "2025-07-31"
+    filing_type: "10-Q"
+    citation: { document: tenq, locator: "Form 10-Q cover page", verbatim: "For the quarterly period ended July 31, 2025" }
+  P2:
+    statement_scale: "thousands"
+    reporting_currency: USD
+    per_share_in_dollars: true
+    citation: { document: release, locator: "Condensed Consolidated Statements of Operations — header", verbatim: "(in thousands, except per share data)" }
+  P3:
+    in_scope_figures:
+      - total_revenue
+      - product_revenue
+      - professional_services_revenue
+      - gross_profit
+      - operating_loss_gaap
+      - pretax_loss
+      - income_tax_provision
+      - net_loss_gaap
+      - net_loss_attributable
+      - gaap_basic_diluted_eps
+      - nongaap_net_income
+      - nongaap_diluted_eps
+      - wavg_gaap_diluted_shares
+      - wavg_nongaap_diluted_shares
+      - operating_cash_flow
+      - capex
+      - free_cash_flow
+      - accounts_receivable
+      - deferred_revenue
+      - guidance_product_revenue
+    consensus_basis: "non_gaap"
+    consensus_statistic: "mean"
+    sector_profile: "Application/infrastructure SaaS (consumption-based). HAS cost of revenue => gross profit and gross margin DO apply. NO inventory => inventory/COGS-as-inventory/DIO are N/A. Has deferred (unearned) revenue. Single reportable segment under ASC 280; top line is total revenue, split into product revenue and professional services & other revenue."
+    source_map:
+      total_revenue: release            # also in 10-Q statements; release carries headline
+      gross_profit: release             # GAAP statement appears in both; release statement used
+      operating_loss_gaap: release
+      pretax_loss: release
+      income_tax_provision: release
+      net_loss_gaap: release
+      gaap_basic_diluted_eps: release
+      nongaap_net_income: release       # GAAP->non-GAAP reconciliation lives in the release
+      nongaap_diluted_eps: release
+      wavg_gaap_diluted_shares: release
+      wavg_nongaap_diluted_shares: release   # non-GAAP diluted share reconciliation in the release
+      operating_cash_flow: tenq         # cash-flow statement (also in release); 10-Q is authoritative
+      capex: tenq
+      accounts_receivable: tenq         # balance sheet (also in release)
+      deferred_revenue: tenq
+      revenue_disaggregation: tenq      # ASC 606 disaggregation note in 10-Q (also in release recon)
+      revenue_by_geography: tenq        # geographic revenue note (10-Q only)
+      guidance_product_revenue: release # outlook section (release only)
+
+  # ---- Extraction ----
+  E1:
+    figures:
+      total_revenue:
+        value_usd_mm: 1144.969
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Revenue, 3mo ended July 31, 2025", verbatim: "Revenue $ 1,144,969 $ 868,823" }
+      gross_profit:
+        value_usd_mm: 773.154         # SaaS issuer HAS a cost-of-revenue line => gross profit is real, NOT N/A
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Gross profit, 3mo 2025", verbatim: "Gross profit 773,154 580,745" }
+      operating_income:                # GAAP operating LOSS
+        value_usd_mm: -340.276
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Operating loss, 3mo 2025", verbatim: "Operating loss (340,276) (355,303)" }
+      pretax_income:                   # Loss before income taxes
+        value_usd_mm: -297.868
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Loss before income taxes, 3mo 2025", verbatim: "Loss before income taxes (297,868) (313,984)" }
+      income_tax_provision:
+        value_usd_mm: 0.062            # $62 thousand — note tiny positive provision on a pre-tax LOSS
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Provision for income taxes, 3mo 2025", verbatim: "Provision for income taxes 62 3,786" }
+      net_income_gaap:                 # consolidated GAAP net loss (incl. noncontrolling interest)
+        value_usd_mm: -297.930
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Net loss, 3mo 2025", verbatim: "Net loss (297,930) (317,770)" }
+      net_income_gaap_attributable:    # supplemental: net loss attributable to Snowflake Inc. (used for the C3 bridge start)
+        value_usd_mm: -298.017
+        citation: { document: release, locator: "Condensed Consolidated Statements of Operations — Net loss attributable to Snowflake Inc., 3mo 2025", verbatim: "Net loss attributable to Snowflake Inc. $ (298,017) $ (316,899)" }
+      gaap_basic_eps:
+        value: -0.89                   # basic = diluted (loss quarter); reported as one combined line
+        citation: { document: release, locator: "Statements of Operations — Net loss per share (basic and diluted), 3mo 2025", verbatim: "Net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted $ (0.89) $ (0.95)" }
+      gaap_diluted_eps:
+        value: -0.89                   # IDENTICAL to basic in a GAAP loss quarter (anti-dilutive securities excluded)
+        citation: { document: release, locator: "Statements of Operations — Net loss per share (basic and diluted), 3mo 2025", verbatim: "Net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted $ (0.89) $ (0.95)" }
+
+  E2:
+    # Snowflake has ONE reportable segment (ASC 280). The sum-to-total disaggregation that the
+    # tie-out (C5) checks is REVENUE BY TYPE: Product revenue + Professional services & other.
+    segments:
+      - name: "Product revenue"
+        revenue_usd_mm: 1090.496
+        citation: { document: tenq, locator: "Note 3 Revenue — Disaggregation of Revenue, 3mo ended July 31, 2025", verbatim: "Product revenue $ 1,090,496 $ 829,250" }
+      - name: "Professional services and other revenue"
+        revenue_usd_mm: 54.473
+        citation: { document: tenq, locator: "Note 3 Revenue — Disaggregation of Revenue, 3mo ended July 31, 2025", verbatim: "Professional services and other revenue 54,473 39,573" }
+    corporate_eliminations: null       # single segment; no eliminations line. Product + Prof svcs = Total (1,090,496 + 54,473 = 1,144,969)
+    single_segment_note:
+      citation: { document: tenq, locator: "Note — Segment Information", verbatim: "The Company has a single operating and reportable segment. The Company's chief operating decision maker is its Chief Executive Officer" }
+    wavg_basic_shares:
+      value: 335215                    # thousands; basic = diluted in the GAAP loss quarter
+      citation: { document: release, locator: "Statements of Operations — Weighted-average shares (basic and diluted), 3mo 2025", verbatim: "Weighted-average shares used in computing net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted 335,215 334,071" }
+    wavg_gaap_diluted_shares:
+      value: 335215                    # EQUALS basic — under a GAAP net loss, dilutive securities are anti-dilutive
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — GAAP weighted-average shares (basic and diluted), 3mo 2025", verbatim: "GAAP weighted-average shares used in computing GAAP net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted 335,215 334,071" }
+    wavg_nongaap_diluted_shares:
+      value: 372383                    # DISTINCT and LARGER than GAAP diluted — includes dilutive equivalents + if-converted notes, net of capped calls
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Non-GAAP weighted-average shares (diluted), 3mo 2025", verbatim: "Non-GAAP weighted-average shares used in computing non-GAAP net income per share attributable to Snowflake Inc. common stockholders--diluted (4) 372,383 359,319" }
+    prior_year_diluted_shares:
+      value: 334071                    # year-ago GAAP basic & diluted
+      citation: { document: release, locator: "Statements of Operations — Weighted-average shares (basic and diluted), 3mo 2024 column", verbatim: "Weighted-average shares used in computing net loss per share attributable to Snowflake Inc. common stockholders--basic and diluted 335,215 334,071" }
+
+  E3:
+    adjusted_eps:
+      value: 0.35                      # non-GAAP net income per share — DILUTED
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Non-GAAP net income per share (diluted), 3mo 2025", verbatim: "Non-GAAP net income per share attributable to Snowflake Inc. common stockholders--diluted $ 0.35 $ 0.18" }
+    adjusted_eps_basic:
+      value: 0.38                      # non-GAAP net income per share — BASIC (the figure the street/Investing.com beat is computed against)
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Non-GAAP net income per share (basic), 3mo 2025", verbatim: "Non-GAAP net income per share attributable to Snowflake Inc. common stockholders--basic $ 0.38 $ 0.19" }
+    # Add-backs reconcile GAAP net loss ATTRIBUTABLE to Snowflake Inc. (298,017) -> Non-GAAP net income attributable (129,289).
+    addbacks:
+      - { name: "Stock-based compensation-related charges", value_usd_mm: 436.182, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Net income (loss) attributable to Snowflake Inc., Adjustments, 3mo 2025", verbatim: "Stock-based compensation-related charges (3) 436,182 373,337" } }
+      - { name: "Amortization of acquired intangibles", value_usd_mm: 27.807, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Amortization of acquired intangibles 27,807 23,929" } }
+      - { name: "Expenses associated with acquisitions and strategic investments", value_usd_mm: 2.191, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Expenses associated with acquisitions and strategic investments 2,191 1,783" } }
+      - { name: "Restructuring charges, net", value_usd_mm: -0.464, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Restructuring charges, net (1) (464) --" } }
+      - { name: "Asset impairment related to office facility exit", value_usd_mm: 2.132, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Asset impairment related to office facility exit (2) 2,132 --" } }
+      - { name: "Amortization of debt issuance costs", value_usd_mm: 2.074, basis: pretax, citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Amortization of debt issuance costs 2,074 --" } }
+    # Two further reconciling lines that are NOT operating add-backs:
+    nci_adjustment:
+      value_usd_mm: 0.390              # "Adjustments attributable to noncontrolling interest, net of tax" (only in the attributable bridge)
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Net income (loss) attributable to Snowflake Inc., 3mo 2025", verbatim: "Adjustments attributable to noncontrolling interest, net of tax 390 (117)" }
+    tax_effect_of_adjustments:
+      value_usd_mm: -43.006            # company's OWN disclosed reconciling line (a SUBTRACTION), not a derived blended rate
+      citation: { document: release, locator: "GAAP to Non-GAAP Reconciliation — Adjustments, 3mo 2025", verbatim: "Income tax effect related to the above adjustments and acquisitions (43,006) (18,183)" }
+    operating_cash_flow:
+      value_usd_mm: 74.896
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Cash Flows — Net cash provided by operating activities, 3mo ended July 31, 2025", verbatim: "Net cash provided by operating activities 74,896 69,865" }
+    capex:
+      value_usd_mm: 16.665
+      definition: "Purchases of property and equipment"
+      citation: { document: tenq, locator: "Condensed Consolidated Statements of Cash Flows — investing activities, 3mo 2025", verbatim: "Purchases of property and equipment (16,665) (5,043)" }
+    capex_note: >
+      Snowflake's own 'Free cash flow' definition ALSO subtracts 'Capitalized software development
+      costs' (—/nil this quarter; $5,992k in the year-ago quarter). For Q2 FY26 capex used in FCF is
+      purchases of P&E only (16,665) because capitalized software was nil; the release's Non-GAAP free
+      cash flow line equals 74,896 - 16,665 = 58,231.
+
+  E4:
+    guidance:
+      # Snowflake guides on PRODUCT REVENUE (non-GAAP) and non-GAAP operating margin; it does NOT
+      # give an EPS range. Q3 product revenue is a RANGE; full-year product revenue is a point estimate.
+      revenue_low: 1125.0             # Q3 FY26 product revenue low ($ millions)
+      revenue_high: 1130.0            # Q3 FY26 product revenue high ($ millions)
+      eps_low: null                   # no EPS guidance disclosed
+      eps_high: null
+      basis: "non_gaap"
+      period: "next_quarter"          # fiscal Q3 2026 (ending Oct 31, 2025)
+      metric: "product_revenue"
+      withdrawn: false
+      citation: { document: release, locator: "Financial Outlook — Third Quarter Fiscal 2026 Non-GAAP Guidance, Product revenue", verbatim: "Product revenue $1,125 - $1,130 25 - 26%" }
+      supplemental:
+        q3_nongaap_operating_margin_pct: 9
+        q3_wavg_diluted_shares_mm: 374
+        fy2026_product_revenue_mm: 4395        # full-year point estimate, 27% YoY
+        fy2026_nongaap_operating_margin_pct: 9
+        fy2026_nongaap_product_gross_margin_pct: 75
+        fy2026_adjusted_fcf_margin_pct: 25
+        fy2026_wavg_diluted_shares_mm: 372
+        fy_citation: { document: release, locator: "Financial Outlook — Full-Year Fiscal 2026 Non-GAAP Guidance", verbatim: "Product revenue $4,395 27 %" }
+    not_disclosed:
+      eps_guidance: "Snowflake does not provide an EPS guidance range; it guides product revenue and non-GAAP operating margin only."
+
+  E5:
+    accounts_receivable_current:
+      value_usd_mm: 646.682           # July 31, 2025
+      citation: { document: release, locator: "Condensed Consolidated Balance Sheets — Accounts receivable, net, July 31, 2025", verbatim: "Accounts receivable, net 646,682 922,805" }
+    accounts_receivable_prior:
+      value_usd_mm: 922.805           # January 31, 2025 (prior period-end / fiscal year-end comparative column)
+      citation: { document: release, locator: "Condensed Consolidated Balance Sheets — Accounts receivable, net, January 31, 2025", verbatim: "Accounts receivable, net 646,682 922,805" }
+    inventory_current:
+      value: "N/A"
+      na_reason: "Snowflake is a consumption-based SaaS company with no physical product inventory; the balance sheet carries no inventory line."
+    inventory_prior:
+      value: "N/A"
+      na_reason: "No inventory line on the balance sheet (SaaS issuer)."
+    deferred_revenue_current:
+      value_usd_mm: 2268.387          # Deferred revenue, current, July 31, 2025
+      citation: { document: release, locator: "Condensed Consolidated Balance Sheets — Deferred revenue, current, July 31, 2025", verbatim: "Deferred revenue, current 2,268,387 2,580,039" }
+    deferred_revenue_prior:
+      value_usd_mm: 2580.039          # Deferred revenue, current, January 31, 2025
+      citation: { document: release, locator: "Condensed Consolidated Balance Sheets — Deferred revenue, current, January 31, 2025", verbatim: "Deferred revenue, current 2,268,387 2,580,039" }
+    deferred_revenue_noncurrent_current:
+      value_usd_mm: 11.540            # supplemental: non-current deferred revenue, July 31, 2025
+      citation: { document: release, locator: "Condensed Consolidated Balance Sheets — Deferred revenue, non-current, July 31, 2025", verbatim: "Deferred revenue, non-current 11,540 15,501" }
+    cogs:
+      value: "N/A"
+      na_reason: "Has cost of revenue (cost of product + cost of professional services), but no COGS-of-inventory; DIO is not applicable (no inventory). Cost of revenue is captured at E1/segment level, not as inventory COGS."
+
+  E6:
+    undisclosed_probe:
+      question: "What was Snowflake's operating income (or operating margin) for its United States / Americas geographic region in fiscal Q2 2026?"
+      gold_answer: NOT_DISCLOSED
+      reason: "Snowflake reports a SINGLE operating and reportable segment under ASC 280, so no profit measure is broken out below the consolidated level. The 10-Q discloses revenue BY GEOGRAPHIC AREA (Note 3 / revenue note — US, Other Americas, EMEA, APAC) and long-lived assets by geography, but it does NOT disaggregate operating income, gross profit, or any profit/margin measure by geography or by product line. Operating loss is reported only on a consolidated basis."
+      citation_to_absence: { document: tenq, locator: "Note 3 Revenue — Revenue by geographic area (revenue only; no profit by geography) AND Segment note (single reportable segment, consolidated profit only)", verbatim: "Revenue by geographic area, based on the location of the Company's customers (or end-customers under reseller arrangements), was as follows (in thousands):" }
+    answerable_twin:
+      question: "What was Snowflake's United States revenue in fiscal Q2 2026 (three months ended July 31, 2025)?"
+      gold_value: 861.469             # $ millions (861,469 thousand) — buried in the geographic revenue note
+      citation: { document: tenq, locator: "Note 3 Revenue — Revenue by geographic area, Americas: United States, 3mo ended July 31, 2025", verbatim: "United States $ 861,469 $ 663,630" }
+
+  # ---- Calculation ----
+  C1:
+    yoy_revenue_pct: 31.78            # (1,144,969 - 868,823)/868,823
+    qoq_revenue_pct: 9.40            # PRODUCT revenue QoQ: (1,090.5 - 996.8)/996.8, both primary-cited (MD&A trend). See note.
+    yoy_diluted_share_change_pct: 0.34   # (335,215 - 334,071)/334,071 — GAAP diluted; a slight INCREASE, NOT a buyback
+    derivation_note: >
+      YoY total revenue = (1,144,969 - 868,823)/868,823 = +31.78%. QoQ is computed on PRODUCT revenue
+      because both endpoints are primary-sourced in the MD&A Key Business Metrics trend ($1,090.5M vs
+      $996.8M = +9.40%); a QoQ on TOTAL revenue requires deriving Q1 total (2,187,043 - 1,144,969 =
+      1,042,074), giving +9.87%. YoY diluted share change is +0.34% (335,215 vs 334,071 thousand) —
+      a small increase, so EPS was NOT lifted by a buyback; the loss-quarter GAAP diluted = basic.
+    alt_qoq_total_revenue_pct: 9.87   # derived Q1 total base (2,187,043 - 1,144,969)
+  C2:
+    gross_margin:
+      value: 67.53                    # GAAP gross profit / revenue = 773,154/1,144,969. NOT N/A — SaaS has cost of revenue.
+      na_reason: ""
+    operating_margin: -29.72          # GAAP operating loss / revenue = -340,276/1,144,969
+    net_margin: -26.02               # GAAP net loss / revenue = -297,930/1,144,969
+    margin_deltas_bps:
+      gross: 68.3                     # 67.53% - 66.84% (= 580,745/868,823) ; +68 bps
+      operating: 1117.6              # -29.72% - (-40.89%) ; +1,118 bps improvement
+      net: 1055.4                    # -26.02% - (-36.57%) ; +1,055 bps improvement
+    fcf_usd_mm: 58.231               # OCF 74,896 - capex 16,665 ; matches release Non-GAAP free cash flow $58.2M
+    nongaap_operating_margin_note: "Non-GAAP operating income 127,572 / revenue 1,144,969 = 11.1% (vs 5.0% year-ago). The headline non-GAAP operating margin is 11% per the release."
+  C3:
+    # Bridge from GAAP net loss ATTRIBUTABLE to Snowflake Inc. -> Non-GAAP net income attributable.
+    bridge_steps:
+      - { step: "GAAP net loss attributable to Snowflake Inc.", value_usd_mm: -298.017, note: "bridge start (E1)" }
+      - { step: "+ Stock-based compensation-related charges", value_usd_mm: 436.182, note: "pretax add-back" }
+      - { step: "+ Amortization of acquired intangibles", value_usd_mm: 27.807, note: "pretax add-back" }
+      - { step: "+ Expenses associated with acquisitions and strategic investments", value_usd_mm: 2.191, note: "pretax add-back" }
+      - { step: "+ Restructuring charges, net", value_usd_mm: -0.464, note: "pretax add-back (net credit this period)" }
+      - { step: "+ Asset impairment related to office facility exit", value_usd_mm: 2.132, note: "pretax add-back" }
+      - { step: "+ Amortization of debt issuance costs", value_usd_mm: 2.074, note: "pretax add-back" }
+      - { step: "+ Income tax effect related to the above adjustments and acquisitions", value_usd_mm: -43.006, note: "company's DISCLOSED tax-effect line (a subtraction); NOT a blended rate" }
+      - { step: "+ Adjustments attributable to noncontrolling interest, net of tax", value_usd_mm: 0.390, note: "NCI reconciling line (attributable bridge only)" }
+      - { step: "= Non-GAAP net income attributable to Snowflake Inc.", value_usd_mm: 129.289, note: "reconciles to reported 129,289" }
+    nongaap_diluted_shares_used: 372383    # thousands — the DISTINCT non-GAAP diluted count, not GAAP diluted 335,215
+    nongaap_diluted_differs_from_gaap: true
+    final_nongaap_eps: 0.35          # 129,289 / 372,383 = $0.347 -> $0.35 (matches reported non-GAAP diluted EPS)
+    bridge_check_note: "129,289 (thousands) / 372,383 (thousand shares) = $0.3472 ≈ $0.35. Using GAAP diluted 335,215 instead would give $0.386 — the loss-quarter denominator trap C3 guards against."
+  C4:
+    effective_tax_rate: -0.02         # tax provision 62 / pretax loss (297,868) = -0.021%. Anomalous: positive tax on a pre-tax LOSS => small NEGATIVE rate.
+    efftax_yoy_delta_pp: 1.19         # current -0.02% vs year-ago -1.21% (3,786 / (313,984)); delta +1.19 pp
+    dso: 52.0                         # AR 646,682 / quarterly revenue 1,144,969 * 92 days (May+Jun+Jul). See note.
+    dio:
+      value: "N/A"
+      na_reason: "No inventory (SaaS issuer); DIO not applicable."
+    ocf_to_net_income: -0.25          # OCF 74,896 / GAAP net loss (297,930) = -0.251. Negative because OCF is POSITIVE while GAAP net income is a LOSS.
+    qoe_note: >
+      Effective tax rate is a near-zero NEGATIVE number because Snowflake has a pre-tax LOSS but
+      still records a small positive income-tax provision (foreign/state) — it is NOT a meaningful
+      operating-rate signal. OCF/NI is negative for the structural reason that OCF is positive while
+      GAAP net income is a loss; the right read is 'OCF positive ($74.9M) despite a $297.9M GAAP net
+      loss, driven overwhelmingly by the ~$436M non-cash SBC add-back' — an accrual/earnings-quality
+      caveat (cash generation is real but SBC-heavy), not a clean OCF-below-NI accrual red flag.
+      DSO uses a 92-day quarter; AR fell sharply from the Jan-31 fiscal year-end (922,805 -> 646,682)
+      on the seasonal Q4 collection pattern, so a current-vs-prior DSO trend off the Jan-31 balance is
+      not like-for-like (year-end AR is seasonally elevated).
+  C5:
+    revenue_beatmiss_abs_usd_mm: 54.97   # 1,144.969 - 1,090.0 (total revenue vs $1.09B consensus)
+    revenue_beatmiss_pct: 5.04           # 54.97 / 1,090.0
+    eps_beatmiss_abs: 0.08               # non-GAAP DILUTED $0.35 - $0.27 consensus (like-for-like w/ E3 adjusted_eps & C3 bridge); media headline +$0.11 uses basic $0.38 -- see consensus.note
+    segment_tieout_ok: true              # 1,090,496 (product) + 54,473 (prof svcs) = 1,144,969 (total) exactly
+    direction: { revenue: "beat", eps: "beat" }
+    tieout_note: "Revenue disaggregation ties exactly: Product 1,090,496 + Professional services & other 54,473 = Total 1,144,969 (single reportable segment, no eliminations)."
+    eps_basis_note: "EPS beat is graded on the NON-GAAP basis (consensus is non-GAAP). The street/Investing.com beat (+$0.11) is computed against Snowflake's non-GAAP net income per share BASIC ($0.38). Comparing GAAP EPS (-$0.89) to the $0.27 non-GAAP consensus would be the basis-mismatch trap C5.basis_guard / P3 gate catches."
+
+  # ---- Synthesis ----
+  S1:
+    reported_direction: { revenue: "beat", eps: "beat" }
+    guidance_vs_street: "n/a"            # the cited consensus article did not publish a next-quarter guidance consensus, so guidance-vs-street is not determinable from the provided snapshot
+  S2:
+    material_changes:
+      - "Product revenue $1.09B, +32% YoY (total revenue $1.145B, +31.8% YoY) — durable ~30%+ top-line growth; revenue beat consensus (~$1.09B) by ~5%."
+      - "Sharp GAAP margin improvement: GAAP operating margin -29.7% vs -40.9% a year ago (+1,118 bps); non-GAAP operating margin 11% vs 5%; non-GAAP net income positive ($129.3M attributable) vs a $298.0M GAAP net loss."
+      - "Remaining performance obligations $6.9B, +33% YoY, and net revenue retention 125% — forward-demand signal."
+      - "Guidance raised/strong: FY2026 product revenue guided to $4,395M (+27% YoY); Q3 product revenue $1,125-$1,130M (+25-26%)."
+    swing_factor: >
+      The beat is operating/demand-driven, not a tax or buyback artifact: revenue grew ~32% and
+      non-GAAP operating margin doubled to 11%. EPS was NOT lifted by buybacks (diluted share count
+      +0.3% YoY) nor by a discrete tax benefit (the tax provision is a near-zero positive on a pre-tax
+      loss). The GAAP-to-non-GAAP gap is dominated by ~$436M of stock-based compensation (~38% of
+      revenue) — the central earnings-quality caveat.
+    qoe_flags:
+      - "SBC is enormous (~$436M, ~38% of revenue); the entire non-GAAP profit and most of the GAAP-to-non-GAAP bridge is SBC add-back — dilution/quality watch item."
+      - "GAAP still a net loss (-$297.9M); positive non-GAAP net income and positive OCF ($74.9M) coexist with a large GAAP loss — OCF positivity is SBC-driven, not a clean accrual signal (OCF/NI ratio is negative by construction)."
+      - "Effective tax rate is anomalous (small positive tax on a pre-tax loss) — not an operating signal."
+      - "$108.6M YTD asset-impairment (San Mateo office exit; $2.1M in Q2) — one-time, added back in non-GAAP."
+      - "Deferred revenue (current) fell to $2.27B from $2.58B at Jan-31 (seasonal Q4 billing/collection pattern), and AR fell to $646.7M from $922.8M — seasonal, makes a DSO trend off the Jan-31 base non-like-for-like."
+  S3:
+    bottom_line_reference: >
+      A clean beat-and-raise: Q2 FY26 product revenue of $1.09B (+32% YoY) and total revenue of
+      $1.145B beat the ~$1.09B Street consensus by ~5%, and non-GAAP diluted EPS of $0.35 beat the
+      $0.27 consensus by $0.08 (basic EPS of $0.38, which some outlets headline as a +$0.11 beat), on
+      materially improved profitability (non-GAAP operating margin 11%
+      vs 5%; GAAP operating margin +1,118 bps YoY). The quality of the beat is operating-led — not a
+      buyback (diluted shares +0.3% YoY) or a tax benefit (near-zero tax on a pre-tax loss) — with
+      strong forward signals (RPO +33% to $6.9B; FY26 product-revenue guide $4,395M, +27%). The
+      dominant caveat is that Snowflake remains GAAP-unprofitable (-$297.9M net loss) with stock-based
+      compensation of ~$436M (~38% of revenue) carrying essentially the entire non-GAAP profit and the
+      positive operating cash flow; investors should treat non-GAAP profitability as SBC-adjusted.
+      Not determinable from the provided documents: any EPS guidance (Snowflake guides product revenue
+      and non-GAAP operating margin only) and any profit/margin by geography or product line
+      (single reportable segment; geography is disclosed for revenue only).
+    not_determinable_items:
+      - "Forward EPS guidance (Snowflake does not provide an EPS range)."
+      - "Operating income / margin by geography or by product line (single ASC 280 segment; only consolidated profit and geographic REVENUE are disclosed)."
+      - "Guidance-vs-Street direction (the cited consensus snapshot did not include a next-period guidance consensus)."
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: "main-loop independent re-fetch from SEC EDGAR primary sources (curl, finance-llm-evals UA); the workflow's automated verify pass for this case did not complete (spend limit), so every figure below was re-confirmed by hand against fy2026q2earnings.htm + snow-20250731.htm, and the C5 EPS beat was re-based from non-GAAP basic to non-GAAP diluted for like-for-like consistency"
+  verified_on: "2026-06-06"
+  figures_checked: 64
+  figures_confirmed: 64
+  unconfirmed: []
+  notes: >
+    All GAAP income-statement, balance-sheet, and cash-flow figures transcribed from the 8-K
+    Exhibit 99.1 press release (fy2026q2earnings.htm) and cross-checked against the 10-Q
+    (snow-20250731.htm): revenue, gross profit, operating loss, pre-tax loss, tax provision, net
+    loss, EPS, and weighted-average share counts agree across both documents. The GAAP-to-non-GAAP
+    bridge was recomputed: -298,017 + 436,182 + 27,807 + 2,191 - 464 + 2,132 + 2,074 - 43,006 + 390
+    = 129,289 (= reported non-GAAP net income attributable); 129,289 / 372,383 = $0.347 ≈ $0.35
+    (= reported non-GAAP diluted EPS). Revenue disaggregation ties to total (1,090,496 + 54,473 =
+    1,144,969). Segment status (single reportable segment) and geographic revenue (US $861,469k)
+    confirmed in the 10-Q. Consensus ($1.09B revenue, $0.27 non-GAAP EPS) is oracle-supplied from
+    Investing.com (2025-08-27), NOT from the filings. Scale is "in thousands" throughout (aggregates),
+    per-share in dollars. Snowflake reports BOTH non-GAAP basic EPS ($0.38) and non-GAAP diluted EPS
+    ($0.35); the gold grades the C5 EPS beat on the non-GAAP DILUTED basis ($0.35 - $0.27 = +$0.08) to
+    stay like-for-like with E3.adjusted_eps and the C3 bridge, and records that media headlined +$0.11
+    off the basic $0.38 — a deliberate guard against a basic-vs-diluted basis slip. The prior-quarter (Q1 FY26) TOTAL revenue (1,042,074) is DERIVED (6mo minus Q2); the
+    QoQ gold therefore uses PRODUCT revenue (both endpoints primary-cited in the MD&A trend) as the
+    authoritative QoQ, with the derived total-revenue QoQ noted alongside.

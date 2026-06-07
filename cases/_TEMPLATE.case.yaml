@@ -1,0 +1,198 @@
+# =============================================================================
+# cases/_TEMPLATE.case.yaml — the gold-case contract (Phase 3)
+# -----------------------------------------------------------------------------
+# One file per case. Supplies the GOLD the Phase-4 harness scores a model against,
+# for every checkpoint/atom in ../rubric/criteria.yaml (rubric_version 2.1.0).
+#
+# HARD RULES (this is a portfolio artifact — a wrong number discredits it):
+#   * Every gold figure is transcribed from a REAL SEC filing. No invented numbers.
+#   * Every figure carries a citation: {document, locator, verbatim} where
+#       document  = tenq | release   (which source doc)
+#       locator   = the statement / section / table heading (HTML filings have no
+#                   page numbers; use the heading + nearest item label) — or a PDF
+#                   page number if the source is a PDF.
+#       verbatim  = the exact string from the filing that contains the number
+#                   (so the entailment grader can confirm the cite supports the value).
+#   * Aggregate values are recorded in the issuer's reporting scale (see manifest.statement_scale)
+#     AND normalized to USD millions in `value_usd_mm` for cross-case comparability.
+#   * Figures that do not exist for this issuer are marked  value: N/A  with an na_reason
+#     (drives the F6 sector-prune — e.g. an asset manager has no gross_profit / inventory / cogs).
+#   * Consensus is oracle-supplied and NOT in the filings: cite a public source (outlet + date).
+# =============================================================================
+
+case_id: TICKER-YYYYqN              # e.g. blk-2025q3
+rubric_version: "2.1.0"
+authored_from_primary_sources: true # set true only after the verify pass confirms every cite
+
+# ----------------------------------------------------------------------------- MANIFEST
+# Gold side, NOT shown to the model. Drives P1/P2/P3 gold + the gating predicates + F6 prune.
+manifest:
+  ticker: ""
+  cik: ""                           # 10-digit, zero-padded
+  issuer: ""
+  sector: ""                        # asset_manager | software | ... (drives sector-N/A set)
+  fiscal_period_label: ""           # e.g. "Q3 2025" or "Fiscal Q2 2026 (ended ...)"
+  period_end_date: ""               # YYYY-MM-DD
+  filing_type: ""                   # 10-Q | 10-K
+  is_fiscal_q4: false
+  fiscal_vs_calendar_note: ""       # e.g. "FY ends June 30; this fiscal Q2 is calendar Q4 2025"
+  reporting_currency: USD
+  statement_scale: ""               # thousands | millions | as_reported   (P2 gold)
+  consensus_basis: ""               # non_gaap | gaap                       (P3 gold)
+  consensus_statistic: ""           # mean | median
+  na_figures: []                    # figure_names that are N/A for this issuer (F6 prune)
+  expand_counts:                    # how many rows the harness materializes for split atoms
+    segment_rows: 0                 # E2.segments / C5.tieout
+    addback_rows: 0                 # E3.addbacks / C3.addbacks_steps   (0 if no non-GAAP recon)
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenq:
+    accession: ""
+    url: ""                         # https://www.sec.gov/Archives/edgar/data/<cik>/<acc-no-dashes>/<doc>
+    primary_doc: ""
+  release:                          # the earnings press release (8-K Exhibit 99.1)
+    accession: ""
+    index_url: ""
+    ex99_1_url: ""
+
+# ----------------------------------------------------------------------------- CONSENSUS (C5 / S1)
+consensus:
+  revenue: { value_usd_mm: null, basis: "", statistic: "" }
+  eps:     { value: null,        basis: "", statistic: "" }   # per-share, in dollars
+  dispersion: { revenue_range: null, eps_range: null }        # high/low or stddev if reported
+  guidance_consensus: null                                     # {revenue, eps} for next period, or null
+  provider: ""                                                 # e.g. "LSEG / Visible Alpha (via <outlet>)"
+  snapshot_date: ""
+  source_url: ""                                               # the public article the numbers come from
+
+# ----------------------------------------------------------------------------- COMPARATIVES (C1/C2/C4)
+# Year-ago same quarter (YoY) and immediately-prior sequential quarter (QoQ). Cite each.
+comparatives:
+  year_ago:
+    period_label: ""
+    total_revenue: { value_usd_mm: null, citation: {} }
+    operating_income: { value_usd_mm: null, citation: {} }
+    net_income_gaap: { value_usd_mm: null, citation: {} }
+    wavg_diluted_shares: { value: null, citation: {} }
+    margins: { gross: null, operating: null, net: null }       # gross: N/A for financials
+    effective_tax_rate: null
+    working_capital: { accounts_receivable: null, inventory: null, deferred_revenue: null }
+  prior_qtr:
+    period_label: ""
+    total_revenue: { value_usd_mm: null, citation: {} }
+  restatement_flag: false
+  segment_redefinition_flag: false
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+# Each numeric gold: { value | value_usd_mm | N/A, citation: {document, locator, verbatim} }.
+gold:
+
+  # ---- Planning ----
+  P1: { issuer: "", fiscal_period_label: "", period_end_date: "", filing_type: "", citation: {} }
+  P2: { statement_scale: "", reporting_currency: USD, per_share_in_dollars: true, citation: {} }
+  P3:
+    in_scope_figures: []
+    consensus_basis: ""
+    consensus_statistic: ""
+    sector_profile: ""              # e.g. "asset manager: no gross margin; top line = total revenue"
+    source_map: {}                  # figure -> tenq|release
+
+  # ---- Extraction ----
+  E1:
+    figures:
+      total_revenue:        { value_usd_mm: null, citation: {} }
+      gross_profit:         { value: N/A, na_reason: "" }      # or { value_usd_mm, citation }
+      operating_income:     { value_usd_mm: null, citation: {} }
+      pretax_income:        { value_usd_mm: null, citation: {} }
+      income_tax_provision: { value_usd_mm: null, citation: {} }
+      net_income_gaap:      { value_usd_mm: null, citation: {} }
+      gaap_basic_eps:       { value: null, citation: {} }      # dollars
+      gaap_diluted_eps:     { value: null, citation: {} }
+  E2:
+    segments: []                    # [{ name, revenue_usd_mm, citation }]  -> must sum to consolidated
+    corporate_eliminations: null    # { value_usd_mm, citation } or null
+    wavg_basic_shares:          { value: null, citation: {} }   # in the share unit the filing uses
+    wavg_gaap_diluted_shares:   { value: null, citation: {} }
+    wavg_nongaap_diluted_shares:{ value: null, citation: {} }   # N/A if issuer reports no non-GAAP EPS
+    prior_year_diluted_shares:  { value: null, citation: {} }
+  E3:
+    adjusted_eps: { value: null, citation: {} }                 # N/A if no non-GAAP EPS reported
+    addbacks: []                    # [{ name, value_usd_mm, basis: pretax|after_tax, citation }]
+    tax_effect_of_adjustments: null # { value_usd_mm, citation } or null
+    operating_cash_flow: { value_usd_mm: null, citation: {} }
+    capex: { value_usd_mm: null, definition: "purchases of property and equipment", citation: {} }
+  E4:
+    # Either a guidance block OR not_disclosed (issuer declined to guide).
+    guidance: null                  # { revenue_low, revenue_high, eps_low, eps_high, basis, period, withdrawn }
+    not_disclosed: null             # { reason } if the issuer gave no guidance
+  E5:
+    accounts_receivable_current: { value_usd_mm: null, citation: {} }
+    accounts_receivable_prior:   { value_usd_mm: null, citation: {} }
+    inventory_current:           { value: N/A, na_reason: "" }
+    inventory_prior:             { value: N/A, na_reason: "" }
+    deferred_revenue_current:    { value_usd_mm: null, citation: {} }   # or N/A
+    deferred_revenue_prior:      { value_usd_mm: null, citation: {} }
+    cogs:                        { value: N/A, na_reason: "" }
+  E6:
+    undisclosed_probe:
+      question: ""                  # asks for a figure the filing genuinely does NOT disclose
+      gold_answer: NOT_DISCLOSED
+      reason: ""                    # why absent + which statement would carry it
+      citation_to_absence: {}       # cite the section that SHOULD carry it but doesn't break it out
+    answerable_twin:
+      question: ""                  # a figure that LOOKS absent but IS disclosed (buried)
+      gold_value: null
+      citation: {}
+
+  # ---- Calculation (computed golds; harness checks the model's math to tolerance) ----
+  C1:
+    yoy_revenue_pct: null
+    qoq_revenue_pct: null
+    yoy_diluted_share_change_pct: null
+    derivation_note: ""
+  C2:
+    gross_margin: { value: N/A, na_reason: "" }   # or number
+    operating_margin: null
+    net_margin: null
+    margin_deltas_bps: { gross: N/A, operating: null, net: null }   # YoY, basis points
+    fcf_usd_mm: null                                                  # OCF - capex
+  C3:                               # non-GAAP EPS bridge (omit / null if issuer reports no non-GAAP EPS)
+    bridge_steps: []                # [{ step, value_usd_mm, note }] GAAP NI -> addbacks -> tax line -> nongaap NI
+    nongaap_diluted_shares_used: null
+    nongaap_diluted_differs_from_gaap: false        # true in the loss-quarter case
+    final_nongaap_eps: null
+  C4:
+    effective_tax_rate: null        # tax_provision / pretax_income
+    efftax_yoy_delta_pp: null
+    dso: null
+    dio: { value: N/A, na_reason: "" }
+    ocf_to_net_income: null
+  C5:
+    revenue_beatmiss_abs_usd_mm: null
+    revenue_beatmiss_pct: null
+    eps_beatmiss_abs: null          # dollars (absolute only, per F13)
+    segment_tieout_ok: null         # sum(segments)+elims == consolidated within tolerance
+    direction: { revenue: "", eps: "" }   # beat | in_line | miss
+
+  # ---- Synthesis (reference golds for the LLM judge) ----
+  S1:
+    reported_direction: { revenue: "", eps: "" }
+    guidance_vs_street: ""          # above | in_line | below | n/a
+  S2:
+    material_changes: []            # the must-have thesis-moving changes for this print
+    swing_factor: ""                # what really drove the headline (e.g. discrete tax benefit; buyback)
+    qoe_flags: []                   # OCF-vs-NI gap, DSO/DIO trend, segment redefinition, etc.
+  S3:
+    bottom_line_reference: ""       # a calibrated one-paragraph reference read
+    not_determinable_items: []      # items the documents genuinely do not support (carried from E6)
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+# Filled by the adversarial verify pass. Every figure must reach status: confirmed.
+verification:
+  verified_by: ""                   # "independent re-fetch" pass
+  verified_on: ""
+  figures_checked: 0
+  figures_confirmed: 0
+  unconfirmed: []                   # [{ figure, issue }] — MUST be empty to ship the case
+  notes: ""

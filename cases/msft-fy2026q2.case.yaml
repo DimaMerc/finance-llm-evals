@@ -1,0 +1,394 @@
+# =============================================================================
+# cases/msft-fy2026q2.case.yaml
+# Microsoft Corporation — Fiscal Q2 2026 (three months ended December 31, 2025).
+# Authored from primary SEC sources per cases/_TEMPLATE.case.yaml (rubric_version 2.1.0).
+#
+# WHY THIS CASE EARNS ITS PLACE IN THE SUITE (designed-in traps):
+#   * FISCAL-VS-CALENDAR: MSFT's FY ends June 30, so "Fiscal Q2 2026" is CALENDAR Q4 2025
+#     (period ended 2025-12-31). P1 gold uses the FISCAL label; the calendar mapping is a note.
+#   * THREE reportable segments (Productivity & Business Processes, Intelligent Cloud,
+#     More Personal Computing) that SUM EXACTLY to consolidated revenue with NO
+#     corporate/eliminations row (E2 completeness + C5 tie-out).
+#   * NON-GAAP with a SINGLE after-tax reconciling item ("Impact from investments in OpenAI"):
+#     GAAP NI $38,458M / dil EPS $5.16  ->  non-GAAP NI $30,875M / dil EPS $4.14. The single
+#     add-back is presented NET (after-tax), so there is NO separate "tax effect of adjustments"
+#     line (E3.tax_effect_of_adjustments = null; C3 tax step is N/A — do not impute a blended rate).
+#   * NON-GAAP diluted shares are NOT distinct from GAAP diluted (this is a GAIN-exclusion, not a
+#     loss quarter): 30,875 / 7,460 = $4.14. wavg_nongaap_diluted_shares = same 7,460 (noted).
+#   * QUALITY-OF-EARNINGS hook: the 60% GAAP net-income jump is driven by a $7.6B NON-CASH OpenAI
+#     net gain in "Other income (expense), net" ($9,971M vs $(2,288)M PY). OCF/NI = 0.93 (<1.0) and
+#     the effective tax rate ROSE +2.39pp YoY (deferred tax on the OpenAI dilution gain) — the swing
+#     factor is the OpenAI mark, not operating outperformance. Operating income (clean) +21%.
+#   * GUIDANCE not in the release: MSFT states it "will provide forward-looking guidance ... on its
+#     earnings conference call." E4 = not_disclosed (release/MD&A carry no GAAP ranges). The CNBC/LSEG
+#     FQ3 revenue range ($80.65B–$81.75B) was given verbally on the CALL and is recorded only in
+#     consensus.guidance_consensus for reference — NOT as a filing-sourced E4 gold.
+#   * E6 undisclosed probe: Azure absolute-dollar revenue is NEVER disclosed (only a growth %);
+#     its answerable twin is the Intelligent Cloud SEGMENT revenue (the segment that contains Azure),
+#     which IS disclosed in the ASC 280 footnote.
+# =============================================================================
+
+case_id: msft-fy2026q2
+rubric_version: "2.1.0"
+authored_from_primary_sources: true
+
+# ----------------------------------------------------------------------------- MANIFEST
+manifest:
+  ticker: "MSFT"
+  cik: "0000789019"
+  issuer: "Microsoft Corporation"
+  sector: "software"                # has cost of revenue / gross margin AND inventory; NOT a financial
+  fiscal_period_label: "Fiscal Q2 2026 (three months ended December 31, 2025)"
+  period_end_date: "2025-12-31"
+  filing_type: "10-Q"
+  is_fiscal_q4: false
+  fiscal_vs_calendar_note: "FY ends June 30; this fiscal Q2 2026 is calendar Q4 2025. Use the FISCAL label."
+  reporting_currency: USD
+  statement_scale: "millions"       # "(In millions, except per share amounts)"; shares also in millions
+  consensus_basis: "non_gaap"       # LSEG published EPS consensus is the adjusted/non-GAAP figure
+  consensus_statistic: "mean"
+  na_figures:
+    - wavg_nongaap_diluted_shares   # not reported distinct from GAAP diluted (same 7,460M); see E2 note
+    - tax_effect_of_adjustments     # single add-back is presented NET/after-tax; no separate tax line
+    - guidance                      # release gives no guidance ranges (provided on the call)
+  expand_counts:
+    segment_rows: 3                 # Productivity & Business Processes, Intelligent Cloud, More Personal Computing
+    addback_rows: 1                 # single non-GAAP add-back: "Impact from investments in OpenAI"
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenq:
+    accession: "0001193125-26-027207"
+    url: "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm"
+    primary_doc: "msft-20251231.htm"
+  release:
+    accession: "0001193125-26-027198"
+    index_url: "https://www.sec.gov/Archives/edgar/data/789019/000119312526027198/"
+    ex99_1_url: "https://www.sec.gov/Archives/edgar/data/789019/000119312526027198/msft-ex99_1.htm"
+
+# ----------------------------------------------------------------------------- CONSENSUS (C5 / S1)
+consensus:
+  revenue: { value_usd_mm: 80270, basis: "gaap", statistic: "mean" }   # total revenue is a single GAAP figure; LSEG mean $80.27B
+  eps:     { value: 3.97, basis: "non_gaap", statistic: "mean" }       # LSEG adjusted EPS consensus
+  dispersion: { revenue_range: null, eps_range: null }                 # CNBC/LSEG summary did not publish high/low or stddev
+  guidance_consensus: { revenue: "80650-81750 (FQ3 2026, given on the call, not the release)", eps: null }
+  provider: "LSEG (via CNBC); segment consensus via StreetAccount (Intelligent Cloud $32.40B — beat at $32.91B; Productivity & Business Processes $33.48B — beat at $34.12B)"
+  snapshot_date: "2026-01-28"
+  source_url: "https://www.cnbc.com/2026/01/28/microsoft-msft-q2-earnings-report-2026.html"
+  # Verbatim from CNBC (LSEG consensus): "Earnings per share: $4.14 adjusted vs. $3.97 expected.
+  # Revenue: $81.27 billion vs. $80.27 billion expected." FQ3 guidance: "Microsoft called for
+  # $80.65 billion to $81.75 billion ... LSEG consensus of $81[.xx] billion."
+
+# ----------------------------------------------------------------------------- COMPARATIVES (C1/C2/C4)
+comparatives:
+  year_ago:
+    period_label: "Fiscal Q2 2025 (three months ended December 31, 2024)"
+    total_revenue:
+      value_usd_mm: 69632
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2024 column", verbatim: "Revenue $ 81,273 $ 69,632" }
+    operating_income:
+      value_usd_mm: 31653
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2024 column", verbatim: "Operating income 38,275 31,653" }
+    net_income_gaap:
+      value_usd_mm: 24108
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2024 column", verbatim: "Net income $ 38,458 $ 24,108" }
+    wavg_diluted_shares:
+      value: 7468
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), Weighted average shares outstanding, three months ended Dec. 31, 2024 column", verbatim: "Diluted 7,460 7,468" }
+    margins: { gross: 68.69, operating: 45.46, net: 34.62 }   # %, computed from PY income-statement figures
+    effective_tax_rate: 17.90                                  # 5,257 / 29,365; footnote rounds to "18%"
+    working_capital: { accounts_receivable: null, inventory: null, deferred_revenue: null }  # PY balance-sheet not in this 10-Q (prior comparative = Jun 30, 2025; see E5)
+  prior_qtr:
+    period_label: "Fiscal Q1 2026 (three months ended September 30, 2025)"
+    total_revenue:
+      value_usd_mm: 77673
+      citation: { document: tenq, locator: "MSFT FY26 Q1 10-Q (acc 0001193125-25-256321), INCOME STATEMENTS (R2), three months ended Sep. 30, 2025 column", verbatim: "Revenue $ 77,673 $ 65,585" }
+  restatement_flag: false
+  segment_redefinition_flag: false
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+gold:
+
+  # ---- Planning ----
+  P1:
+    issuer: "Microsoft Corporation"
+    fiscal_period_label: "Fiscal Q2 2026 (three months ended December 31, 2025)"
+    period_end_date: "2025-12-31"
+    filing_type: "10-Q"
+    citation: { document: tenq, locator: "Cover page / Document and Entity Information (R1)", verbatim: "Document Type 10-Q | Document Period End Date Dec. 31, 2025 | Document Fiscal Year Focus 2026 | Document Fiscal Period Focus Q2 | Entity Registrant Name MICROSOFT CORPORATION | Entity Central Index Key 0000789019 | Trading Symbol MSFT" }
+  P2:
+    statement_scale: "millions"
+    reporting_currency: USD
+    per_share_in_dollars: true
+    citation: { document: tenq, locator: "INCOME STATEMENTS (R2) header", verbatim: "INCOME STATEMENTS - USD ($) shares in Millions, $ in Millions" }
+    # Cross-document note (P2.4): the press-release statements are ALSO "(In millions, except per share
+    # amounts)", so release and 10-Q share the same base — no thousands-vs-millions reconciliation needed.
+  P3:
+    in_scope_figures:
+      - total_revenue
+      - gross_profit              # MSFT reports "Gross margin" line -> gross profit IS in scope (software issuer)
+      - operating_income
+      - pretax_income
+      - income_tax_provision
+      - net_income_gaap
+      - gaap_basic_eps
+      - gaap_diluted_eps
+      - segment_revenue (Productivity & Business Processes, Intelligent Cloud, More Personal Computing)
+      - wavg_basic_shares
+      - wavg_gaap_diluted_shares
+      - prior_year_diluted_shares
+      - adjusted_eps              # non-GAAP, OpenAI-excluded
+      - addback (Impact from investments in OpenAI)
+      - operating_cash_flow
+      - capex
+      - guidance                  # scoped, but resolves to not_disclosed in the release (E4)
+      - accounts_receivable
+      - inventory
+      - deferred_revenue (short-term unearned revenue)
+    consensus_basis: "non_gaap"
+    consensus_statistic: "mean"
+    sector_profile: "software/technology: HAS cost of revenue -> gross margin in scope; HAS inventory; primary top line = total revenue; the relevant non-GAAP excludes a single OpenAI-investment mark."
+    source_map:
+      total_revenue: tenq                 # also in release; authoritative GAAP = 10-Q
+      gross_profit: tenq
+      operating_income: tenq
+      pretax_income: tenq
+      income_tax_provision: tenq
+      net_income_gaap: tenq
+      gaap_basic_eps: tenq
+      gaap_diluted_eps: tenq
+      segment_revenue: tenq               # ASC 280 segment footnote (Note 16); release SEGMENT RESULTS mirrors it
+      wavg_basic_shares: tenq
+      wavg_gaap_diluted_shares: tenq
+      adjusted_eps: release               # non-GAAP recon lives in the press release
+      addback_openai: release
+      operating_cash_flow: tenq           # CASH FLOWS STATEMENTS (release also carries it)
+      capex: tenq
+      guidance: release                   # routed to release, but release declines to guide -> not_disclosed
+      accounts_receivable: tenq
+      inventory: tenq
+      deferred_revenue: tenq
+
+  # ---- Extraction ----
+  E1:
+    figures:
+      total_revenue:
+        value_usd_mm: 81273
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Revenue $ 81,273 $ 69,632" }
+      gross_profit:
+        value_usd_mm: 55295         # MSFT labels this line "Gross margin"; it is gross profit ($). NOT N/A — software issuer.
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Gross margin 55,295 47,833" }
+      operating_income:
+        value_usd_mm: 38275
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Operating income 38,275 31,653" }
+      pretax_income:
+        value_usd_mm: 48246
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Income before income taxes 48,246 29,365" }
+      income_tax_provision:
+        value_usd_mm: 9788
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Provision for income taxes 9,788 5,257" }
+      net_income_gaap:
+        value_usd_mm: 38458
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Net income $ 38,458 $ 24,108" }
+      gaap_basic_eps:
+        value: 5.18
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), Earnings per share, three months ended Dec. 31, 2025", verbatim: "Basic $ 5.18 $ 3.24" }
+      gaap_diluted_eps:
+        value: 5.16
+        citation: { document: tenq, locator: "INCOME STATEMENTS (R2), Earnings per share, three months ended Dec. 31, 2025", verbatim: "Diluted $ 5.16 $ 3.23" }
+    # NOTE: "Other income (expense), net" = $9,971M (vs $(2,288)M PY) is the OpenAI-driven swing in pretax income.
+    # citation: { document: tenq, locator: "INCOME STATEMENTS (R2)", verbatim: "Other income (expense), net 9,971 (2,288)" }
+
+  E2:
+    segments:
+      - name: "Productivity and Business Processes"
+        revenue_usd_mm: 34116
+        citation: { document: tenq, locator: "SEGMENT INFORMATION AND GEOGRAPHIC DATA (Note 16, R25), three months ended Dec. 31, 2025", verbatim: "Productivity and Business Processes Revenue $ 34,116" }
+      - name: "Intelligent Cloud"
+        revenue_usd_mm: 32907
+        citation: { document: tenq, locator: "SEGMENT INFORMATION AND GEOGRAPHIC DATA (Note 16, R25), three months ended Dec. 31, 2025", verbatim: "Intelligent Cloud Revenue $ 32,907" }
+      - name: "More Personal Computing"
+        revenue_usd_mm: 14250
+        citation: { document: tenq, locator: "SEGMENT INFORMATION AND GEOGRAPHIC DATA (Note 16, R25), three months ended Dec. 31, 2025", verbatim: "More Personal Computing Revenue $ 14,250" }
+    corporate_eliminations: null    # MSFT discloses NO corporate/eliminations row; segments sum exactly to total (see C5)
+    wavg_basic_shares:
+      value: 7431
+      citation: { document: tenq, locator: "EARNINGS PER SHARE (Note 2, R11), three months ended Dec. 31, 2025", verbatim: "Weighted average outstanding shares of common stock (B) 7,431 7,435" }
+    wavg_gaap_diluted_shares:
+      value: 7460
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), Weighted average shares outstanding, three months ended Dec. 31, 2025 column", verbatim: "Diluted 7,460 7,468" }
+    wavg_nongaap_diluted_shares:
+      value: N/A
+      na_reason: "MSFT's non-GAAP recon excludes a GAIN (not a loss); the non-GAAP diluted share count is NOT presented distinct from GAAP diluted. The same weighted-average diluted count (7,460M) is used: 30,875 / 7,460 = $4.14. Do NOT report a separate count."
+    prior_year_diluted_shares:
+      value: 7468
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), Weighted average shares outstanding, three months ended Dec. 31, 2024 column", verbatim: "Diluted 7,460 7,468" }
+
+  E3:
+    adjusted_eps:
+      value: 4.14                   # non-GAAP diluted EPS (OpenAI-excluded)
+      citation: { document: release, locator: "GAAP-to-non-GAAP reconciliation table, three months ended Dec. 31, 2025", verbatim: "2025 As Adjusted (non-GAAP) $30,875 $4.14" }
+    addbacks:
+      - name: "Impact from investments in OpenAI"
+        value_usd_mm: -7583         # NEGATIVE: a net GAIN, so it SUBTRACTS from GAAP NI to reach non-GAAP NI
+        basis: after_tax            # presented net of tax on the net-income line; per-share impact $(1.02)
+        citation: { document: release, locator: "GAAP-to-non-GAAP reconciliation table, three months ended Dec. 31, 2025", verbatim: "Impact from investments in OpenAI (7,583) (1.02)" }
+    tax_effect_of_adjustments: null # N/A: single add-back is presented NET (after-tax); there is NO separate disclosed tax-effect line. Do not impute one.
+    operating_cash_flow:
+      value_usd_mm: 35758           # 3-month (quarterly) column; MSFT discloses a 3-month cash-flow column
+      citation: { document: tenq, locator: "CASH FLOWS STATEMENTS (R6), Operations, three months ended Dec. 31, 2025", verbatim: "Net cash from operations 35,758" }
+    capex:
+      value_usd_mm: 29876           # 3-month column; "Additions to property and equipment"
+      definition: "purchases of property and equipment (Additions to property and equipment, investing section)"
+      citation: { document: tenq, locator: "CASH FLOWS STATEMENTS (R6), Financing/Investing, three months ended Dec. 31, 2025", verbatim: "Additions to property and equipment (29,876)" }
+
+  E4:
+    guidance: null
+    not_disclosed:
+      reason: "The release provides NO numeric guidance ranges. MSFT states it 'will provide forward-looking guidance in connection with this quarterly earnings announcement on its earnings conference call and webcast.' The FQ3 2026 revenue range ($80.65B-$81.75B reported by CNBC) was given verbally on the CALL, not in the release or MD&A — so it is NOT a filing-sourced E4 gold. citation: { document: release, locator: 'Business Outlook section', verbatim: 'Microsoft will provide forward-looking guidance in connection with this quarterly earnings announcement on its earnings conference call and webcast.' }"
+
+  E5:
+    accounts_receivable_current:
+      value_usd_mm: 56535
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), Dec. 31, 2025 column", verbatim: "Accounts receivable, net of allowance for doubtful accounts of $729 and $944 56,535" }
+    accounts_receivable_prior:
+      value_usd_mm: 69905           # prior comparative on the balance sheet = June 30, 2025 (fiscal year-end)
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), Jun. 30, 2025 column", verbatim: "Accounts receivable, net of allowance for doubtful accounts of $729 and $944 56,535 ... 69,905" }
+    inventory_current:
+      value_usd_mm: 1059            # MSFT carries inventory (Surface/devices) -> NOT N/A
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), Dec. 31, 2025 column", verbatim: "Inventories 1,059 938" }
+    inventory_prior:
+      value_usd_mm: 938
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), Jun. 30, 2025 column", verbatim: "Inventories 1,059 938" }
+    deferred_revenue_current:
+      value_usd_mm: 51376           # short-term (current) unearned revenue
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), current liabilities, Dec. 31, 2025 column", verbatim: "Short-term unearned revenue 51,376 64,555" }
+    deferred_revenue_prior:
+      value_usd_mm: 64555
+      citation: { document: tenq, locator: "BALANCE SHEETS (R4), current liabilities, Jun. 30, 2025 column", verbatim: "Short-term unearned revenue 51,376 64,555" }
+    cogs:
+      value_usd_mm: 25978           # MSFT discloses Cost of revenue -> NOT N/A (feeds DIO)
+      na_reason: ""
+      citation: { document: tenq, locator: "INCOME STATEMENTS (R2), three months ended Dec. 31, 2025", verbatim: "Cost of revenue 25,978 21,799" }
+
+  E6:
+    undisclosed_probe:
+      question: "What was Microsoft's Azure (and other cloud services) revenue in absolute dollars for the three months ended December 31, 2025?"
+      gold_answer: NOT_DISCLOSED
+      reason: "Microsoft discloses Azure revenue ONLY as a year-over-year GROWTH RATE (increased 39%, up 38% in constant currency); it does NOT break out Azure revenue as an absolute dollar figure anywhere in the press release or 10-Q. Azure is a component of the Intelligent Cloud reportable segment, and only segment-level revenue ($32,907M) is reported under ASC 280 — not the Azure line item. A confident dollar figure here is a fabrication."
+      citation_to_absence: { document: release, locator: "Intelligent Cloud business highlights", verbatim: "Azure and other cloud services revenue increased 39% (up 38% in constant currency)" }
+    answerable_twin:
+      question: "What was Microsoft's Intelligent Cloud SEGMENT revenue (the reportable segment that contains Azure) for the three months ended December 31, 2025?"
+      gold_value: 32907
+      citation: { document: tenq, locator: "SEGMENT INFORMATION AND GEOGRAPHIC DATA (Note 16, R25), three months ended Dec. 31, 2025", verbatim: "Intelligent Cloud Revenue $ 32,907" }
+
+  # ---- Calculation (computed golds) ----
+  C1:
+    yoy_revenue_pct: 16.72          # (81,273-69,632)/69,632; release rounds to "increased 17%"
+    qoq_revenue_pct: 4.63           # (81,273-77,673)/77,673
+    yoy_diluted_share_change_pct: -0.107   # (7,460-7,468)/7,468; a SLIGHT reduction (modest net buyback)
+    derivation_note: "YoY base = Q2 FY25 revenue 69,632 (10-Q PY column). QoQ base = Q1 FY26 revenue 77,673 (FY26 Q1 10-Q). Diluted-share change uses weighted-avg diluted 7,460 vs PY 7,468 (EPS footnote)."
+  C2:
+    gross_margin:
+      value: 68.04                  # 55,295 / 81,273 (software issuer -> gross margin applies)
+      na_reason: ""
+    operating_margin: 47.09         # 38,275 / 81,273
+    net_margin: 47.32               # 38,458 / 81,273 (INFLATED by the non-cash OpenAI gain)
+    margin_deltas_bps: { gross: -65.8, operating: 163.7, net: 1269.8 }   # YoY, bps
+    fcf_usd_mm: 5882                 # OCF 35,758 - capex 29,876 (quarterly)
+  C3:
+    bridge_steps:
+      - { step: "GAAP net income", value_usd_mm: 38458, note: "INCOME STATEMENTS (R2)" }
+      - { step: "Less: Impact from investments in OpenAI (after-tax net gain)", value_usd_mm: -7583, note: "single net add-back; subtract because it is a gain" }
+      - { step: "Non-GAAP net income", value_usd_mm: 30875, note: "38,458 - 7,583 = 30,875" }
+      - { step: "Divide by weighted-avg diluted shares", value_usd_mm: 7460, note: "same as GAAP diluted; no distinct non-GAAP count" }
+      - { step: "Non-GAAP diluted EPS", value_usd_mm: 4.14, note: "30,875 / 7,460 = 4.139 ~ $4.14" }
+    nongaap_diluted_shares_used: 7460
+    nongaap_diluted_differs_from_gaap: false   # GAIN-exclusion, not a loss quarter
+    final_nongaap_eps: 4.14
+    # NO blended-rate tax step: the OpenAI item is disclosed NET of tax (after-tax), so the bridge has no
+    # separate "income-tax effect of adjustments" line to apply. C3.tax_step is N/A for this case.
+  C4:
+    effective_tax_rate: 20.29       # 9,788 / 48,246 (footnote rounds to "20%")
+    efftax_yoy_delta_pp: 2.39       # 20.29 - 17.90 (footnote: 20% vs 18%); ROSE due to deferred tax on OpenAI dilution gain
+    dso: 64.0                       # AR 56,535 / quarterly revenue 81,273 * 92 days (Oct-Dec)
+    dio:
+      value: 3.8                    # inventory 1,059 / COGS 25,978 * 92 days (MSFT HAS inventory -> not N/A)
+      na_reason: ""
+    ocf_to_net_income: 0.93         # 35,758 / 38,458; BELOW 1.0 -> the OpenAI non-cash gain inflated NI (accrual-quality flag)
+  C5:
+    revenue_beatmiss_abs_usd_mm: 1003   # 81,273 reported (10-Q) - 80,270 consensus; vs CNBC "$81.27B vs $80.27B"
+    revenue_beatmiss_pct: 1.25          # 1,003 / 80,270
+    eps_beatmiss_abs: 0.17              # 4.14 non-GAAP actual - 3.97 non-GAAP consensus (SAME basis)
+    segment_tieout_ok: true             # 34,116 + 32,907 + 14,250 = 81,273 = consolidated revenue (no elims row)
+    direction: { revenue: "beat", eps: "beat" }
+    # BASIS GUARD: beat/miss compares non-GAAP EPS $4.14 to the non-GAAP LSEG consensus $3.97 — NOT GAAP $5.16.
+    # Revenue is a single GAAP figure compared to the LSEG revenue mean (no GAAP/non-GAAP split on revenue).
+
+  # ---- Synthesis (reference golds for the LLM judge) ----
+  S1:
+    reported_direction: { revenue: "beat", eps: "beat" }
+    guidance_vs_street: "n/a"       # no guidance in the release; FQ3 revenue guide ($80.65-81.75B) was on the call,
+                                    # roughly IN-LINE-to-slightly-below the ~$81B LSEG consensus per CNBC — reference only.
+  S2:
+    material_changes:
+      - "Revenue +17% (16.72%) YoY to $81.3B; both top and bottom line beat LSEG consensus (rev +$1.0B; non-GAAP EPS +$0.17)."
+      - "GAAP net income +60% to $38.5B is DRIVEN BY a ~$7.6B non-cash net GAIN on OpenAI investments in 'Other income (expense), net' ($9,971M vs $(2,288)M PY) — NOT operating outperformance. Excluding it, non-GAAP net income +23% and non-GAAP EPS +24% to $4.14."
+      - "Intelligent Cloud +29% to $32.9B BEAT its StreetAccount segment consensus ($32.40B), and Productivity & Business Processes ($34.12B) beat its $33.48B consensus — yet the stock fell ~7% because Azure growth decelerated (+39%; 38% constant currency) versus prior quarters and management's margin guidance was light, signaling AI-capacity costs compressing margins. CNBC headline: 'Microsoft stock drops 7% on slowing cloud growth, light margin guidance.'"
+      - "Operating income (clean) +21% to $38.3B; operating margin +164 bps YoY to 47.1% — the genuine operating story."
+    swing_factor: "The ~$7.6B non-cash OpenAI investment mark in other income (and the related +2.39pp rise in the effective tax rate from deferred tax on the OpenAI dilution gain). The headline 60% GAAP NI/EPS jump is an investment-mark effect; the durable read is the +21% operating income and +24% non-GAAP EPS."
+    qoe_flags:
+      - "OCF/NI = 0.93 (<1.0): net income inflated by the non-cash OpenAI gain not in operating cash flow."
+      - "Effective tax rate ROSE +2.39pp YoY (20.3% vs 17.9%) on deferred tax tied to the OpenAI recapitalization dilution gain — a one-time-ish drag that partially offsets the pretax gain."
+      - "Net margin 47.3% (+1,270 bps YoY) is non-comparable: distorted upward by the OpenAI mark; operating margin (+164 bps) is the like-for-like profitability signal."
+      - "FCF $5.9B (OCF $35.8B - capex $29.9B): capex is enormous (~$29.9B/qtr) and compresses FCF despite strong OCF — the AI-capex intensity story."
+  S3:
+    bottom_line_reference: "A clean double beat (revenue $81.3B vs $80.27B; non-GAAP EPS $4.14 vs $3.97), but a low-quality HEADLINE: the 60% GAAP net-income/EPS surge is overwhelmingly a ~$7.6B non-cash OpenAI investment gain, not operating strength — strip it out and the durable picture is +17% revenue, +21% operating income, +24% non-GAAP EPS, and ~47% operating margin (+164 bps). The market's ~7% after-hours drop cut the other way despite both segments beating their StreetAccount consensus (Intelligent Cloud $32.9B vs $32.40B; Productivity & Business Processes $34.12B vs $33.48B): Azure growth decelerated to 39% and management's margin guidance was light, while capex (~$29.9B) keeps FCF (~$5.9B) thin and OCF/NI sits below 1.0. MSFT gave no numeric guidance in the release (provided on the call), so guidance-vs-street is not determinable from the filings. Net read: operationally solid, headline flattered by a non-cash mark, with the cloud-deceleration and capex-intensity as the genuine watch items."
+    not_determinable_items:
+      - "Azure revenue in absolute dollars (only a growth rate is disclosed; see E6)."
+      - "Forward guidance ranges (not in the release/MD&A; given verbally on the earnings call)."
+      - "A separate non-GAAP diluted share count and a separate non-GAAP tax-effect line (neither is presented; the OpenAI item is a single after-tax net figure)."
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: "independent re-fetch + correction pass (SEC EDGAR XBRL R-files R1/R2/R4/R6/R11/R25 + EX-99.1 press release; CNBC/LSEG/StreetAccount for consensus). Three verifier-flagged defects corrected and re-confirmed against re-fetched sources."
+  verified_on: "2026-06-06"
+  figures_checked: 52
+  figures_confirmed: 52
+  unconfirmed: []
+  notes: >
+    All 52 figures confirmed. Every aggregate cross-checked across renderings: the income-statement figures,
+    share counts, and EPS appear in the 10-Q INCOME STATEMENTS (R2), the EARNINGS PER SHARE footnote
+    (NOTE 2, R11), and the press-release income statement. Segment revenues (34,116 / 32,907 / 14,250) sum
+    EXACTLY to 81,273 (no corporate/eliminations row). The non-GAAP bridge 38,458 - 7,583 = 30,875;
+    30,875 / 7,460 = $4.14 reproduces the company-reported adjusted EPS. OCF (35,758) and capex (29,876)
+    are the THREE-MONTH cash-flow columns (6-month figures 80,815 / 49,270 — do not substitute). Effective
+    tax rate 20.29% / 17.90% matches the footnote's rounded "20%" / "18%". Prior-quarter revenue 77,673 is
+    from the FY26 Q1 10-Q (acc 0001193125-25-256321). E4 = not_disclosed (release defers guidance to the
+    call). E6 probe (Azure absolute $) is genuinely undisclosed; its answerable twin (Intelligent Cloud
+    segment revenue $32,907M) is in the ASC 280 footnote (Note 16, R25).
+
+    CORRECTIONS APPLIED this pass (re-verified against re-fetched sources):
+    (1) IC-CONSENSUS NARRATIVE (consensus.provider L75, S2 bullet, S3) — prior text falsely claimed
+        Intelligent Cloud "missed the StreetAccount segment consensus ($33.48B)". Re-fetch of CNBC
+        (2026-01-28) confirms $33.48B is the PRODUCTIVITY & BUSINESS PROCESSES consensus (beat at $34.12B);
+        Intelligent Cloud's consensus was $32.40B, which MSFT BEAT at $32.91B ("up nearly 29% and more than
+        the $32.40 billion consensus among analysts surveyed by StreetAccount"). Both segments beat; the
+        ~7% after-hours drop was driven by Azure cloud-growth deceleration and light margin guidance
+        (CNBC headline: "Microsoft stock drops 7% on slowing cloud growth, light margin guidance"), not a
+        segment-consensus miss. Narrative corrected in all three locations.
+    (2) EPS-FOOTNOTE NOTE NUMBER — re-fetch of R11 confirms the footnote is "NOTE 2 — EARNINGS PER SHARE",
+        not "Note 8". Corrected on E2.wavg_basic_shares (the leg that legitimately cites R11; verbatim
+        "Weighted average outstanding shares of common stock (B) 7,431 7,435" entails against R11/Note 2).
+    (3) DILUTED-SHARES VERBATIM/LOCATOR ENTAILMENT — the string "Diluted 7,460 7,468" appears in the
+        INCOME STATEMENTS (R2) under "Weighted average shares outstanding:", NOT in the EPS footnote (R11),
+        where the diluted line reads "Common stock and common stock equivalents (C) 7,460 7,468". Re-pointed
+        the diluted-share locators (E2.wavg_gaap_diluted_shares, E2.prior_year_diluted_shares,
+        comparatives.wavg_diluted_shares) to INCOME STATEMENTS (R2) so each verbatim entails its cited span.
+        Values (7,460 / 7,468) unchanged and correct.
+
+    Traps still intact post-fix: fiscal-vs-calendar (R1: Fiscal Q2 / FY2026 / period end Dec. 31, 2025);
+    three segments sum to 81,273 with no elims row; MSFT HAS COGS/gross margin (not sector-N/A);
+    E4 guidance not_disclosed; single after-tax OpenAI add-back (no separate tax-effect line); non-GAAP
+    diluted shares not distinct from GAAP (gain-exclusion); E6 undisclosed Azure-$ probe + answerable twin;
+    QoE hook (OCF/NI 0.93, +2.39pp eff-tax, $7.6B non-cash OpenAI gain driving the 60% GAAP NI jump).
