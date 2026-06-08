@@ -95,10 +95,23 @@ of capability split a hiring firm needs to see before trusting a model with a me
 > **cross-family** judge; here it happened to be harsh on itself, not lenient, but a different judge
 > model is the correct setup. Also captured: [`live-snow-qwen2.5-32b-judge.report.txt`](live-snow-qwen2.5-32b-judge.report.txt).
 
-> **On `--tenq` (feeding the 10-Q):** the harness can also feed a ~78k-char 10-Q excerpt so the
-> ratio/working-capital checkpoints and the E6 twin grade on data the model can see — but the combined
-> prompt is ~31k tokens, so the model must be loaded with **≥ 40k context** (trivial on a 5090). With a
-> smaller window the model returns an empty completion and the harness says so.
+### Then: feeding the 10-Q (`--tenq`) — and what it revealed
+
+Hypothesis: the weak ratio/working-capital checkpoints (C2 margins, C4 effective-tax/DSO) were
+*data-starved* because the press release alone lacks the balance sheet. So `--tenq` adds a 10-Q
+balance-sheet excerpt (AR, deferred revenue, share reconciliation) to the prompt.
+
+**Result: the score barely moved (0.679 → 0.671 mock-judge), and the hypothesis was wrong.** The model
+*correctly extracted* the new data (E5: AR \$646.7M, deferred revenue \$2,268.4M), but still left
+**C2 margins and C4 ratios `null`** — for C2 it emitted the *formula* (`773.154/1144.969*100`) instead
+of computing it; for C4 it computed nothing. So qwen2.5-32B's weakness on the derived checkpoints is a
+**computation failure, not a data-access one** — feeding more data doesn't fix a model that won't do
+the arithmetic. A useful, honest capability finding (and a corrected hypothesis).
+
+> Mechanics: the `--tenq` prompt fits Qwen2.5-32B's 32k context only after trimming the 10-Q slice and
+> **reloading** the model so the larger context takes effect (the slider alone doesn't apply to a
+> running model). The harness now hard-caps every model call with a wall-clock deadline so a stalled
+> local server can't hang the run.
 
 ## How to reproduce
 

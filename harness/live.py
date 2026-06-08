@@ -12,6 +12,7 @@ Uses only the standard library (urllib/json) so there is no extra dependency.
 from __future__ import annotations
 import json
 import re
+import time
 import urllib.request
 
 UA = "finance-llm-evals research welt.management.solutions@gmail.com"
@@ -32,9 +33,10 @@ def list_models(endpoint=DEFAULT_ENDPOINT):
 
 
 def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0,
-         stream=True, timeout=900):
+         stream=True, timeout=90, deadline=240):
     """Call the OpenAI-compatible chat endpoint. Streaming by default so a long generation trickles
-    tokens (no all-or-nothing socket wait) and the call is robust to multi-minute responses."""
+    tokens. `timeout` is the per-read socket timeout; `deadline` is a HARD wall-clock cap on the whole
+    call -- the loop breaks past it no matter what, so a stalled/looping server can never hang forever."""
     if model_id is None:
         ms = list_models(endpoint)
         if not ms:
@@ -47,9 +49,11 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
         return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    parts = []
+    parts, t0 = [], time.monotonic()
     with urllib.request.urlopen(req, timeout=timeout) as r:
         for raw in r:                                   # SSE: one "data: {...}" line per token chunk
+            if time.monotonic() - t0 > deadline:        # hard wall-clock cap -> never hang
+                break
             line = raw.decode("utf-8", "ignore").strip()
             if not line.startswith("data:"):
                 continue
@@ -86,19 +90,25 @@ def fetch_release_text(case, max_chars=60000) -> str:
     return _fetch_stripped(url)[:max_chars]
 
 
-# the 10-Q is ~100k tokens; the financial statements + key footnotes cluster in one window. Take a
-# slice starting just before the statements through enough chars to reach the segment/geo footnote.
-_STMT_ANCHORS = ["condensed consolidated balance sheet", "condensed consolidated statements of operations",
-                 "condensed consolidated statements of cash flows", "consolidated balance sheet"]
+# The 10-Q is ~100k tokens -- too big for a 32k-context model alongside the press release. The income
+# statement and cash flow are already in the press release, so the UNIQUE value of the 10-Q is the
+# BALANCE SHEET (working capital), the share reconciliation, and the segment/geography footnote. Anchor
+# the slice on the balance sheet (skipping the redundant income statement) so a ~33k-char window reaches
+# the geography footnote and the combined prompt fits a 32k context.
+_BS_ANCHORS = ["accounts receivable", "total current assets", "condensed consolidated balance sheets"]
+_STMT_ANCHORS = ["condensed consolidated statements of operations", "condensed consolidated balance sheet",
+                 "condensed consolidated statements of cash flows"]
 
 
-def fetch_tenq_slice(case, length=78000, lead=2000) -> str:
+def fetch_tenq_slice(case, length=20000, lead=1000) -> str:
     url = ((case.get("sources", {}) or {}).get("tenq", {}) or {}).get("url")
     if not url:
         return ""
     txt = _fetch_stripped(url)
     low = txt.lower()
-    pos = min([p for p in (low.find(a) for a in _STMT_ANCHORS) if p >= 0], default=-1)
+    pos = min([p for p in (low.find(a) for a in _BS_ANCHORS) if p >= 0], default=-1)
+    if pos < 0:
+        pos = min([p for p in (low.find(a) for a in _STMT_ANCHORS) if p >= 0], default=-1)
     start = max(0, pos - lead) if pos >= 0 else 0
     return txt[start:start + length]
 
@@ -161,6 +171,13 @@ def build_messages(case, text, tenq_text=""):
 
 
 # ---------------- tolerant JSON parse ----------------
+def _repair_json(s: str) -> str:
+    s = re.sub(r"(?<=\d),(?=\d{3}(?:\D|$))", "", s)                              # thousands separators inside numbers
+    s = re.sub(r":\s*-?[\d.]+\s*[-+*/][-+*/\d.()\s]*(?=[,}\]\n])", ": null", s)  # un-evaluated arithmetic expr -> null
+    s = re.sub(r",\s*([}\]])", r"\1", s)                                          # trailing commas
+    return s
+
+
 def parse_answer(content: str) -> dict:
     s = content.strip()
     s = re.sub(r"^```(?:json)?|```$", "", s, flags=re.MULTILINE).strip()
@@ -170,8 +187,7 @@ def parse_answer(content: str) -> dict:
     try:
         return json.loads(s)
     except json.JSONDecodeError:
-        s2 = re.sub(r",\s*([}\]])", r"\1", s)        # strip trailing commas
-        return json.loads(s2)
+        return json.loads(_repair_json(s))            # repair common LLM-JSON errors and retry
 
 
 def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, with_tenq=False):
