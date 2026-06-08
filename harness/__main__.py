@@ -50,11 +50,14 @@ def cmd_run(a):
             from .rubric import load_case
             from . import live
             case = load_case(path)
-            print(f"[live] fetching the press release and calling LM Studio at {a.endpoint} ...")
-            ans = live.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
+            print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
+            ans = live.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens, with_tenq=a.tenq)
             mo, label = ans, "live:" + str(ans.get("_model_id", "?"))
             print(f"[live] model={ans.get('_model_id')}  (parsed {len([k for k in ans if not k.startswith('_')])} sections; raw {len(ans.get('_raw',''))} chars)")
-        result, rubric = run_case(path, variant=v, mode=a.judge, model_output=mo)
+        if a.judge == "llm":
+            print(f"[judge] grading free-form P3/S2/S3 atoms with the local model at {a.endpoint} ...")
+        result, rubric = run_case(path, variant=v, mode=a.judge, model_output=mo,
+                                  endpoint=a.endpoint, model_id=a.model_id)
         print(render(result, rubric, variant=label, mode=a.judge))
 
 
@@ -122,6 +125,7 @@ def main():
     r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
     r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")
     r.add_argument("--max-tokens", type=int, default=4000)
+    r.add_argument("--tenq", action="store_true", help="also feed a 10-Q excerpt (needs ~40k context; fairer on ratio/working-capital checkpoints)")
     r.set_defaults(fn=cmd_run)
     s = sub.add_parser("suite"); s.add_argument("--model", default="oracle"); s.add_argument("--judge", default="mock", choices=["mock", "llm"])
     s.set_defaults(fn=cmd_suite)

@@ -67,19 +67,40 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
 
 
 # ---------------- fetch the press release text ----------------
-def fetch_release_text(case, max_chars=60000) -> str:
-    url = ((case.get("sources", {}) or {}).get("release", {}) or {}).get("ex99_1_url")
-    if not url:
-        raise RuntimeError(f"{case['case_id']}: no sources.release.ex99_1_url to read")
+def _fetch_stripped(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=90) as r:
         html = r.read().decode("utf-8", "ignore")
     text = re.sub(r"<[^>]+>", " ", html)
     text = (text.replace("&#160;", " ").replace("&nbsp;", " ").replace("&amp;", "&")
                 .replace("&#8217;", "'").replace("&#8212;", "-").replace("&#8220;", '"').replace("&#8221;", '"'))
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n+", "\n", text)
-    return text.strip()[:max_chars]
+    return text.strip()
+
+
+def fetch_release_text(case, max_chars=60000) -> str:
+    url = ((case.get("sources", {}) or {}).get("release", {}) or {}).get("ex99_1_url")
+    if not url:
+        raise RuntimeError(f"{case['case_id']}: no sources.release.ex99_1_url to read")
+    return _fetch_stripped(url)[:max_chars]
+
+
+# the 10-Q is ~100k tokens; the financial statements + key footnotes cluster in one window. Take a
+# slice starting just before the statements through enough chars to reach the segment/geo footnote.
+_STMT_ANCHORS = ["condensed consolidated balance sheet", "condensed consolidated statements of operations",
+                 "condensed consolidated statements of cash flows", "consolidated balance sheet"]
+
+
+def fetch_tenq_slice(case, length=78000, lead=2000) -> str:
+    url = ((case.get("sources", {}) or {}).get("tenq", {}) or {}).get("url")
+    if not url:
+        return ""
+    txt = _fetch_stripped(url)
+    low = txt.lower()
+    pos = min([p for p in (low.find(a) for a in _STMT_ANCHORS) if p >= 0], default=-1)
+    start = max(0, pos - lead) if pos >= 0 else 0
+    return txt[start:start + length]
 
 
 # ---------------- prompt ----------------
@@ -116,23 +137,26 @@ disclose a value; never invent a number). Aggregates in USD MILLIONS as plain nu
 }"""
 
 
-def build_messages(case, text):
+def build_messages(case, text, tenq_text=""):
     cons = case.get("consensus", {}) or {}
     e6 = case["gold"]["E6"]
     probe_q = (e6.get("undisclosed_probe", {}) or {}).get("question", "")
     twin_q = (e6.get("answerable_twin", {}) or {}).get("question", "")
-    system = ("You are a buy-side equity analyst. Read the earnings press release and produce a "
-              "structured JSON earnings memo. Extract figures exactly as reported; mark anything not "
-              "in the document as null (or 'NOT_DISCLOSED' for the E6 probe). DO NOT invent numbers. "
-              "Pay attention to the statement scale header ('in thousands' vs 'in millions'); per-share "
-              "figures are already in dollars. Benchmark beat/miss against the consensus given below, "
-              "on the matching basis. Return ONLY the JSON object, no prose.")
+    src = "the earnings press release" + (" and the 10-Q excerpt" if tenq_text else "")
+    system = (f"You are a buy-side equity analyst. Read {src} and produce a structured JSON earnings "
+              "memo. Extract figures exactly as reported; mark anything not in the documents as null "
+              "(or 'NOT_DISCLOSED' for the E6 probe). DO NOT invent numbers. Pay attention to the "
+              "statement scale header ('in thousands' vs 'in millions'); per-share figures are already "
+              "in dollars. Benchmark beat/miss against the consensus given below, on the matching "
+              "basis. Return ONLY the JSON object, no prose.")
     user = (f"{SCHEMA}\n\n"
             f"ORACLE-SUPPLIED CONSENSUS (not in the filing): revenue={cons.get('revenue',{}).get('value_usd_mm')} USD mm, "
             f"EPS={cons.get('eps',{}).get('value')} ({cons.get('eps',{}).get('basis')} basis, {cons.get('eps',{}).get('statistic')}).\n"
-            f"E6 undisclosed probe (answer NOT_DISCLOSED if the filing does not break it out): {probe_q}\n"
+            f"E6 undisclosed probe (answer NOT_DISCLOSED if the documents do not break it out): {probe_q}\n"
             f"E6 answerable twin (this IS disclosed -- find it): {twin_q}\n\n"
             f"=== EARNINGS PRESS RELEASE ===\n{text}")
+    if tenq_text:
+        user += f"\n\n=== 10-Q EXCERPT (financial statements + footnotes) ===\n{tenq_text}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -150,9 +174,10 @@ def parse_answer(content: str) -> dict:
         return json.loads(s2)
 
 
-def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000):
+def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, with_tenq=False):
     text = fetch_release_text(case)
-    msgs = build_messages(case, text)
+    tenq = fetch_tenq_slice(case) if with_tenq else ""
+    msgs = build_messages(case, text, tenq)
     content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
     try:
         out = parse_answer(content)

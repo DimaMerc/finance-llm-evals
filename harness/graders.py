@@ -113,8 +113,13 @@ def _eq(a, b):
     return a is not None and b is not None and str(a).strip() == str(b).strip()
 
 
-def grade(atoms, model, gold, rubric, mode="mock"):
-    """grade every materialized atom. mode 'mock' = offline; 'llm' would call judge/entailment graders."""
+_LLM_JUDGE_CPS = {"P3", "S2", "S3"}   # the genuinely free-form checkpoints an LLM judge should grade
+
+
+def grade(atoms, model, gold, rubric, mode="mock", judge_fn=None):
+    """grade every materialized atom. judge_fn (when given) grades the free-form P3/S2/S3 positive
+    judge atoms with a real LLM; everything else (deterministic, gating, entailment, S1 contingency,
+    penalties) is unchanged."""
     tol = rubric["tolerances"]
     P1g, P2g, P3g = gold.get("P1", {}), gold.get("P2", {}), gold.get("P3", {})
     P1m, P2m, P3m = model.get("P1", {}), model.get("P2", {}), model.get("P3", {})
@@ -301,7 +306,10 @@ def grade(atoms, model, gold, rubric, mode="mock"):
 
         # ---------- everything else (deterministic 'present', judge/entailment positives) ----------
         if a.grader in ("judge", "entailment"):
-            verdicts[a.id] = Verdict(_judge_mock(a, model, gold), a.grader, "mock")
+            if judge_fn and a.grader == "judge" and a.points > 0 and a.checkpoint in _LLM_JUDGE_CPS:
+                verdicts[a.id] = Verdict(judge_fn(a, model, gold), "judge", "llm")
+            else:
+                verdicts[a.id] = Verdict(_judge_mock(a, model, gold), a.grader, "mock")
         else:
             verdicts[a.id] = det(1.0, "default-present")
 
