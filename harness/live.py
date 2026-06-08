@@ -178,7 +178,14 @@ def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, w
     text = fetch_release_text(case)
     tenq = fetch_tenq_slice(case) if with_tenq else ""
     msgs = build_messages(case, text, tenq)
+    approx_tok = sum(len(m["content"]) for m in msgs) // 4
     content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
+    if not content.strip():
+        raise RuntimeError(
+            f"Model returned an EMPTY completion (prompt ~{approx_tok:,} tokens). This almost always "
+            f"means the prompt exceeded the model's loaded context window in LM Studio. Reload the model "
+            f"with a larger context length (>= {((approx_tok + max_tokens)//1024 + 4):d}k) and retry"
+            + (" (or drop --tenq)." if with_tenq else "."))
     try:
         out = parse_answer(content)
     except json.JSONDecodeError:

@@ -71,6 +71,35 @@ were built around the grader's own assumptions):
 Before the fix the model looked like a 0.09; after, an honest 0.68. *That* is why you run real models
 against an eval — they find the calibration errors a synthetic test never will.
 
+### Then: a real LLM judge on the synthesis (`--judge llm`)
+
+The 0.68 above still used `--judge mock`, which hands any non-empty synthesis a free 1.0. Swapping in
+a **real local judge** (`judge.md`'s one-criterion-per-call contract, run on the same 5090) on the
+free-form P3/S2/S3 atoms drops the score to an honest **0.532** — and the drop is *correct*:
+
+| | mock judge | real LLM judge |
+|---|---:|---:|
+| **CaseScore** | 0.679 | **0.532** |
+| P3 (scope) | 1.000 | 0.571 |
+| S2 (material changes + quality) | 1.000 | **0.000** |
+| S3 (calibrated bottom line) | 1.000 | **0.000** |
+
+The model's S2 listed *surface metrics* ("revenue +32%", "retention 125%") instead of the thesis-movers
+(the +1,118 bps GAAP-margin swing, the SBC ≈ 38%-of-revenue quality caveat, the guidance raise); its S3
+bottom line was generic ("strong results… solid beat") and never flagged that Snowflake is
+GAAP-unprofitable. The judge caught all of it. **Honest read of qwen2.5-32B: a competent *extractor*
+(E2/E5 ≈ 0.91, the EPS bridge C3 = 0.70, beat/miss C5 = 0.83) but a weak *analyst*** — exactly the kind
+of capability split a hiring firm needs to see before trusting a model with a memo.
+
+> Caveat: this was the *same* model judging itself (qwen judging qwen). `judge.md` calls for a
+> **cross-family** judge; here it happened to be harsh on itself, not lenient, but a different judge
+> model is the correct setup. Also captured: [`live-snow-qwen2.5-32b-judge.report.txt`](live-snow-qwen2.5-32b-judge.report.txt).
+
+> **On `--tenq` (feeding the 10-Q):** the harness can also feed a ~78k-char 10-Q excerpt so the
+> ratio/working-capital checkpoints and the E6 twin grade on data the model can see — but the combined
+> prompt is ~31k tokens, so the model must be loaded with **≥ 40k context** (trivial on a 5090). With a
+> smaller window the model returns an empty completion and the harness says so.
+
 ## How to reproduce
 
 ```bash

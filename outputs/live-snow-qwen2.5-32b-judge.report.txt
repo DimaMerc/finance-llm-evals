@@ -1,0 +1,43 @@
+========================================================================
+  CASE snow-2026q2    model=qwen2.5-32b (press-release) + REAL LLM judge    judge=llm
+========================================================================
+  CaseScore (gated, headline) : 0.532
+  CaseScore (ungated)         : 0.532
+  GAP (ungated - gated)       : 0.000
+  AllPass                     : 0
+  E6 calibration (R,G->F_b)   : R=0.00 G=1.00 -> 0.000
+  Gates fired                 : none
+
+  Checkpoint vector (which step failed):
+    cp   W      ungated  gated   raw
+    P1   0.040  0.870   0.870  +0.87
+    P2   0.040  0.905   0.905  +0.90
+    P3   0.050  0.571   0.571  +0.57
+    E1   0.075  0.640   0.640  +0.64
+    E2   0.065  0.914   0.914  +0.91
+    E3   0.070  0.407   0.407  +0.41
+    E4   0.045  1.000   1.000  +1.00
+    E5   0.045  0.909   0.909  +0.91
+    E6   0.060  0.000   0.000  +0.00
+    C1   0.060  0.455   0.455  +0.45
+    C2   0.065  0.143   0.143  +0.14
+    C3   0.075  0.700   0.700  +0.70
+    C4   0.060  0.133   0.133  +0.13
+    C5   0.065  0.826   0.826  +0.83
+    S1   0.060  1.000   1.000  +1.00
+    S2   0.070  0.000   0.000  +0.00
+    S3   0.055  0.000   0.000  +0.00
+
+  Category rollup (diagnostic -- what KIND of error):
+    extraction   +0.791  ################
+    numerical    +0.459  #########
+    entailment   +0.556  ###########
+    reasoning    +0.493  ##########
+    calibration  +0.562  ###########
+    structure    +0.867  #################
+========================================================================
+
+Note: mock judge gave S2=S3=1.0 (free credit for any non-empty answer); the real local judge
+scored S2=S3=0.0 -- the model listed surface metrics, not the thesis-moving changes / QoE flags.
+CaseScore with the real judge: 0.532 (vs 0.679 mock). Caveat: judge is same-family (qwen judging
+qwen); judge.md calls for a cross-family judge -- it happened to be harsh on itself here, not lenient.
