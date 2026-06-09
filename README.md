@@ -21,6 +21,9 @@ python -m harness selftest    # sanity check — prints PASSED
 The only dependency is `pyyaml`. The demo and the entire deterministic scoring
 core run offline. (`pip install -r harness/requirements.txt` if `pyyaml` is missing.)
 
+> 📄 **Prefer prose?** [`PAPER.md`](PAPER.md) is a ~2-page methodology write-up of the
+> design and the preliminary findings.
+
 ## What's here
 
 | Path | Contents | Status |
@@ -73,4 +76,5 @@ project context.
 
 ## License
 
-TBD.
+MIT — see [`LICENSE`](LICENSE). Gold-case figures are public-record facts from SEC EDGAR,
+attributed to their source filings.

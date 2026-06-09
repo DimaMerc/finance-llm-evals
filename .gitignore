@@ -29,3 +29,6 @@ env/
 # MS Office lock/temp files (e.g. ~$PAPER.md when the doc is open) and EDGAR scratch dir
 ~$*
 .edgar_tmp/
+
+# Internal Claude Code handoff/strategy doc -- kept local, NOT published (contains private notes)
+CLAUDE.md

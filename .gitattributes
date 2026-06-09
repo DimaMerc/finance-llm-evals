@@ -1,0 +1,6 @@
+# Normalize line endings so the repo is consistent across OSes (silences CRLF warnings on Windows).
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
