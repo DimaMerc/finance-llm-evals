@@ -1,5 +1,7 @@
 # finance-llm-evals
 
+![Looks right ≠ is right — a runnable, rubric-graded evaluation for finance LLMs: a model that misreads a statement header scores 95% on a naive average but 45% once the gate fires.](assets/hero.png)
+
 A runnable evaluation of how well large language models perform a real
 **asset-management analyst workflow — quarterly earnings analysis** — judged
 the way a finance professional actually judges it: against a rubric, with every
