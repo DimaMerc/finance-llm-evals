@@ -14,6 +14,16 @@ import json
 import re
 import time
 import urllib.request
+import urllib.error
+
+
+def _fold_system(messages):
+    """Some chat templates (e.g. Gemma) reject a `system` role -> fold it into the first user turn."""
+    sys_text = "\n\n".join(m["content"] for m in messages if m.get("role") == "system")
+    rest = [m for m in messages if m.get("role") != "system"]
+    if sys_text and rest and rest[0].get("role") == "user":
+        rest = [{"role": "user", "content": sys_text + "\n\n" + rest[0]["content"]}] + rest[1:]
+    return rest
 
 UA = "finance-llm-evals research welt.management.solutions@gmail.com"
 DEFAULT_ENDPOINT = "http://localhost:1234/v1"
@@ -33,10 +43,11 @@ def list_models(endpoint=DEFAULT_ENDPOINT):
 
 
 def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0,
-         stream=True, timeout=90, deadline=240):
+         stream=True, timeout=90, deadline=240, _folded=False):
     """Call the OpenAI-compatible chat endpoint. Streaming by default so a long generation trickles
     tokens. `timeout` is the per-read socket timeout; `deadline` is a HARD wall-clock cap on the whole
-    call -- the loop breaks past it no matter what, so a stalled/looping server can never hang forever."""
+    call -- the loop breaks past it no matter what, so a stalled/looping server can never hang forever.
+    On a 400 (some templates, e.g. Gemma, reject a `system` role) we fold system into user and retry."""
     if model_id is None:
         ms = list_models(endpoint)
         if not ms:
@@ -45,29 +56,35 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
     url = endpoint.rstrip("/") + "/chat/completions"
     payload = {"model": model_id, "messages": messages, "max_tokens": max_tokens,
                "temperature": temperature, "stream": stream}
-    if not stream:
-        return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    parts, t0 = [], time.monotonic()
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        for raw in r:                                   # SSE: one "data: {...}" line per token chunk
-            if time.monotonic() - t0 > deadline:        # hard wall-clock cap -> never hang
-                break
-            line = raw.decode("utf-8", "ignore").strip()
-            if not line.startswith("data:"):
-                continue
-            d = line[5:].strip()
-            if d == "[DONE]":
-                break
-            try:
-                obj = json.loads(d)
-            except json.JSONDecodeError:
-                continue
-            delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content")
-            if delta:
-                parts.append(delta)
-    return "".join(parts), model_id
+    try:
+        if not stream:
+            return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        parts, t0 = [], time.monotonic()
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            for raw in r:                               # SSE: one "data: {...}" line per token chunk
+                if time.monotonic() - t0 > deadline:    # hard wall-clock cap -> never hang
+                    break
+                line = raw.decode("utf-8", "ignore").strip()
+                if not line.startswith("data:"):
+                    continue
+                d = line[5:].strip()
+                if d == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(d)
+                except json.JSONDecodeError:
+                    continue
+                delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content")
+                if delta:
+                    parts.append(delta)
+        return "".join(parts), model_id
+    except urllib.error.HTTPError as e:
+        if e.code == 400 and not _folded and any(m.get("role") == "system" for m in messages):
+            return chat(_fold_system(messages), endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
+                        temperature=temperature, stream=stream, timeout=timeout, deadline=deadline, _folded=True)
+        raise
 
 
 # ---------------- fetch the press release text ----------------
