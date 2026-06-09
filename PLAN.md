@@ -75,6 +75,8 @@ workflow definition + eval creation + capability assessment + data curation
 - [ ] A short calibration write-up (judge-vs-human agreement on a sample).
 - [x] README so a screener can run it and read the findings (`outputs/README.md`, `harness/README.md`).
 
-## Phase 6 — Publish + apply
+## Phase 6 — Publish & extend
+- [x] MIT-licensed, public-ready: `LICENSE`, line-ending normalization, README + `PAPER.md`.
 - [ ] Push to GitHub (public).
-- [ ] (Later) Moat version: an options / ETF / defined-outcome eval.
+- [ ] **Next:** broaden the suite (more issuers/quarters) and run the judge-vs-expert calibration.
+- [ ] **Moat version:** an options / ETF / defined-outcome eval that few others can author.
