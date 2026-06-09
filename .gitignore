@@ -26,3 +26,6 @@ env/
 .DS_Store
 .vscode/
 .idea/
+# MS Office lock/temp files (e.g. ~$PAPER.md when the doc is open) and EDGAR scratch dir
+~$*
+.edgar_tmp/
