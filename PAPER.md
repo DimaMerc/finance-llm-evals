@@ -1,7 +1,8 @@
 # A Runnable, Rubric-Graded Evaluation for Finance LLMs: Quarterly Earnings Analysis
 
-**Dmitry Krutous** · MBA, PMP · welt.management.solutions@gmail.com
-*Methodology note & preliminary findings. The artifact is the runnable repository this paper accompanies.*
+**Dmitry Krutous** · MBA, PMP · [linkedin.com/in/dmitrykrutous](https://www.linkedin.com/in/dmitrykrutous/) · welt.management.solutions@gmail.com
+*Methodology note & preliminary findings. The artifact is the runnable repository this paper accompanies:
+[github.com/DimaMerc/finance-llm-evals](https://github.com/DimaMerc/finance-llm-evals).*
 
 ---
 
