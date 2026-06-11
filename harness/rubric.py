@@ -17,6 +17,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 RUBRIC_PATH = os.path.join(REPO, "rubric", "criteria.yaml")
 
+# suite key (case `suite:` field) -> criteria file. Cases without a suite field are eval #1.
+SUITE_RUBRICS = {
+    "earnings-analysis": "criteria.yaml",
+    "defined-outcome-etf": "criteria-defined-outcome.yaml",
+}
+DEFAULT_SUITE = "earnings-analysis"
+
+
+def suite_of(case: dict) -> str:
+    return case.get("suite") or DEFAULT_SUITE
+
+
+def rubric_path_for(case: dict) -> str:
+    return os.path.join(REPO, "rubric", SUITE_RUBRICS[suite_of(case)])
+
 
 @dataclass
 class Atom:
@@ -42,19 +57,29 @@ def load_case(path: str) -> dict:
         return yaml.safe_load(fh)
 
 
+# expand key -> (manifest expand_counts key, materialized id suffix, figure_name prefix)
+# eval-#1 suffixes are preserved exactly (.seg{i} / .row{i}) so atom ids stay byte-stable.
+_EXPANSIONS = {
+    "per_segment_row": ("segment_rows", "seg", "segment"),
+    "per_addback_row": ("addback_rows", "row", "addback"),
+    "per_bridge_row":  ("addback_rows", "row", "addback"),
+    "per_leg_row":     ("leg_rows", "row", "leg"),
+    "per_grid_row":    ("grid_rows", "row", "grid"),
+    "per_claim_row":   ("claim_rows", "row", "claim"),
+}
+
+
 def _manifest_params(case: dict):
-    """N_segments, N_addbacks, and the prune set (figure_names marked N/A for this case)."""
+    """expand-row counts and the prune set (figure_names marked N/A for this case)."""
     man = case.get("manifest", {}) or {}
-    counts = man.get("expand_counts", {}) or {}
-    n_seg = int(counts.get("segment_rows", 0) or 0)
-    n_add = int(counts.get("addback_rows", 0) or 0)
+    counts = {k: int(v or 0) for k, v in (man.get("expand_counts", {}) or {}).items()}
     na = set(man.get("na_figures", []) or [])
-    return n_seg, n_add, na
+    return counts, na
 
 
 def materialize(rubric: dict, case: dict) -> list[Atom]:
     """Expand the rubric's atoms into the concrete per-case atom set (split + prune)."""
-    n_seg, n_add, na = _manifest_params(case)
+    counts, na = _manifest_params(case)
     out: list[Atom] = []
     for a in rubric["criteria"]:
         base = dict(
@@ -65,30 +90,20 @@ def materialize(rubric: dict, case: dict) -> list[Atom]:
             for f in a["figures"]:
                 nm, pts, tk = f["figure_name"], f["points"], f.get("tolerance_key")
                 exp = f.get("expand")
-                if exp == "per_segment_row":
-                    n = n_seg
+                if exp in _EXPANSIONS:
+                    ckey, suffix, prefix = _EXPANSIONS[exp]
+                    n = counts.get(ckey, 0)
                     for i in range(n):
-                        out.append(Atom(id=f"{a['id']}.seg{i}", points=pts / n if n else 0.0,
-                                        tolerance=tk, figure_name=f"segment_{i}", **base))
-                elif exp in ("per_addback_row", "per_bridge_row"):
-                    n = n_add
-                    for i in range(n):
-                        out.append(Atom(id=f"{a['id']}.row{i}", points=pts / n if n else 0.0,
-                                        tolerance=tk, figure_name=f"addback_{i}", **base))
+                        out.append(Atom(id=f"{a['id']}.{suffix}{i}", points=pts / n if n else 0.0,
+                                        tolerance=tk, figure_name=f"{prefix}_{i}", **base))
                 else:
                     if a.get("prune") == "per_manifest" and nm in na:
                         continue  # PRUNE: figure removed from num+denom (F6)
                     out.append(Atom(id=f"{a['id']}.{nm}", points=pts, tolerance=tk,
                                     figure_name=nm, **base))
         else:
-            # C3 bridge step pool also splits per add-back row (F3)
-            if a["id"] == "C3.addbacks_steps":
-                n = n_add
-                for i in range(n):
-                    out.append(Atom(id=f"{a['id']}.row{i}", points=a["points"] / n if n else 0.0,
-                                    tolerance=a.get("tolerance"), figure_name=f"addback_{i}", **base))
-            else:
-                out.append(Atom(id=a["id"], points=a["points"], tolerance=a.get("tolerance"), **base))
+            # (C3.addbacks_steps is per_figure in criteria.yaml and expands above — no special case)
+            out.append(Atom(id=a["id"], points=a["points"], tolerance=a.get("tolerance"), **base))
     return out
 
 
@@ -110,5 +125,5 @@ if __name__ == "__main__":
         by_g[a.grader] = by_g.get(a.grader, 0) + 1
     print(f"case {case['case_id']}: {len(atoms)} materialized atoms | +{pos:.1f} / {neg:.1f}")
     print("by grader:", by_g)
-    n_seg, n_add, napos = _manifest_params(case)
-    print(f"manifest: segments={n_seg} addbacks={n_add} na_figures={sorted(napos)}")
+    counts, napos = _manifest_params(case)
+    print(f"manifest: expand_counts={counts} na_figures={sorted(napos)}")

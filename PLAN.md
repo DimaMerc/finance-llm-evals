@@ -147,10 +147,25 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
       100%-buffer fund; floor-vs-buffer discrimination probe; SPX contrast case
       (~20× strike scale); designed reconciliation-break case.
 
-## Phase 4 — Harness extension  → `harness/`
-- [ ] **Precondition:** refactor graders.py to data-driven dispatch (currently hardcodes
-      earnings atom ids) + scoring.py's gate→atom map; then the `COMPUTED`-aware refusal
-      grader and the `free_lunch_fired` headline flag.
+## Phase 4 — Harness extension  → `harness/`  ✅ done
+- [x] **The dispatch refactor:** `graders.py` is now a suite-agnostic engine (refusal
+      placeholder → suite handlers → penalties → judge/entailment → default, the original
+      flow); the eval-#1 logic moved verbatim into `harness/suites/earnings.py`;
+      `scoring.py`'s gate map is **derived from each rubric's `fired_by` hooks** (positive
+      atoms fire when unmet, penalty atoms when present) and the refusal checkpoint
+      (E6/E5) is suite-supplied, never hardcoded. **Eval #1 verified byte-identical** to
+      the pre-refactor baseline (3 cases × 5 variants + demo, diffed).
+- [x] **Eval-#2 suite** (`harness/suites/defined_outcome.py`): leg/payoff/recompute/
+      remaining-outcome/claim-verdict handlers; per_leg/grid/claim row expansion; the
+      **`COMPUTED`-aware E5 refusal grader** (judge.md §8 G-mapping, value keyed to C6's
+      band); the **GATE.FREELUNCH deterministic predicate** with the `free_lunch_fired`
+      headline flag on the Result; `deciding_kind`-aware C7 grading (rubric 1.0.1);
+      oracle + 6 flawed variants (vintage_slip / refscale_slip / feebasis_mix /
+      free_lunch / fabricate_probe / c6_flip).
+- [x] `python -m harness selftest` now guards BOTH suites: eval-#2 oracle 1.000/AllPass
+      on all 3 KOCT cases; the gate tiers open differentiated GAPs (VINTAGE 0.82 ·
+      REFSCALE 0.46 · FEEBASIS 0.18 · FREELUNCH 0.07+flag · C6DIR 0.07). This also fixes
+      `suite`/`selftest`, which crashed on the KOCT cases after Phase 3 landed them.
 
 ## Phase 5 — Graded runs + write-up
 - [ ] Run models through both evals; populate the taxonomy from real traces; extend

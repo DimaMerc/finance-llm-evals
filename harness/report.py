@@ -13,8 +13,11 @@ def render(result, rubric, *, variant="", mode="mock") -> str:
     L.append(f"  GAP (ungated - gated)       : {result.gap:.3f}")
     L.append(f"  AllPass                     : {result.allpass}")
     R, G = result.e6
-    L.append(f"  E6 calibration (R,G->F_b)   : R={R:.2f} G={G:.2f} -> {result.checkpoints['E6']['score_gated']:.3f}")
+    rcp = result.refusal_cp
+    L.append(f"  {rcp} calibration (R,G->F_b)   : R={R:.2f} G={G:.2f} -> {result.checkpoints[rcp]['score_gated']:.3f}")
     L.append(f"  Gates fired                 : {', '.join(result.fired_gates) or 'none'}")
+    if result.flags:
+        L.append(f"  Headline flags              : {', '.join(result.flags)}")
     L.append("")
     L.append("  Checkpoint vector (which step failed):")
     L.append("    cp   W      ungated  gated   raw")

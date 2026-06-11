@@ -2,10 +2,18 @@
 harness/scoring.py — aggregate atom verdicts into the rubric's scored report.
 
 INNER (per checkpoint k): awarded = sum(met*points) over ALL atoms (met negatives subtract);
-raw_pos = sum positive points; checkpoint_score = clip(awarded/raw_pos, 0, 1). E6 is the exception:
-its headline is the FailSafeQA F-beta LLMC_beta(R, G), not the pool (rubric §2.2/§7).
+raw_pos = sum positive points; checkpoint_score = clip(awarded/raw_pos, 0, 1). The refusal
+checkpoint (E6 in eval #1, E5 in eval #2 — supplied by the suite via run_case, defaulted E6) is
+the exception: its headline is the FailSafeQA F-beta LLMC_beta(R, G), not the pool (rubric §2.2/§7).
 CASE = sum_k W_k * checkpoint_score(k). Category rollup pools the same atoms by tag.
 Gates set m=0 on dependent atoms (gated pass only); zeroed atoms stay in the denominator.
+
+GATE FIRING IS DATA-DRIVEN (Phase-4 refactor): each gate in the rubric's `gates:` block declares
+`fired_by` — one or more atom ids. A hook that is a POSITIVE atom fires its gate when UNMET
+(met < 1); a hook that is a PENALTY atom (points < 0 in the rubric) fires when PRESENT (met >= 1).
+Positive-hook gates are evaluated first in rubric order, then penalty-hook gates — reproducing the
+original hardcoded ordering. A gate may declare `headline_flag` (e.g. GATE.FREELUNCH ->
+free_lunch_fired): fired flags are surfaced on the Result beside the CaseScore.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -28,6 +36,28 @@ def _gated(atom, fired_gates, gate_specs):
     return False
 
 
+def _fired_gates(rubric, verdicts):
+    """which gates fired, from the gates' own fired_by hooks (positive-hook gates first)."""
+    atom_pts = {a["id"]: a.get("points", 0) for a in rubric["criteria"]}
+    fired = []
+    deferred = []   # penalty-hook gates evaluate after positive-hook gates (original ordering)
+    for g in rubric["gates"]:
+        hooks = g["fired_by"] if isinstance(g["fired_by"], list) else [g["fired_by"]]
+        target = deferred if all(atom_pts.get(h, 0) < 0 for h in hooks) else fired
+        fires = False
+        for h in hooks:
+            v = verdicts.get(h)
+            if v is None:
+                continue
+            if atom_pts.get(h, 0) < 0:
+                fires = fires or v.met >= 0.999       # penalty present
+            else:
+                fires = fires or v.met < 0.999        # positive gate atom unmet
+        if fires:
+            target.append(g["id"])
+    return fired + deferred
+
+
 @dataclass
 class Result:
     case_id: str
@@ -38,37 +68,34 @@ class Result:
     gap: float
     allpass: int
     fired_gates: list
-    e6: tuple = field(default_factory=lambda: (0.0, 0.0))
+    e6: tuple = field(default_factory=lambda: (0.0, 0.0))   # (R, G) for the refusal checkpoint
+    refusal_cp: str = "E6"
+    flags: list = field(default_factory=list)                # fired headline flags (e.g. free_lunch_fired)
 
 
-def score(atoms, verdicts, e6_RG, rubric, case_id="case", beta=None):
+def score(atoms, verdicts, e6_RG, rubric, case_id="case", beta=None, refusal_cp="E6"):
     meta = rubric["meta"]
     cpw = meta["checkpoint_weights"]
     beta = meta.get("refusal_beta", 0.5) if beta is None else beta
     gate_specs = {g["id"]: g for g in rubric["gates"]}
     R, G = e6_RG
 
-    # ---- which gates fired? (positive gate atoms: fire when NOT met; FABRICATION: when a hook is present) ----
-    fired = []
-    pos_gate_atom = {"GATE.P1": "P1.2", "GATE.P2": "P2.1", "GATE.P3": "P3.3",
-                     "GATE.C1SIGN": "C1.sign", "GATE.C5SIGN": "C5.direction"}
-    for gid, aid in pos_gate_atom.items():
-        v = verdicts.get(aid)
-        if v is not None and v.met < 0.999:
-            fired.append(gid)
-    for hook in gate_specs["GATE.FABRICATION"].get("fired_by", []):
-        if verdicts.get(hook) and verdicts[hook].met >= 0.999:
-            fired.append("GATE.FABRICATION")
-            break
+    # ---- which gates fired? (data-driven from the rubric's fired_by hooks) ----
+    fired = _fired_gates(rubric, verdicts)
+    flags = [g["headline_flag"] for g in rubric["gates"] if g.get("headline_flag") and g["id"] in fired]
 
     # ---- per-checkpoint pooling ----
     cps = {}
     for k in cpw:
         sub = [a for a in atoms if a.checkpoint == k]
         raw_pos = sum(a.points for a in sub if a.points > 0)
-        if k == "E6":
-            e6h = _llmc_beta(R, G, beta)
-            cps[k] = dict(raw_pos=raw_pos, score_ungated=e6h, score_gated=e6h, raw_unclipped=e6h)
+        if k == refusal_cp:
+            rh = _llmc_beta(R, G, beta)
+            # a fired gate that lists the refusal checkpoint in its dependents (e.g. GATE.VINTAGE -> E5,
+            # GATE.P1 -> E6) zeroes the gated headline too — the F-beta substitution is not a gate shield
+            zeroed = any(k in (gate_specs[gid].get("dependents") or []) for gid in fired)
+            cps[k] = dict(raw_pos=raw_pos, score_ungated=rh,
+                          score_gated=0.0 if zeroed else rh, raw_unclipped=rh)
             continue
         aw_u = aw_g = 0.0
         for a in sub:
@@ -98,13 +125,13 @@ def score(atoms, verdicts, e6_RG, rubric, case_id="case", beta=None):
             num += (v.met if v else 0.0) * a.points
         cats[t] = (num / den) if den else 0.0
 
-    # ---- AllPass: no gate fired, every positive in-scope atom met, no penalty present, E6 R=G=1 ----
+    # ---- AllPass: no gate fired, every positive in-scope atom met, no penalty present, R=G=1 ----
     allpass = 1
     if fired:
         allpass = 0
     else:
         for a in atoms:
-            if a.checkpoint == "E6":
+            if a.checkpoint == refusal_cp:
                 continue
             v = verdicts.get(a.id)
             if a.points > 0 and (v is None or v.met < 0.999):
@@ -116,4 +143,5 @@ def score(atoms, verdicts, e6_RG, rubric, case_id="case", beta=None):
 
     return Result(case_id=case_id, checkpoints=cps, categories=cats,
                   case_ungated=round(case_u, 4), case_gated=round(case_g, 4),
-                  gap=round(case_u - case_g, 4), allpass=allpass, fired_gates=fired, e6=(R, G))
+                  gap=round(case_u - case_g, 4), allpass=allpass, fired_gates=fired, e6=(R, G),
+                  refusal_cp=refusal_cp, flags=flags)

@@ -16,8 +16,8 @@ from . import live
 
 LLM_JUDGE_CHECKPOINTS = {"P3", "S2", "S3"}
 
-_SYS = ("You are a meticulous finance-domain grader applying ONE rubric criterion to an equity "
-        "analyst's earnings memo. You are given the criterion, the relevant part of the memo, and a "
+_SYS = ("You are a meticulous finance-domain grader applying ONE rubric criterion to {memo_kind}. "
+        "You are given the criterion, the relevant part of the memo, and a "
         "GOLD reference written by an expert. Decide whether the memo SATISFIES the criterion. Treat "
         "the GOLD as ground truth; do NOT re-derive or recompute any number. Be strict: award only if "
         "the memo actually contains the required substance (not merely a non-empty answer). Reply with "
@@ -28,18 +28,25 @@ def _section(container, cp):
     return container.get(cp, {}) if isinstance(container, dict) else {}
 
 
-def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=300):
-    """Return judge_fn(atom, model, gold) -> met in {0.0, 1.0} using the local model."""
+def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=300, rubric=None,
+               memo_kind="an equity analyst's earnings memo"):
+    """Return judge_fn(atom, model, gold) -> met in {0.0, 1.0} using the local model.
+    Pass the case's RUBRIC so criterion text resolves for both suites (review fix: the old
+    module-level cache loaded only criteria.yaml, so eval-#2 atoms judged on bare ids)."""
+    crit = {a["id"]: a.get("criterion", "") for a in rubric["criteria"]} if rubric else None
+    sys_prompt = _SYS.format(memo_kind=memo_kind)
+
     def judge_fn(atom, model, gold):
         cp = atom.checkpoint
         memo = json.dumps(_section(model, cp), default=str)[:4000]
         ref = json.dumps(_section(gold, cp), default=str)[:4000]
-        user = (f"CRITERION ({atom.id}): {_criterion_text(atom)}\n\n"
+        text = crit.get(atom.source_id, atom.source_id) if crit is not None else _criterion_text(atom)
+        user = (f"CRITERION ({atom.id}): {text}\n\n"
                 f"MEMO SECTION ({cp}):\n{memo}\n\n"
                 f"GOLD REFERENCE ({cp}):\n{ref}\n\n"
                 "Does the memo satisfy the criterion? JSON only.")
         try:
-            content, _ = live.chat([{"role": "system", "content": _SYS}, {"role": "user", "content": user}],
+            content, _ = live.chat([{"role": "system", "content": sys_prompt}, {"role": "user", "content": user}],
                                    endpoint=endpoint, model_id=model_id, max_tokens=max_tokens, temperature=0.0)
             verdict = live.parse_answer(content)
             return 1.0 if bool(verdict.get("criteria_met")) else 0.0
