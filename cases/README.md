@@ -40,7 +40,7 @@ sibling-vintage N-PORTs (same-day filings, adjacent accessions, strikes ~1.7–2
 |---|---|---|---|
 | [`koct-op2026-anchor`](koct-op2026-anchor.case.yaml) | **REAL** 2026-06-10 (issuer NAV $36.46, NAV₀ $33.00, IWM $285.02 — all cited) | mid-period after a rally: reference above the cap strike, buffer intact | remaining cap **+6.06% gross / +5.82% net** vs the stated 17.18% — quoting the stated cap to today's buyer is the defining failure; the 9.49% unbuffered gap comes first |
 | [`koct-op2026-postrally`](koct-op2026-postrally.case.yaml) | **constructed** 2026-09-18 (labeled hypothetical) | near-cap, 12 days to expiry | remaining cap **+0.81% gross / +0.78% net → "~zero"**: little or no remaining upside, full remaining downside (gap 13.97%); includes the no-arbitrage note on why the NAV-anchored net floor is ~the one-year ER, not negative |
-| [`koct-op2026-postdrawdown`](koct-op2026-postdrawdown.case.yaml) | **constructed** 2026-08-14 (labeled hypothetical) | reference 6.60% below Ref₀, inside the buffer band | buffer **43.98% consumed ≠ breached**; remaining cap **ENLARGED to +21.41% gross**; no unbuffered gap — the stated terms here *understate* the buyer's upside |
+| [`koct-op2026-postdrawdown`](koct-op2026-postdrawdown.case.yaml) | **constructed** 2026-08-14 (labeled hypothetical) | reference 6.60% below Ref₀, inside the buffer band | buffer **43.98% consumed ≠ breached**; remaining cap **ENLARGED to +18.26% gross** vs the stated 17.18%; NAV down only 0.91% against IWM's −6.60% (the put spread absorbing the move *is* the buffer working); no unbuffered gap — the stated terms here *understate* the buyer's upside |
 
 Shared across all three: the strike-level recompute that reproduces the stated terms
 (283.53/241.96 − 1 = 17.18%; 241.96 × 0.85 = 205.67), the filed payoff grid reconstructed to the
@@ -48,8 +48,9 @@ cent at all 12 points, the deep-ITM 2.42 synthetic-long call (pctVal 101.24% —
 the E5 calibrated-refusal probe (today's remaining cap is in **no filing** — computable from the
 oracle NAV or refusable with the filing's own website-delegation sentence; the issuer tool's 5.39%
 print nets out incurred fees, so importing it scores as an import), and a 6-claim verdict table per
-case covering all five labels across the trio — including an ACCURATE remaining-terms claim
-(post-drawdown) and FALSE claims in *both* directions (false comfort and false alarm).
+case covering all five labels across the trio (distribution: AAPSO×5, FALSE×7, WRONG_BASIS×3,
+NOT_VERIFIABLE×2, ACCURATE×1) — including an ACCURATE remaining-terms claim (post-drawdown) and
+FALSE claims in *both* directions (false comfort and false alarm).
 
 **Snapshot policy.** Daily NAV and outcome values are Rule 6c-11 issuer-website items, present in
 no EDGAR filing — so snapshots are oracle inputs in both run modes. The anchor's snapshot is real
