@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-rubric/validate.py -- self-contained linter for criteria.yaml (Phase-2 deliverable).
+rubric/validate.py -- self-contained linter for the suite's criteria files (Phase-2 deliverable).
 
-Loads rubric/criteria.yaml and ASSERTS the load-time invariants documented in rubric.md §2.6,
-then PRINTS the per-category mass table, the per-checkpoint mass table, and the exact static
-grader counts. These printed numbers are the single source of truth that rubric.md and judge.md
-mirror. Run until every assertion prints PASS.
+Usage:
+    python rubric/validate.py                                   # eval #1 (criteria.yaml)
+    python rubric/validate.py rubric/criteria-defined-outcome.yaml   # eval #2 (same schema)
+
+Loads the criteria file, ASSERTS the load-time invariants documented in rubric.md §2.6, then
+PRINTS the per-category mass table, the per-checkpoint mass table, and the exact static grader
+counts. The checkpoint set and stage subtotals are DERIVED from meta.checkpoint_weights (P*/E*/C*/S*
+prefixes), so the same linter validates every eval in the suite. Run until every assertion prints PASS.
 
 Stdlib + pyyaml. If pyyaml is unavailable a tiny vendored loader handles this file's subset of YAML.
 """
@@ -13,7 +17,7 @@ import sys
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-YAML_PATH = os.path.join(HERE, "criteria.yaml")
+YAML_PATH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "criteria.yaml")
 
 # ---------------------------------------------------------------------------
 # YAML loading: prefer pyyaml; fall back to a minimal loader for THIS file.
@@ -38,8 +42,9 @@ def _minimal_load(_path):  # pragma: no cover - best-effort fallback, not the pr
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-CHECKPOINTS = ["P1", "P2", "P3", "E1", "E2", "E3", "E4", "E5", "E6",
-               "C1", "C2", "C3", "C4", "C5", "S1", "S2", "S3"]
+# The checkpoint set is DERIVED from meta.checkpoint_weights (insertion order preserved), so this
+# linter validates any eval in the suite (eval #1's 17 checkpoints, eval #2's 18, ...).
+STAGE_PREFIX = {"P": "planning", "E": "extraction", "C": "calculation", "S": "synthesis"}
 CATEGORIES = ["extraction", "numerical", "entailment", "reasoning", "calibration", "structure"]
 GRADERS = ["deterministic", "entailment", "judge", "refusal"]
 
@@ -75,6 +80,7 @@ def main():
     gates = doc["gates"]
     atoms = doc["criteria"]
 
+    CHECKPOINTS = list(cp_weights.keys())   # derived: the file declares its own checkpoint set
     atom_by_id = {a["id"]: a for a in atoms}
 
     # --- 1. category weights sum to 1.0 ---
@@ -85,13 +91,12 @@ def main():
     kw_sum = sum(cp_weights.values())
     check("checkpoint weights sum to 1.0", approx(kw_sum, 1.0), f"sum={kw_sum}")
 
-    # --- 3. all 17 checkpoints present in weights AND in criteria ---
-    cps_in_weights = set(cp_weights.keys())
+    # --- 3. checkpoint set coherent: weights and criteria cover the same checkpoints ---
     cps_in_atoms = set(a["checkpoint"] for a in atoms)
-    check("all 17 checkpoints in checkpoint_weights",
-          cps_in_weights == set(CHECKPOINTS),
-          f"missing={set(CHECKPOINTS)-cps_in_weights} extra={cps_in_weights-set(CHECKPOINTS)}")
-    check("all 17 checkpoints have >=1 atom",
+    check(f"all {len(CHECKPOINTS)} checkpoints use stage prefixes P/E/C/S",
+          all(k[0] in STAGE_PREFIX for k in CHECKPOINTS),
+          f"bad={[k for k in CHECKPOINTS if k[0] not in STAGE_PREFIX]}")
+    check(f"all {len(CHECKPOINTS)} checkpoints have >=1 atom (and no stray atoms)",
           cps_in_atoms == set(CHECKPOINTS),
           f"missing={set(CHECKPOINTS)-cps_in_atoms} extra={cps_in_atoms-set(CHECKPOINTS)}")
 
@@ -248,15 +253,10 @@ def main():
             print("  " + "  ".join(line)); line = []
     if line:
         print("  " + "  ".join(line))
-    # stage subtotals
-    stages = {
-        "planning":   ["P1", "P2", "P3"],
-        "extraction": ["E1", "E2", "E3", "E4", "E5", "E6"],
-        "calculation":["C1", "C2", "C3", "C4", "C5"],
-        "synthesis":  ["S1", "S2", "S3"],
-    }
+    # stage subtotals (derived from the P/E/C/S prefixes)
+    stages = {name: [k for k in CHECKPOINTS if k[0] == pfx] for pfx, name in STAGE_PREFIX.items()}
     print("  stage subtotals: " + " | ".join(
-        f"{s} {sum(cp_weights[k] for k in ks):.3f}" for s, ks in stages.items()))
+        f"{s} {sum(cp_weights[k] for k in ks):.3f}" for s, ks in stages.items() if ks))
     print()
 
     # ---- print: per-category mass table ----

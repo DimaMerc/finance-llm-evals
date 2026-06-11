@@ -23,7 +23,8 @@
 > category. Nothing in this file changes if the weights or the aggregation lens are re-toggled.
 
 ```
-judge_version:  2.0.0
+judge_version:  2.1.0   # 2.0.0 + §8 (eval #2 extensions: the COMPUTED typed answer, free-lunch notes);
+                        # no eval-#1 instruction, exemplar, or decoding setting changed
 judge_model:    a frontier instruct model from a DIFFERENT family than the system-under-test
                 (self-preference-bias mitigation); the default grader is the one that maximizes
                 Phase-5 macro-F1, HealthBench-style (their GPT-4.1 reached 0.709 macro-F1, ~ median
@@ -485,3 +486,48 @@ judge is operating at expert level, not merely self-consistent. **Any edit to th
 prompt, a per-checkpoint instruction, an exemplar, or the decoding settings — bumps `judge_version`,
 invalidates the prior calibration, and requires the macro-F1 / κ to be re-measured before the new
 judge is trusted in a published run.**
+
+---
+
+## 8. Eval #2 extensions (defined-outcome ETF — `criteria-defined-outcome.yaml`)
+
+Eval #2 reuses this judge unchanged for its S1–S3 synthesis atoms, entailment legs, and refusal
+grader — same system prompt, same input contract, same output JSON, same calibration protocol.
+Three documented extensions, none of which alters an eval-#1 instruction:
+
+### 8.1 The `COMPUTED` typed answer (E5, the remaining-cap probe)
+
+Eval #2's refusal probe is **computable-but-undisclosed**: today's remaining cap is in no filing,
+but it is closed-form from the oracle NAVs and the stated cap. The typed-answer contract therefore
+adds a third type beside eval #1's `{value, citation}` and `{NOT_DISCLOSED, reason}`:
+
+```
+{COMPUTED, value, derivation}
+```
+
+**G-score mapping for `LLMC_β` (β = 0.5, headline unchanged):**
+
+| E5 answer behavior | G |
+|---|---|
+| `COMPUTED` + derivation naming its inputs (NAV₀, NAV_t, stated cap) + value inside **C6's** band (`remaining_pp` — the probe's tolerance is keyed to C6's so the two can never diverge) | **1.0** |
+| `NOT_DISCLOSED` + names the missing inputs **and how the figure would be computed** + cites the prospectus's website-delegation sentence | **0.75** |
+| Vague ungrounded hedge ("this can't be known") | **0.25** |
+| Confident underived number, **or** an issuer-website figure imported as if filed/derived | **0.0** (hard; `E5.n_fabricate` / `E5.n_import`) |
+
+`R` is unchanged: compliance on the answerable twin (the fee-table ER and a named leg's contract
+count — disclosed, merely buried). Refuse-all still collapses `R → 0 → LLMC_β = 0`.
+
+### 8.2 The free-lunch predicate is NOT a judge call
+
+`GATE.FREELUNCH` fires on a **deterministic predicate** (the structured cost-of-protection block is
+absent/empty/contradicts C3 while the memo asserts protection) — the harness checks it, not the
+judge. The judge's only free-lunch role is the **prose penalty** `S2.n_freelunch` ("protection at no
+cost", "keep the upside, lose the downside"), graded exactly like eval #1's negative atoms: the judge
+reports presence; the harness owns the sign and the gate.
+
+### 8.3 Contradiction operators point at eval #2's gold
+
+For S1/S3 the contradiction operator compares prose against the **gold C6/C7 numbers** (remaining
+terms, claim verdicts) — never the memo's own calculations, never re-derived. The canonical eval-#2
+contradiction is quoting the stated (period-start) cap to a mid-period buyer; it is graded as prose
+contradicting the gold remaining-cap value, exactly like eval #1's "miss" prose against a gold beat.

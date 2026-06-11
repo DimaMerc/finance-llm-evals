@@ -1,0 +1,1116 @@
+# rubric/criteria-defined-outcome.yaml — machine-readable atomic scoring criteria for EVAL #2:
+# defined-outcome (buffer) ETF analysis. Phase-2 deliverable of eval #2.
+#
+# SAME SCHEMA as rubric/criteria.yaml (eval #1) — no schema changes: meta weights +
+# checkpoint_weights, a tolerances block, a gates block with fired_by/dependents, and atoms with
+# {id, checkpoint, category, criterion, points, grader, gate, tolerance, per_figure/figures, tags}.
+# The aggregation model is identical (checkpoint-primary, category rollup, HealthBench inner pool,
+# E5's headline = FailSafeQA F-beta — the eval-#1 E6 exception, inherited).
+# Workflow spec: workflow/defined-outcome-analysis.md. Validate: python rubric/validate.py
+# rubric/criteria-defined-outcome.yaml
+#
+# Conventions carried from eval #1:
+#   - per_figure templates expand per the case manifest (here: expand per_leg_row / per_grid_row /
+#     per_claim_row SPLIT the pool evenly over N rows; prune: per_manifest removes N/A figures from
+#     numerator AND denominator).
+#   - gates set m=0 on dependents before inner pooling; zeroed atoms stay in denominators.
+#   - entailment category <-> entailment grader, bidirectionally.
+#   - E5 is the one checkpoint whose headline is NOT awarded/raw_pos: it is LLMC_beta(R, G),
+#     beta = 0.5, with the {COMPUTED, value, derivation} G-mapping documented in judge.md.
+
+meta:
+  rubric_version: "1.0.0"          # eval #2 atom set, first cut (suite schema 2.1.0)
+  eval: defined-outcome-etf
+
+  # --- SECONDARY category rollup weights. IDENTICAL to eval #1 for suite comparability. ---
+  weights:
+    extraction:   0.22
+    numerical:    0.26
+    entailment:   0.14
+    reasoning:    0.20
+    calibration:  0.12
+    structure:    0.06
+
+  # --- PRIMARY aggregation: 18 checkpoint weights. Sum to 1.0. ---
+  #     stage subtotals: planning .125 | extraction .275 | calculation .420 | synthesis .180
+  #     (deliberately calculation-heavy vs eval #1's .130/.360/.325/.185 — the workflow doc's
+  #     declared 3/5/7/3 rebalance: this eval's center of gravity is the options math.)
+  checkpoint_weights:
+    P1: 0.045
+    P2: 0.045
+    P3: 0.035
+    E1: 0.055
+    E2: 0.075
+    E3: 0.045
+    E4: 0.045
+    E5: 0.055
+    C1: 0.055
+    C2: 0.065
+    C3: 0.075
+    C4: 0.045
+    C5: 0.040
+    C6: 0.080
+    C7: 0.060
+    S1: 0.065
+    S2: 0.070
+    S3: 0.045
+
+  refusal_beta: 0.5                 # E5 headline F-beta (inherited from eval #1's E6)
+  clip_per_checkpoint: true
+  clip_per_case: false
+  clip_suite: [0.0, 1.0]
+  headline_flags: [free_lunch_fired]   # reported beside CaseScore when GATE.FREELUNCH fires
+
+tolerances:                         # derived from the figures' own provenance (workflow doc table)
+  exact_cents:      { type: abs, band: 0.001 }   # strikes / identities / price levels filed to the cent
+  exact_int:        { type: abs, band: 0.001 }   # contract counts, multipliers (integer-exact)
+  exact_2dp_pp:     { type: pp,  band: 0.001 }   # stated figures at the filing's printed 2-dp rounding
+  recompute_pp:     { type: pp,  band: 0.05 }    # recomputed gross terms vs stated, at stated rounding
+  grid_row_pp:      { type: pp,  band: 0.5 }     # filed payoff-grid %-row tie (idealized convention)
+  payoff_usd:       { type: abs, band: 0.01 }    # per-unit V(S_T) — pure strike arithmetic
+  package_rel:      { type: rel, band: 0.005 }   # derived notional / per-unit package value
+  # NAV-based remaining terms: cent-quoted NAV legs RSS to ~3bp; conceptual errors are >=100bp.
+  # internal_consistency: also graded against the model's OWN extracted terms + oracle NAV
+  # (the eval-#1 level_ref mechanism), separately from the gold match.
+  remaining_pp:     { type: pp,  band: 0.1,  internal_consistency: true }
+  remaining_net_pp: { type: pp,  band: 0.15, internal_consistency: true, daycount: ACT365 }
+
+# ============================== GATES (workflow doc, "Gating") ==============================
+gates:
+  - id: GATE.VINTAGE
+    tier: hard
+    checkpoint: P1
+    fired_by: P1.2
+    condition: "series/vintage pin wrong: seriesId/seriesName mismatch, wrong vintage month, or wrong outcome-period YEAR (pinned jointly on {seriesId, seriesName, expDt, strike-set})"
+    dependents: [E1, E2, E3, E4, E5, C1, C2, C3, C4, C5, C6, C7, S1, S2, S3]
+  - id: GATE.REFSCALE
+    tier: hard
+    checkpoint: P2
+    fired_by: P2.1
+    # Explicit exclusion-list style (eval #1 GATE.P2 / F2): zeros the LEG-DERIVED chain only.
+    # SURVIVORS (carry no strike scale): E1 (prospectus-side percentages), E3 (fee table/language),
+    # E5's answerable twin, E4.snapshot/E4.days (oracle-supplied, scale-free).
+    condition: "reference-asset / strike-scale / contract-convention error: ETF-share-price strikes read as index levels (~10x IWM, ~20x SPX), multiplier dropped, or written-leg sign flipped"
+    dependents:
+      - E2.legs
+      - E2.cite
+      - E2.osi
+      - E2.assets
+      - E4.ledger          # the marks/state side rides the leg scale; the oracle snapshot does not
+      - C1
+      - C2
+      - C3
+      - C4
+      - C5
+      - C6
+      - C7
+  - id: GATE.FEEBASIS
+    tier: scoped
+    checkpoint: P3
+    fired_by: P3.2
+    condition: "gross-vs-net fee-basis mismatch committed at planning: a net figure benchmarked against a gross recompute (or vice versa), or '100% protection' quoted net"
+    dependents: [C4, C7, S1, C6.net]
+  - id: GATE.FREELUNCH
+    tier: scoped
+    checkpoint: S2
+    fired_by: S2.costblock
+    # The suite's ONE synthesis-stage-firing gate (declared deviation from eval #1) — and still a
+    # DETERMINISTIC predicate: the deliverable requires a structured cost-of-protection block;
+    # the gate fires when the memo presents downside protection while that block is absent, empty,
+    # or its cap value contradicts C3. Free-lunch PROSE is separately penalized by S2.n_freelunch.
+    condition: "downside protection asserted while the structured cost-of-protection block is absent, empty, or contradicts the C3 cap"
+    dependents: [S2, S3]
+    headline_flag: free_lunch_fired
+  - id: GATE.C1ROLE
+    tier: in_checkpoint
+    checkpoint: C1
+    fired_by: C1.class
+    condition: "structure-class inversion (buffer <-> floor <-> barrier) or leg-role inversion"
+    dependents: [C1]
+  - id: GATE.C2SIGN
+    tier: in_checkpoint
+    checkpoint: C2
+    fired_by: C2.signs
+    condition: "payoff sign/regime inversion: written legs not subtracting, payoff rising above the cap, or the buffer zone not flat"
+    dependents: [C2]
+  - id: GATE.C6DIR
+    tier: in_checkpoint
+    checkpoint: C6
+    fired_by: C6.direction
+    condition: "remaining-upside sign flip or buffer-status label inversion"
+    dependents: [C6]
+  - id: GATE.FABRICATION
+    tier: hard
+    tier_note: "per-figure void; cascades only on a frame fabrication (eval #1 F4 semantics)"
+    scope: figure
+    fired_by: [E1.n_halluc, E2.n_halluc, E5.n_fabricate, C5.n_fab_notional]
+    condition: "a fabricated strike, leg, CUSIP (FLEX legs file cusip='N/A'), notional (N-PORT has no notional element for options), or a confident underived remaining-terms value"
+    voids_positive: [self.value_leg, self.cite_leg]
+    cascade_if: "fabricated_field in {series_identity, vintage, outcome_period, reference_asset, strike_scale}"
+    cascade_dependents:
+      - GATE.VINTAGE
+      - GATE.REFSCALE
+
+# ============================== PLANNING ==============================
+criteria:
+
+  # ---- P1 — pin trust/series/vintage/outcome period (deterministic, HARD GATE) ----
+  - id: P1.1
+    checkpoint: P1
+    category: extraction
+    criterion: "Trust and series identity match gold: seriesName AND seriesId (e.g. S000065317) both pinned; the fund is identified as one vintage of a 12-series monthly family."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [vintage_confusion]
+  - id: P1.2
+    checkpoint: P1
+    category: extraction
+    criterion: "Vintage month and outcome period INCLUDING THE YEAR match gold, pinned jointly on {seriesId, seriesName, expDt, strike-set} — the October fund's period spans two calendar years; a sibling vintage filed the same day with adjacent accession numbers is not substituted."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.VINTAGE
+    tags: [vintage_confusion]
+  - id: P1.3
+    checkpoint: P1
+    category: extraction
+    criterion: "The date quadruple is distinguished: repPdDate (N-PORT data month-end) != repPdEnd (trust fiscal year-end) != option expiry (last business day of the period) != outcome-period start. days_remaining is anchored on the right pair."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [date_error]
+  - id: P1.4
+    checkpoint: P1
+    category: reasoning
+    criterion: "The variant type is classified from the manifest documents (Buffer / Power / Ultra-Deep / 100%-buffer / floor / barrier) — it drives C1's Ref0 recovery rule."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [vintage_confusion]
+  - id: P1.5
+    checkpoint: P1
+    category: entailment
+    criterion: "The outcome-period claim is anchored to the prospectus's verbatim period sentence (497K), not asserted."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: P1.6
+    checkpoint: P1
+    category: structure
+    criterion: "A pinned-header object is produced carrying {trust/CIK, seriesId, ticker, vintage_month, outcome_period_start, outcome_period_end, variant_type}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+  # ---- P2 — reference asset / strike scale / contract conventions (deterministic, HARD GATE) ----
+  - id: P2.1
+    checkpoint: P2
+    category: extraction
+    criterion: "The reference asset and its PRICE SCALE are locked: strikes are on the ETF SHARE price (IWM ~ $242), not the index level (Russell 2000 ~ 2,400) — the N-PORT's own varInfo index name is the in-document distractor and is not absorbed as the strike scale."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.REFSCALE
+    tags: [strike_scale]
+  - id: P2.2
+    checkpoint: P2
+    category: numerical
+    criterion: "The 100-share contract multiplier (shareNo) is locked and applied wherever units/notionals are formed."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: exact_int
+    tags: [multiplier_sign]
+  - id: P2.3
+    checkpoint: P2
+    category: numerical
+    criterion: "The signed-position convention is locked: written legs carry negative balances in the N-PORT and SUBTRACT in any package arithmetic."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [multiplier_sign]
+  - id: P2.4
+    checkpoint: P2
+    category: extraction
+    criterion: "The deep-ITM call strike is accepted as filed (e.g. 2.42 ~ 1% of spot) — recognized as the synthetic-long construction, never 'sanity-corrected', rescaled, or flagged as a data error."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_cents
+    tags: [deep_itm_misread]
+  - id: P2.5
+    checkpoint: P2
+    category: entailment
+    criterion: "Scale/convention assertions cite the N-PORT verbatim strings (leg title, varInfo, shareNo)."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+
+  # ---- P3 — quote basis + entry framing (hybrid, SCOPED GATE) ----
+  - id: P3.1
+    checkpoint: P3
+    category: reasoning
+    criterion: "Every outcome term is mapped with its gross AND net-of-fee twin (cap_g/cap_n, buffer_g/buffer_n) — no single-basis term list."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [fee_basis]
+  - id: P3.2
+    checkpoint: P3
+    category: reasoning
+    criterion: "The comparison basis is committed BEFORE any benchmark: each downstream comparison declared gross-to-gross or net-to-net; a net figure is never set up against a gross recompute."
+    points: 6
+    grader: deterministic
+    gate: scoped          # firing this is GATE.FEEBASIS -> C4, C7, S1, C6.net
+    tags: [fee_basis]
+  - id: P3.3
+    checkpoint: P3
+    category: reasoning
+    criterion: "The entry framing is pinned: the period-start reference case vs TODAY'S buyer at NAV_t, with the snapshot date named; stated terms are tagged as period-start-only."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: P3.4
+    checkpoint: P3
+    category: structure
+    criterion: "A scoping record object is produced {basis_map, entry_framing, snapshot_date, comparisons[]}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: P3.n1
+    checkpoint: P3
+    category: reasoning
+    criterion: "PENALTY: the scope is padded with irrelevant figures/comparisons beyond the gold list (gaming via volume)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [padding]
+
+# ============================== EXTRACTION ==============================
+
+  # ---- E1 — stated terms from the prospectus (hybrid) ----
+  - id: E1.terms
+    checkpoint: E1
+    category: extraction
+    criterion: "Each stated outcome term is extracted exactly at the filing's printed rounding, gross and net as DISTINCT rows (KOCT: cap 17.18/16.39, buffer 15.00/14.21), plus the outcome-period dates."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    prune: per_manifest          # variants without a stated net twin (or no cap) prune their rows
+    figures:
+      - { figure_name: cap_gross,    tolerance_key: exact_2dp_pp, points: 1.5 }
+      - { figure_name: cap_net,      tolerance_key: exact_2dp_pp, points: 1.5 }
+      - { figure_name: buffer_gross, tolerance_key: exact_2dp_pp, points: 1.5 }
+      - { figure_name: buffer_net,   tolerance_key: exact_2dp_pp, points: 1.5 }
+      - { figure_name: period_start, points: 1.0 }
+      - { figure_name: period_end,   points: 1.0 }
+  - id: E1.grid
+    checkpoint: E1
+    category: extraction
+    criterion: "The hypothetical payoff grid is extracted row-by-row AS FILED (the idealized reference-return convention) — not 'corrected' toward leg-exact values."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [grid_convention]
+  - id: E1.rule
+    checkpoint: E1
+    category: extraction
+    criterion: "The period-start-only rule is captured verbatim: the stated cap/buffer apply only to an investor holding from the first day of the outcome period to its end."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: E1.capmech
+    checkpoint: E1
+    category: extraction
+    criterion: "The cap-setting mechanics sentence is captured verbatim (KOCT: 'The Cap is the strike price of that sold call FLEX Option') — the S2 free-lunch anchor."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [free_lunch]
+  - id: E1.cite
+    checkpoint: E1
+    category: entailment
+    criterion: "Each stated figure carries a {document, locator, verbatim} citation into the prospectus that entails the value; percentages are not attributed to the N-PORT."
+    points: 5
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E1.n_omit
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a must-have stated term (cap or buffer, either basis) is required + disclosed but omitted with no attempt."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+  - id: E1.n_halluc
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a stated term is fabricated — a strike 'extracted' from the prospectus (which contains none) or a percentage not in the filing."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+
+  # ---- E2 — the four FLEX legs from the N-PORT (hybrid; per-leg expansion) ----
+  - id: E2.legs
+    checkpoint: E2
+    category: extraction
+    criterion: "Each FLEX leg row is extracted complete and exact: {put/call, written/purchased, strike to the filed cent, expiry, SIGNED contract count, multiplier} (KOCT: 4 legs, +/-5,278 x 100, strikes 2.42/205.67/241.96/283.53, exp 2026-09-30). Pool splits evenly per disclosed leg."
+    points: 12
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: leg_rows, tolerance_key: exact_cents, points: 12.0, expand: per_leg_row }
+  - id: E2.osi
+    checkpoint: E2
+    category: extraction
+    criterion: "The OSI-style identifiers are captured (KOCT: '4IWM 260930P00205670' etc.) — they redundantly encode expiry/type/strike and serve as the entailment cross-check."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [mis_citation]
+  - id: E2.assets
+    checkpoint: E2
+    category: extraction
+    criterion: "Net assets and the cash sleeve are extracted (they anchor C5's coverage and pctVal tie-outs)."
+    points: 2
+    grader: deterministic
+    gate: none
+  - id: E2.completeness
+    checkpoint: E2
+    category: extraction
+    criterion: "All legs disclosed in the filing are present — none dropped, none merged; exactly the filed set (KOCT: four)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [dropped_leg]
+  - id: E2.cite
+    checkpoint: E2
+    category: entailment
+    criterion: "Each leg cites its verbatim N-PORT title string ('IWM 09/30/2026 205.67 P') which entails the {type, strike, expiry} extracted. Pool splits per leg."
+    points: 6
+    grader: entailment
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: leg_title_cites, points: 6.0, expand: per_leg_row }
+  - id: E2.n_halluc
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a fabricated leg, strike, or CUSIP — FLEX legs file cusip='N/A'; a model 'extracting' a CUSIP is hallucinating."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+  - id: E2.n_sign
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a leg's direction is flipped (written read as purchased or vice versa) against the signed balance."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [multiplier_sign]
+
+  # ---- E3 — fee table, return basis, credit/structure language (hybrid) ----
+  - id: E3.fee
+    checkpoint: E3
+    category: extraction
+    criterion: "The unitary expense ratio is extracted from the fee table exactly (KOCT: 0.79%)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: exact_2dp_pp
+    tags: [fee_basis]
+  - id: E3.pricereturn
+    checkpoint: E3
+    category: extraction
+    criterion: "The PRICE-return basis is captured: the fund forgoes the reference asset's dividends (the prospectus performance table prints TR and PR index rows for exactly this reason)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [dividend_basis]
+  - id: E3.occ
+    checkpoint: E3
+    category: extraction
+    criterion: "The OCC settlement-guarantee language is captured verbatim — the S2 anchor that makes 'issuer credit risk' a FALSE claim on this product."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [credit_language]
+  - id: E3.flexliq
+    checkpoint: E3
+    category: extraction
+    criterion: "The FLEX liquidity / model-priced (Level-2) marks language is captured."
+    points: 2
+    grader: deterministic
+    gate: none
+  - id: E3.website
+    checkpoint: E3
+    category: extraction
+    criterion: "The website-delegation sentence is captured (daily potential-outcome values live on the issuer site, not in filings) — E5's gold reason."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: E3.cite
+    checkpoint: E3
+    category: entailment
+    criterion: "Fee and language extractions carry prospectus citations that entail them."
+    points: 4
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E3.n_omit
+    checkpoint: E3
+    category: extraction
+    criterion: "PENALTY: the expense ratio is required + disclosed but omitted with no attempt."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+
+  # ---- E4 — market-snapshot intake + terms-vs-state staleness ledger (hybrid) ----
+  - id: E4.snapshot
+    checkpoint: E4
+    category: extraction
+    criterion: "The oracle snapshot is taken in verbatim and typed: {snapshot_date, NAV_t, NAV_0, S_t} — none re-derived, none substituted with filing marks."
+    points: 4
+    grader: deterministic
+    gate: none
+  - id: E4.ledger
+    checkpoint: E4
+    category: reasoning
+    criterion: "The terms-vs-state staleness ledger is built: strikes/expiry are TERMS (static all period); valUSD/pctVal/net assets are STATE (month-end, stale by construction at any later snapshot date)."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+  - id: E4.days
+    checkpoint: E4
+    category: numerical
+    criterion: "days_remaining from snapshot_date to period end is computed with the day-count basis named (ACT/365 pinned)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_int
+    tags: [date_error]
+  - id: E4.cite
+    checkpoint: E4
+    category: entailment
+    criterion: "The staleness claim cites repPdDate (the N-PORT's own data date)."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E4.n_stale
+    checkpoint: E4
+    category: reasoning
+    criterion: "PENALTY: a month-end mark (package value, pctVal, net assets) is presented as current at the snapshot date."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+
+  # ---- E5 — calibrated refusal: the remaining-cap probe (label-det. + derivation-judge) ----
+  # HEADLINE = LLMC_beta(R, G), beta = 0.5 (the eval-#1 E6 exception, inherited).
+  # The probe is COMPUTABLE-BUT-UNDISCLOSED, so the typed answer adds {COMPUTED, value, derivation}
+  # beside {value, citation} and {NOT_DISCLOSED, reason}. G-mapping (documented in judge.md):
+  #   COMPUTED + derivation + value in C6's band -> G = 1.0
+  #   NOT_DISCLOSED + names the missing inputs and how it would be computed -> G = 0.75
+  #   vague hedge -> G = 0.25 ; confident underived number, or website import as-if-filed -> G = 0.0
+  # R = answerable-twin compliance (the fee-table ER and a named leg's contract count).
+  - id: E5.label
+    checkpoint: E5
+    category: calibration
+    criterion: "The typed answer label is correct: COMPUTED (with derivation) or NOT_DISCLOSED-with-method are both acceptable; a bare confident number is neither."
+    points: 6
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.value
+    checkpoint: E5
+    category: calibration
+    criterion: "If COMPUTED: the value lands in C6's remaining-terms band (the probe's tolerance is KEYED to C6's so the two can never diverge)."
+    points: 5
+    grader: refusal
+    gate: none
+    tolerance: remaining_pp
+    tags: [calibrated_refusal]
+  - id: E5.reason
+    checkpoint: E5
+    category: calibration
+    criterion: "The derivation/reason is grounded: names the inputs (NAV_0, NAV_t, stated cap), the fixed-price-level convention, and (for NOT_DISCLOSED) cites the website-delegation sentence."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.twin
+    checkpoint: E5
+    category: calibration
+    criterion: "The answerable twin IS retrieved: the fee-table ER and the named leg's contract count (disclosed, merely buried); refusing them is over-refusal and drops R."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+  - id: E5.twin_cite
+    checkpoint: E5
+    category: entailment
+    criterion: "The twin figures carry citations that entail them (fee table; the leg's balance element)."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E5.n_fabricate
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY (hard, G=0): a confident remaining-terms number with no derivation."
+    points: -10
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal, hallucination]
+  - id: E5.n_import
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY: an issuer-website figure imported as if filed/derived (scores as an import, not a computation)."
+    points: -5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.n_vaguehedge
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY: a vague ungrounded hedge — fires XOR with E5.reason counting as not-met (the eval-#1 F10 convention)."
+    points: -3
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+
+# ============================== CALCULATION ==============================
+
+  # ---- C1 — leg roles, structure class, Ref0 recovery (deterministic; in-checkpoint fail) ----
+  - id: C1.roles
+    checkpoint: C1
+    category: numerical
+    criterion: "Each leg's role is assigned from {put/call, written/purchased, strike order}: K_synth (deep-ITM purchased call), K_top (purchased put = buffer top), K_bot (written put), K_cap (written call), with K_synth < K_bot < K_top <= Ref0 < K_cap."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [leg_role]
+  - id: C1.class
+    checkpoint: C1
+    category: numerical
+    criterion: "The structure class is BUFFER, decided from the legs (a written lower put = investor bears beyond the buffer), explicitly not a floor (caps total loss) and not a barrier (protection vanishes when crossed)."
+    points: 6
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C1ROLE
+    tags: [buffer_floor_barrier]
+  - id: C1.ref0
+    checkpoint: C1
+    category: numerical
+    criterion: "Ref0 is recovered by the variant rule (Power/standard: Ref0 = K_top; Ultra/Deep: Ref0 = K_top/0.95) and corroborated by both identities K_bot/Ref0 = 1-buffer and K_cap/Ref0 = 1+cap — Ref0 appears in no filing; it exists by construction."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: exact_cents
+    tags: [ref0]
+  - id: C1.consistency
+    checkpoint: C1
+    category: numerical
+    criterion: "The role map is consistent with the signed positions (a 'buffer' read off two purchased puts fails)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [leg_role]
+  - id: C1.n_deepitm
+    checkpoint: C1
+    category: numerical
+    criterion: "PENALTY: the deep-ITM call is 'corrected', rescaled, or treated as a data error."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [deep_itm_misread]
+
+  # ---- C2 — payoff reconstruction at expiry (deterministic; in-checkpoint fail) ----
+  - id: C2.regimes
+    checkpoint: C2
+    category: numerical
+    criterion: "V(S_T) = (S_T-K_synth)+ + (K_top-S_T)+ - (K_bot-S_T)+ - (S_T-K_cap)+ is evaluated at every gold grid point, exact to $0.01, each labeled with its regime. Pool splits per gold grid point."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: grid_points, tolerance_key: payoff_usd, points: 8.0, expand: per_grid_row }
+  - id: C2.signature
+    checkpoint: C2
+    category: numerical
+    criterion: "The three signature per-unit values are produced: K_cap-K_synth (KOCT 281.11), K_top-K_synth (239.54 — NOT Ref0; the 2.42 stays in the reconstruction), K_top-K_bot (36.29)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: payoff_usd
+    tags: [payoff_arithmetic]
+  - id: C2.idealized
+    checkpoint: C2
+    category: numerical
+    criterion: "The idealized mapping R_fund(r) reproduces the prospectus's own grid rows at their printed values, kept SEPARATE from the leg-exact dollars (the filed -50%->-35% row vs leg-exact ~-35.35% from the K_synth offset)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: grid_row_pp
+    tags: [grid_convention]
+  - id: C2.maxloss
+    checkpoint: C2
+    category: numerical
+    criterion: "Max gross loss is stated correctly: (K_top-K_bot)/Ref0 - 1 (KOCT: -85%) — a 15% buffer does not mean losses stop at -15%."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_2dp_pp
+    tags: [buffer_floor_barrier]
+  - id: C2.signs
+    checkpoint: C2
+    category: numerical
+    criterion: "Written legs SUBTRACT and the regime ordering holds (flat buffer zone; capped above K_cap)."
+    points: 3
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C2SIGN
+    tags: [payoff_arithmetic]
+  - id: C2.n_convention
+    checkpoint: C2
+    category: numerical
+    criterion: "PENALTY: the filed grid convention is 'corrected' to leg-exact values, or vice versa — conflating the two conventions absorbs a conceptual error into a tolerance band."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [grid_convention]
+
+  # ---- C3 — recompute-vs-stated reconciliation (deterministic; THE SPINE) ----
+  - id: C3.cap
+    checkpoint: C3
+    category: numerical
+    criterion: "cap_gross_recomputed = K_cap/Ref0 - 1 within 0.05pp of the stated figure at its printed rounding (KOCT: 283.53/241.96-1 = 17.1805% vs 17.18%)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: recompute_pp
+    tags: [recompute_break]
+  - id: C3.buffer
+    checkpoint: C3
+    category: numerical
+    criterion: "buffer_gross_recomputed = 1 - K_bot/Ref0 within 0.05pp of stated (KOCT: 1-205.67/241.96 = 15.00%)."
+    points: 5
+    grader: deterministic
+    gate: none
+    tolerance: recompute_pp
+    tags: [recompute_break]
+  - id: C3.identity
+    checkpoint: C3
+    category: numerical
+    criterion: "The buffer-bottom identity ties to the cent: K_bot = Ref0 x (1 - buffer_stated) (KOCT: 241.96 x 0.85 = 205.666 -> 205.67)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: exact_cents
+    tags: [recompute_break]
+  - id: C3.maxloss
+    checkpoint: C3
+    category: numerical
+    criterion: "Max loss ties the grid's last row ((K_top-K_bot)/Ref0 - 1 vs the -100% row)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tolerance: exact_2dp_pp
+    tags: [recompute_break]
+  - id: C3.sanity
+    checkpoint: C3
+    category: numerical
+    criterion: "The synthetic-long sanity holds and is shown: K_synth/Ref0 ~ 1% (KOCT: 2.42/241.96 = 1.0%)."
+    points: 2
+    grader: deterministic
+    gate: none
+  - id: C3.evidence
+    checkpoint: C3
+    category: entailment
+    criterion: "Every reconciliation row carries the TWO-DOCUMENT evidence list (the N-PORT leg title AND the prospectus sentence) — the documents share no figure; they tie only through the math."
+    points: 4
+    grader: entailment
+    gate: none
+    tags: [single_document_tie]
+  - id: C3.n_break
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY: a reconciliation break (recompute outside band) is silently averaged, forced, or suppressed instead of reported."
+    points: -6
+    grader: deterministic
+    gate: none
+    tags: [recompute_break]
+  - id: C3.n_denominator
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY: a term recomputed off the wrong denominator (current level, package value, or NAV in place of Ref0; cap computed off the buffer strike)."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [recompute_break]
+
+  # ---- C4 — fee netting (deterministic; inherits GATE.FEEBASIS) ----
+  - id: C4.net
+    checkpoint: C4
+    category: numerical
+    criterion: "Net cap AND net buffer are both computed and tie the issuer's STATED net figures exactly (KOCT: 17.18-0.79 = 16.39; 15-0.79 = 14.21) — the stated net is gold; a differing issuer convention governs and is noted."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: exact_2dp_pp
+    tags: [fee_basis]
+  - id: C4.direction
+    checkpoint: C4
+    category: numerical
+    criterion: "Net < gross always, and no downstream comparison mixes the bases."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [fee_basis]
+  - id: C4.hundred
+    checkpoint: C4
+    category: numerical
+    criterion: "Where the case is a 100%-buffer fund: protection net of the ER is less than 100% (the investor can lose approximately the fee). Auto-met on cases without the variant."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [fee_basis]
+  - id: C4.n_caponly
+    checkpoint: C4
+    category: numerical
+    criterion: "PENALTY: only the cap is netted (fees reduce the effective protection too)."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [fee_basis]
+
+  # ---- C5 — notional / coverage / package-value tie-outs (deterministic) ----
+  - id: C5.units
+    checkpoint: C5
+    category: numerical
+    criterion: "Units per leg = |contracts| x multiplier (KOCT: 5,278 x 100 = 527,800)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_int
+    tags: [multiplier_sign]
+  - id: C5.notional
+    checkpoint: C5
+    category: numerical
+    criterion: "The synthetic-long notional is DERIVED (units x Ref0 ~ net assets at strike-set; KOCT ~ $127.7M) and labeled derived — the N-PORT has no notional element for options."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: package_rel
+    tags: [fabricated_notional]
+  - id: C5.pctval
+    checkpoint: C5
+    category: numerical
+    criterion: "The pctVal sanity sum holds (KOCT: 101.24+4.15-1.57-4.05+0.29 ~ 100.06%) and the deep-ITM call's >100% weight is explained by construction, not 'corrected'."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [deep_itm_misread]
+  - id: C5.package
+    checkpoint: C5
+    category: numerical
+    criterion: "The per-unit package value at repPdDate is computed (KOCT: $132,651,974/527,800 = $251.33) and labeled STALE-STATE (month-end mark; the C6 cross-check, never NAV_t)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: package_rel
+    tags: [stale_as_current]
+  - id: C5.n_fab_notional
+    checkpoint: C5
+    category: numerical
+    criterion: "PENALTY: a notional 'extracted' from the filing (fabrication — none is filed)."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [fabricated_notional, hallucination]
+
+  # ---- C6 — remaining outcome for a buyer at NAV_t (deterministic; in-checkpoint fail) ----
+  - id: C6.levels
+    checkpoint: C6
+    category: numerical
+    criterion: "The outcome levels are formed as FIXED PRICE LEVELS pinned to day-1 NAV: cap_price = NAV_0 x (1+cap_gross); buffer_top_price = NAV_0; buffer_bottom_price = NAV_0 x (1-buffer_gross)."
+    points: 5
+    grader: deterministic
+    gate: none
+    tolerance: payoff_usd
+    tags: [stated_vs_remaining]
+  - id: C6.remaining
+    checkpoint: C6
+    category: numerical
+    criterion: "remaining_cap_gross = cap_price/NAV_t - 1, downside_before_buffer = NAV_0/NAV_t - 1, and remaining_buffer_depth = (NAV_t - buffer_bottom_price)/NAV_t each within 0.1pp of gold AND internally consistent with the model's own extracted terms + the oracle NAV (graded separately)."
+    points: 8
+    grader: deterministic
+    gate: none
+    tolerance: remaining_pp
+    tags: [stated_vs_remaining]
+  - id: C6.net
+    checkpoint: C6
+    category: numerical
+    criterion: "remaining_cap_net = remaining_cap_gross - ER x days_remaining/365 (ACT/365 pinned) within 0.15pp — and where it is ~0 or negative (post-rally entry), the sign is correct."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: remaining_net_pp
+    tags: [fee_basis, stated_vs_remaining]
+  - id: C6.direction
+    checkpoint: C6
+    category: numerical
+    criterion: "The remaining-upside SIGN and the buffer-status label are exact: status assessed on the reference level (S_t vs Ref0 and K_bot), never the NAV path — an interim NAV dip is time value, not a breached buffer; 'breached' is an at-expiry verdict only."
+    points: 4
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C6DIR
+    tags: [stated_vs_remaining, path_misread]
+  - id: C6.anchor
+    checkpoint: C6
+    category: numerical
+    criterion: "The fixed-price-level convention is honored per the issuer's own worked table (Day-20 anchor: $25.00 start, 8.00% cap -> cap price $27.00; buyer at $25.17 -> remaining cap 27.00/25.17-1 = 7.27%) — never percentages re-applied to today's price."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [percent_reapplication]
+  - id: C6.crosscheck
+    checkpoint: C6
+    category: numerical
+    criterion: "The leg-form cross-check ((K_cap-K_synth)/v_t - 1, KOCT at the stale mark: 281.11/251.33-1 ~ +11.85% vs stated 17.18%) is computed, labeled stale and secondary (it differs from the NAV form by the ~15bp time-value + cash-sleeve residual), never substituted for the primary."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+  - id: C6.n_rebase
+    checkpoint: C6
+    category: numerical
+    criterion: "PENALTY: a stated percentage re-applied to today's price (the percent-re-application error)."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [percent_reapplication]
+
+  # ---- C7 — marketing-claim verification (deterministic) ----
+  - id: C7.verdicts
+    checkpoint: C7
+    category: reasoning
+    criterion: "Each claim's verdict matches gold exactly from {ACCURATE | ACCURATE_AT_PERIOD_START_ONLY | WRONG_BASIS | FALSE | NOT_VERIFIABLE} (canonical: '15% buffer' and a mid-period 'cap of 17.18%' -> ACCURATE_AT_PERIOD_START_ONLY; net-vs-gross -> WRONG_BASIS; 'defined outcome regardless of when you buy' -> FALSE). Pool splits per claim."
+    points: 10
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: claim_rows, points: 10.0, expand: per_claim_row }
+  - id: C7.deciding
+    checkpoint: C7
+    category: reasoning
+    criterion: "Every verdict names its deciding figure from C3/C4/C6 — a verdict without a recomputed number behind it earns nothing."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [unanchored_verdict]
+  - id: C7.bothdir
+    checkpoint: C7
+    category: reasoning
+    criterion: "False claims are caught in BOTH directions: overclaims AND false-comfort claims ('no credit risk whatsoever' is not ACCURATE; the honest residual is OCC/clearing-member tail risk)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [false_risk_claim]
+  - id: C7.n_notverif
+    checkpoint: C7
+    category: reasoning
+    criterion: "PENALTY: NOT_VERIFIABLE stretched over claims the recomputes do decide."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [over_refusal]
+
+# ============================== SYNTHESIS ==============================
+
+  # ---- S1 — entry-timing verdict (judge; contingent on C6) ----
+  - id: S1.verdict
+    checkpoint: S1
+    category: reasoning
+    criterion: "The discrete calls {remaining_upside_net: positive|~zero|negative, downside_before_buffer, buffer_status, stated_terms_apply_to_this_buyer: no} match gold and are consistent with the C6 magnitudes. CONTINGENT on a non-empty, non-gated C6 derivation — prose restating gold labels with no computation earns nothing."
+    points: 7
+    grader: judge
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: S1.nostated
+    checkpoint: S1
+    category: reasoning
+    criterion: "The verdict never quotes the stated cap/buffer as what today's buyer gets; stated terms appear only as the period-start reference case."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: S1.gap
+    checkpoint: S1
+    category: reasoning
+    criterion: "Post-rally: the unbuffered gap is named before any buffer talk; near-cap: 'little or no remaining upside, full remaining downside' is stated where C6 says so."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: S1.hold
+    checkpoint: S1
+    category: reasoning
+    criterion: "The hold-to-period-end condition is stated: the outcome formula applies at expiry; interim NAV participates <1:1 both directions."
+    points: 2
+    grader: judge
+    gate: none
+    tags: [path_misread]
+  - id: S1.structure
+    checkpoint: S1
+    category: structure
+    criterion: "The verdict is emitted as discrete labeled fields (not buried in prose)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: S1.n_contradiction
+    checkpoint: S1
+    category: reasoning
+    criterion: "PENALTY: the prose contradicts the C6/C7 computed values (contradiction operator vs GOLD numbers)."
+    points: -6
+    grader: judge
+    gate: none
+    tags: [contradiction]
+  - id: S1.n_stated
+    checkpoint: S1
+    category: reasoning
+    criterion: "PENALTY: a stated (period-start) term quoted to today's buyer as theirs."
+    points: -5
+    grader: judge
+    gate: none
+    tags: [stated_vs_remaining]
+
+  # ---- S2 — cost of protection + risk-claim truthfulness (judge + deterministic predicate) ----
+  - id: S2.costblock
+    checkpoint: S2
+    category: reasoning
+    criterion: "The structured cost-of-protection block is present, non-empty, and its cap value is consistent with C3: {capped_upside (with the cap), forgone_dividends (price-return basis), fee_drag (ER), path_exit_risk}. THE FREE-LUNCH PREDICATE — deterministic; its absence while protection is asserted fires GATE.FREELUNCH (zeros S2+S3, AllPass=0, free_lunch_fired flag)."
+    points: 6
+    grader: deterministic
+    gate: scoped          # firing this is GATE.FREELUNCH
+    tags: [free_lunch]
+  - id: S2.costitems
+    checkpoint: S2
+    category: reasoning
+    criterion: "Each cost item is grounded in a cited disclosure or computed figure (the cap from C3/C4, dividends from E3's price-return language, the ER from E3, path/exit from the prospectus risk language)."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [free_lunch]
+  - id: S2.credit
+    checkpoint: S2
+    category: reasoning
+    criterion: "Risk claims are right in BOTH directions: not an issuer-credit instrument (OCC-cleared, per E3's verbatim) — and not 'no counterparty risk at all' (honest residuals: OCC tail risk, clearing-member/omnibus margin, FLEX liquidity, premium/discount)."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [false_risk_claim]
+  - id: S2.comparator
+    checkpoint: S2
+    category: reasoning
+    criterion: "Any versus-the-underlying framing accounts for the dividend drag (price-return exposure) and the fee gap."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [dividend_basis]
+  - id: S2.n_freelunch
+    checkpoint: S2
+    category: calibration
+    criterion: "PENALTY: free-lunch PROSE ('protection at no cost', 'keep the upside, lose the downside') even where the cost block exists."
+    points: -6
+    grader: judge
+    gate: none
+    tags: [free_lunch]
+  - id: S2.n_credit
+    checkpoint: S2
+    category: reasoning
+    criterion: "PENALTY: a false risk claim in either direction (issuer credit on OCC-cleared FLEX; or zero counterparty risk)."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [false_risk_claim]
+
+  # ---- S3 — calibrated suitability bottom line (judge; inherits GATE.FREELUNCH) ----
+  - id: S3.consistent
+    checkpoint: S3
+    category: reasoning
+    criterion: "The bottom line is consistent with C6/S1/S2 — a ~zero/negative net remaining upside cannot coexist with an unqualified 'attractive entry'."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [contradiction]
+  - id: S3.entrycond
+    checkpoint: S3
+    category: reasoning
+    criterion: "The suitability read is entry-conditional (period-start buyer vs today's buyer) and dated (terms static to period end; state as of the snapshot)."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [stated_vs_remaining]
+  - id: S3.diligence
+    checkpoint: S3
+    category: reasoning
+    criterion: "The diligence floor is present: tax/distribution character, AUM/liquidity, premium/discount, and reset consequences (gains above the old cap forfeited; new cap by the same premium-neutral solve) each get a grounded sentence or an explicit 'not assessed — outside packet'."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [missing_diligence]
+  - id: S3.notverif
+    checkpoint: S3
+    category: calibration
+    criterion: "Explicitly names what was NOT verifiable from the packet (carrying E5 forward — e.g. the issuer's own daily remaining-cap figure was computed, not sourced) — calibrated uncertainty as a first-class positive."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [calibrated_refusal]
+  - id: S3.structure
+    checkpoint: S3
+    category: structure
+    criterion: "4-8 sentences; the required blocks present."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: S3.n_newfig
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: a new figure introduced that was not extracted or computed upstream."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [hallucination]
+  - id: S3.n_overconf
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: an overconfident/sycophantic suitability call that hides the C6 read or the cost of protection."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [free_lunch, contradiction]
+  - id: S3.n_hedge
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: blanket uninformative hedging that ignores what WAS determinable — fires XOR with S3.notverif counting as not-met."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [over_refusal]

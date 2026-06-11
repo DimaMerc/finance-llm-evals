@@ -8,7 +8,7 @@
 > how the headline is computed, and exactly what scores a zero.
 >
 > `rubric_version: 2.1.0` (the 2.0.0 atom set — unchanged ids / points / gates — under
-> checkpoint-primary aggregation with a category rollup) · pinned to `judge_version: 2.0.0`
+> checkpoint-primary aggregation with a category rollup) · pinned to `judge_version: 2.1.0`
 > (the judge prompt is lens-agnostic and unchanged).
 
 ---
@@ -481,7 +481,7 @@ RUNTIME totals** as each template materializes into one sub-atom per gold figure
 > two axes are aggregated by `LLMC_β` (§7). It is broken out as its own `grader` value only so the
 > harness routes E6/N-A atoms to the bucketing prompt; no separate model or contract is implied.
 
-**The judge contract** (full prompt in [`judge.md`](judge.md), frozen at `judge_version: 2.0.0`):
+**The judge contract** (full prompt in [`judge.md`](judge.md), frozen at `judge_version: 2.1.0`):
 one atomic criterion per call; temperature 0; `max_tokens 384`; strict JSON
 `{criterion_id, reasoning, evidence_quote, criteria_met}` with **reasoning before the verdict** so the
 rationale constrains the label. The judge is given the **computed gold numbers** and the **gold
@@ -571,7 +571,7 @@ in the taxonomy — a fabrication-heavy answer is logged as strictly worse than 
   asserts the §2.6 invariants at load.
 - **[`judge.md`](judge.md)** — the frozen LLM-judge system prompt, per-checkpoint judge instructions,
   the entailment grader (§4), the refusal grader (§5), five grading few-shots, and the Phase-5
-  macro-F1 + κ calibration contract. Pinned to `judge_version: 2.0.0`.
+  macro-F1 + κ calibration contract. Pinned to `judge_version: 2.1.0`.
 - **[`validate.py`](validate.py)** — the self-contained linter that asserts every §2.6 invariant and
   **prints** the per-category mass table, the per-checkpoint mass table, and the exact static grader
   counts that every derived number in this document and in `judge.md` mirrors. Run it until green after

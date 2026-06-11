@@ -111,11 +111,20 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
 - [x] Every formula and every live figure independently verified (strikes, OSI ids,
       contracts, 497K terms, payoff regimes, grid conventions, the Day-20 anchor).
 
-## Phase 2 — Rubric atoms  → `rubric/` *(reuse the criteria.yaml schema; no schema change)*
-- [ ] Atoms for the 18 checkpoints (per_leg_row expansion for E2); the gate ledger as
-      deterministic predicates; the tolerance keys (strike-exact, 0.05pp recompute band,
-      0.5pp grid %-row band, 0.1/0.15pp remaining-terms bands); checkpoint weights.
-- [ ] The `COMPUTED` G-score mapping for the E5 probe documented in `rubric/judge.md`.
+## Phase 2 — Rubric atoms  → `rubric/`  ✅ done *(criteria.yaml schema reused; no schema change)*
+- [x] `rubric/criteria-defined-outcome.yaml`: **110 atoms** (+349/−121) across the 18 checkpoints
+      (per_leg_row / per_grid_row / per_claim_row expansions); the full gate ledger as deterministic
+      predicates (incl. GATE.FREELUNCH on the structured cost-of-protection block, with the
+      `free_lunch_fired` headline flag); the derivatives tolerance keys (strike-exact, 0.05pp
+      recompute, 0.5pp grid %-row, 0.1/0.15pp remaining-terms with internal-consistency);
+      calculation-heavy weights (.125/.275/.420/.180). Graders: det 76 / entailment 8 / judge 19 /
+      refusal 7.
+- [x] `rubric/validate.py` generalized to validate any suite criteria file (checkpoint set derived
+      from the file); both evals pass 18/18.
+- [x] The `COMPUTED` G-score mapping + free-lunch judge notes documented as `rubric/judge.md` §8
+      (`judge_version` 2.0.0 → 2.1.0; no eval-#1 instruction changed).
+- [x] `rubric/rubric-defined-outcome.md`: compact scoring doc (deliberately does NOT mirror the mass
+      tables — the validator prints them as the source of truth, closing eval #1's drift-bug class).
 
 ## Phase 3 — Gold cases  → `cases/`
 - [ ] KOCT anchor case (+ same-day sibling-vintage N-PORTs as live distractors);
