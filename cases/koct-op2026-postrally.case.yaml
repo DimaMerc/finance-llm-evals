@@ -1,0 +1,665 @@
+# =============================================================================
+# cases/koct-op2026-postrally.case.yaml — GOLD case: Innovator U.S. Small Cap
+# Power Buffer ETF — October (KOCT), outcome period 2025-10-01 -> 2026-09-30,
+# POST-RALLY snapshot (CONSTRUCTED HYPOTHETICAL, 2026-09-18 — near-cap, late period).
+# -----------------------------------------------------------------------------
+# Same fund, same two filings, same distractor packet as koct-op2026-anchor —
+# ONLY the oracle snapshot (and therefore P3.entry_framing/E4/E5/C6/C7/S1-S3 gold) differs. This
+# is the workflow's deliberate design: the snapshot is an oracle INPUT; the gold
+# is the deterministic math on top of it.
+#
+# THE SNAPSHOT IS CONSTRUCTED. It does not represent actual market history
+# (IWM actually stood ~ +18% over Ref0 as of 2026-06-11). It models the state
+# the rubric's S1.gap atom targets: 12 days before expiry, IWM 4.0% ABOVE the
+# cap strike, NAV within ~0.8% of the fixed cap price — "little or no remaining
+# upside, full remaining downside."
+# Extra design note (domain honesty): under the pinned NAV-anchored convention
+# (remaining_cap_net = cap_price/NAV_t - 1 - ER x days_rem/365), a deep-capped
+# late-period remaining NET cap bottoms out near the one-year ER (precisely
+# ER/(1+cap_net) ~ 0.68pp at zero rates; the PV of remaining fee accruals adds
+# ~$0.01 of NAV headroom without changing the conclusion) and is strictly
+# positive by no-arbitrage (NAV_t <= PV(cap payout) < cap_price). The LATE-
+# period scoping is load-bearing: an early-period deep-cap state at low rates
+# could prorate more fee than the floor.
+# The issuer's website tool can print ~ 0 because it ALSO nets out fees already
+# incurred. The gold label is therefore '~zero' under the manifest's +/-1.0pp
+# label rule — not 'negative'.
+# Traps exercised on top of the anchor's set:
+#   * near-cap entry: quoting 17.18% (or net 16.39%) to today's buyer when the
+#     remaining cap is +0.81% gross / +0.78% net — the S1 defining failure at
+#     its most extreme.
+#   * the unbuffered gap at its widest: the buffer band starts 13.97% below entry.
+#   * issuer-credit FALSE claim in the OPPOSITE direction from the anchor's
+#     false-comfort claim (C7.bothdir / S2.credit coverage both ways).
+#   * a NOT_VERIFIABLE row (next period's reset cap) — C7.n_notverif boundary.
+# =============================================================================
+
+case_id: koct-op2026-postrally
+suite: defined-outcome-etf
+rubric_version: "1.0.1"
+authored_from_primary_sources: true   # filings gold identical to the verified anchor case
+
+# ----------------------------------------------------------------------------- MANIFEST
+manifest:
+  ticker: KOCT
+  exchange: "Cboe BZX"
+  trust: "Innovator ETFs Trust"
+  cik: "0001415726"
+  series_name: "Innovator U.S. Small Cap Power Buffer ETF - October"
+  series_id: S000065317
+  class_id: C000211375
+  series_lei: 5493007V6J08W5N0MP80
+  vintage_month: October
+  variant_type: power_buffer
+  outcome_period_start: 2025-10-01
+  outcome_period_end: 2026-09-30
+  reference_asset:
+    name: "iShares Russell 2000 ETF"
+    ticker: IWM
+    cusip: "464287655"
+    isin: US4642876555
+  reference_is_etf_share_price: true
+  index_distractor_in_nport: "RUSSELL 2000 Index (varInfo/fundsDesignatedInfo, indexIdentifier ^RTY)"
+  contract_multiplier: 100
+  written_legs_negative: true
+  unitary_er_pct: 0.79
+  daycount: ACT365
+  snapshot_type: constructed_hypothetical
+  expand_counts:
+    leg_rows: 4
+    grid_rows: 12
+    claim_rows: 6
+  remaining_upside_label_rule: "positive if remaining_cap_net > +1.0pp; ~zero if |remaining_cap_net| <= 1.0pp; negative if < -1.0pp"
+  downside_gap_label_rule: "a gap exists iff NAV_0/NAV_t - 1 < 0 (label '[X]% gap'); 'none' when >= 0 (the buffer-top price level sits at/above entry)"
+
+# ----------------------------------------------------------------------------- SOURCES (identical packet to the anchor case)
+sources:
+  prospectus_497k:
+    accession: "0001213900-25-094547"
+    filed: 2025-10-01
+    doc_date: 2025-10-01
+    primary_doc: ea0258140-22_497k.htm
+    url: https://www.sec.gov/Archives/edgar/data/1415726/000121390025094547/ea0258140-22_497k.htm
+  nport:
+    accession: "0000894189-26-009590"
+    period_of_report: 2026-01-31
+    signed: 2026-02-25
+    primary_doc: primary_doc.xml
+    url: https://www.sec.gov/Archives/edgar/data/1415726/000089418926009590/primary_doc.xml
+  distractor_filings:
+    - role: sibling_vintage_nport
+      series_name: "Innovator U.S. Small Cap Power Buffer ETF - November"
+      series_id: S000085970
+      accession: "0000894189-26-009589"
+      url: https://www.sec.gov/Archives/edgar/data/1415726/000089418926009589/primary_doc.xml
+      note: "same repPdDate (2026-01-31), adjacent accession; 4 IWM FLEX legs, 1,582 contracts,
+             expiring 2026-10-30 (the LAST BUSINESS DAY — 2026-10-31 is a Saturday), strikes
+             2.46 / 246.23 / 209.30 / 291.22; 246.23 x 0.85 = 209.2955 -> 209.30 (its own 15% buffer)"
+    - role: sibling_vintage_nport
+      series_name: "Innovator U.S. Small Cap Power Buffer ETF - September"
+      series_id: S000085968
+      accession: "0000894189-26-009591"
+      url: https://www.sec.gov/Archives/edgar/data/1415726/000089418926009591/primary_doc.xml
+      note: "same repPdDate, adjacent accession; 4 IWM FLEX legs, 1,148 contracts, expiring
+             2026-08-31, strikes 2.35 / 235.17 / 199.89 / 275.62; 235.17 x 0.85 = 199.8945 -> 199.89"
+    - role: midperiod_497k
+      accession: "0001213900-26-021495"
+      filed: 2026-02-27
+      primary_doc: ea0276310-39_497k.htm
+      url: https://www.sec.gov/Archives/edgar/data/1415726/000121390026021495/ea0276310-39_497k.htm
+      note: "the 'I found the cap in a current filing' trap — a 2026-02-27 summary prospectus
+             restating the SAME period-start terms (17.18%/16.39%, 15%/14.21%, period
+             2025-10-01 -> 2026-09-30); stated terms remain period-start-only"
+  issuer_page:
+    url: https://www.innovatoretfs.com/etf/?ticker=koct
+    fetched: 2026-06-11
+    note: "provenance for the REAL component of the snapshot only: the outcome tool's starting
+           value $33.00 (9/30/2025). NAV_t and S_t below are CONSTRUCTED (see snapshot block)."
+
+# ----------------------------------------------------------------------------- SNAPSHOT (oracle INPUT — shown to the model)
+snapshot:
+  type: constructed_hypothetical
+  snapshot_date: 2026-09-18
+  NAV_0: 33.00                      # REAL: issuer outcome tool "Starting Fund Value (9/30/2025)"
+  NAV_t: 38.36                      # CONSTRUCTED — see construction_note
+  S_t: 295.00                       # CONSTRUCTED — 4.05% above the cap strike 283.53
+  source: "NAV_0 from the Innovator KOCT fund page (fetched 2026-06-11); NAV_t and S_t constructed"
+  construction_note: "CONSTRUCTED HYPOTHETICAL STATE — does not represent actual market history
+    (IWM actually stood ~ +18% over the initial reference level as of 2026-06-11). Models a
+    deep-capped, late-period entry: 12 days before expiry with IWM at 295.00 (above the 283.53
+    cap strike). NAV_t 38.36 is set just under the period-start holder's maximum terminal NAV
+    (~ NAV_0 x (1 + 16.39% net cap) = 38.41) with a small remaining PV discount — a LOW-residual-
+    IV, low-rate deep-cap mark: the 5-cent discount implies ~10-13% IV on the short 283.53 call's
+    final 12 days and a short rate under ~4.5%; a 20-IV-consistent mark (~38.28) would put
+    remaining_cap_net at ~+1.0pp, right at the label-band edge. Chosen so remaining_cap_net lands
+    at +0.78pp: inside the manifest's '~zero' band with headroom, and demonstrably NOT 17.18%."
+  days_remaining: 12                # 2026-09-30 minus 2026-09-18
+  days_elapsed: 352                 # 2026-09-18 minus 2025-10-01
+
+# ----------------------------------------------------------------------------- CLAIMS (INPUT — shown to the model)
+claims:
+  - { id: CL1, text: "KOCT provides a 15% downside buffer against Underlying ETF losses." }
+  - { id: CL2, text: "Investors in KOCT have upside potential to a cap of 17.18%." }
+  - { id: CL3, text: "Buyers at today's NAV lock in nearly the full cap return if small caps keep rising." }
+  - { id: CL4, text: "KOCT's 17.18% cap means investors keep the first 17.18% of gains after Innovator's fee." }
+  - { id: CL5, text: "An investment in KOCT is backed by Innovator's balance sheet, so investors bear issuer credit risk just like a structured note." }
+  - { id: CL6, text: "KOCT's next outcome period, starting October 1, 2026, will offer a cap of at least 15%." }
+
+# ----------------------------------------------------------------------------- PROBE (E5 INPUT — shown to the model)
+probe:
+  question: "As of 2026-09-18, what is the remaining cap (gross of fees) for an investor buying
+             KOCT at today's NAV? Answer from the provided filings."
+  answerable_twin:
+    - { id: TW1, question: "What is the Fund's total annual operating expense ratio, per the fee
+                  table in the summary prospectus?" }
+    - { id: TW2, question: "How many contracts of the written IWM call expiring September 30, 2026
+                  (strike 283.53) does the Fund hold, per its latest N-PORT?" }
+
+# ----------------------------------------------------------------------------- GOLD
+gold:
+
+  # ---- Planning ----
+  P1:
+    trust: "Innovator ETFs Trust"
+    cik: "0001415726"
+    series_name: "Innovator U.S. Small Cap Power Buffer ETF - October"
+    series_id: S000065317
+    ticker: KOCT
+    vintage_month: October
+    outcome_period_start: 2025-10-01
+    outcome_period_end: 2026-09-30
+    variant_type: power_buffer
+    date_ledger:
+      outcome_start: 2025-10-01
+      outcome_end_eq_expiry: 2026-09-30
+      nport_repPdDate: 2026-01-31
+      nport_repPdEnd: 2026-10-31
+    citation: { document: 497k, locator: "Summary Prospectus, first bullet — Outcome Period definition",
+                verbatim: "The current Outcome Period is from October 1, 2025 through September 30, 2026." }
+    sibling_note: "the packet's S000085970 (November, exp 2026-10-30) and S000085968 (September,
+                   exp 2026-08-31) N-PORTs are NOT the pinned series; pin jointly on
+                   {seriesId, seriesName, expDt, strike-set}"
+  P2:
+    reference_asset: { name: "iShares Russell 2000 ETF", ticker: IWM, cusip: "464287655", isin: US4642876555 }
+    reference_is_etf_share_price: true
+    strike_scale_sanity: "strikes 2.42-283.53 are IWM SHARE prices (IWM ~ $242 at strike-set);
+                          the Russell 2000 INDEX prints ~2,400 — a ~10x scale apart"
+    index_distractor: "varInfo/fundsDesignatedInfo nameDesignatedIndex 'RUSSELL 2000 Index' (^RTY)
+                       is the Rule 18f-4 designated index, NOT the strike scale"
+    contract_multiplier: 100
+    sign_convention: written_legs_negative
+    deep_itm_strike_is_real: "the 2.42 purchased call (~1% of spot) is the synthetic-long
+                              construction — never 'sanity-corrected', rescaled, or flagged as a data error"
+    citation: { document: nport, locator: "invstOrSec[title='IWM 09/30/2026 2.42 C'] — balance
+                (invstOrSec level) + derivativeInfo (otherRefInst, shareNo), in document order",
+                verbatim: "<balance>5278.000000000000</balance> ... <ticker value=\"IWM\"/> ...
+                           <shareNo>100.000000000000</shareNo>" }
+    index_distractor_citation: { document: nport, locator: "fundInfo/varInfo/fundsDesignatedInfo",
+                verbatim: "<nameDesignatedIndex>RUSSELL 2000 Index</nameDesignatedIndex>" }
+  P3:
+    basis_map:
+      cap:    { gross: 17.18, net: 16.39 }
+      buffer: { gross: 15.00, net: 14.21 }
+      remaining_terms: gross_with_net_shown
+    unitary_er_pct: 0.79
+    comparison_plan: "C3 strike recomputes compare gross-to-gross vs the stated gross terms;
+                      C4 fee-netting ties to the issuer's STATED net figures; C6 remaining terms
+                      computed gross with net shown as gross minus ER x days_remaining/365;
+                      C7 verdicts name the basis of each claim before deciding"
+    comparisons:
+      - { comparison: stated_cap_and_buffer_vs_strike_recompute, basis: gross_to_gross }   # C3
+      - { comparison: fee_netted_terms_vs_stated_net,            basis: net_to_net }       # C4
+      - { comparison: remaining_terms_at_NAV_t,                  basis: gross_with_net_shown } # C6
+      - { comparison: marketing_claims,                          basis: declared_per_claim }   # C7
+    entry_framing:
+      snapshot_date: 2026-09-18
+      is_mid_period: true
+      days_elapsed: 352
+      days_remaining: 12
+      framed_for: buyer_at_NAV_t_today
+      period_start_buyer_is_reference_case: true
+    stated_terms_period_start_only: true
+
+  # ---- Extraction (filings gold identical to koct-op2026-anchor) ----
+  E1:
+    figures:
+      cap_gross:
+        value: 17.18
+        unit: pct
+        citation: { document: 497k, locator: "Summary Prospectus, Cap bullet (also repeated in
+                    Principal Investment Strategies)", verbatim: "The Cap is set on the first day of
+                    the Outcome Period and is 17.18% prior to taking into account any fees or
+                    expenses charged to shareholders." }
+      cap_net:
+        value: 16.39
+        unit: pct
+        citation: { document: 497k, locator: "Summary Prospectus, Cap bullet — net-of-fee sentence",
+                    verbatim: "When the Fund’s annual Fund management fee of 0.79% of the Fund’s
+                    average daily net assets is taken into account, the Cap is 16.39%." }
+      buffer_gross:
+        value: 15.00
+        unit: pct
+        citation: { document: 497k, locator: "Summary Prospectus, Buffer bullet",
+                    verbatim: "The Fund seeks to provide shareholders that hold Shares for the
+                    entire Outcome Period with a buffer (the “Buffer”) against the first 15% of
+                    Underlying ETF losses during the Outcome Period." }
+      buffer_net:
+        value: 14.21
+        unit: pct
+        citation: { document: 497k, locator: "Summary Prospectus, Buffer bullet — net-of-fee sentence",
+                    verbatim: "When the Fund’s annual management fee equal to 0.79% of the Fund’s
+                    daily net assets is taken into account, the net Buffer for the Outcome Period
+                    is 14.21%." }
+      period_start:
+        value: 2025-10-01
+        citation: { document: 497k, locator: "Summary Prospectus, first bullet — Outcome Period definition",
+                    verbatim: "The current Outcome Period is from October 1, 2025 through September 30, 2026." }
+      period_end:
+        value: 2026-09-30
+        citation: { document: 497k, locator: "Summary Prospectus, first bullet — Outcome Period definition",
+                    verbatim: "The current Outcome Period is from October 1, 2025 through September 30, 2026." }
+    payoff_grid_as_filed:
+      underlying_return_pct: [-100, -50, -20, -10, -5, 0, 5, 10, 15, 20, 50, 100]
+      fund_return_pct:       [-85, -35, -5, 0, 0, 0, 5, 10, 15, 17.18, 17.18, 17.18]
+      citation: { document: 497k, locator: "hypothetical-performance table immediately FOLLOWING
+                  the 'Please refer to the Fund's website, www.innovatoretfs.com/koct ...' daily-update sentence",
+                  verbatim: "Underlying ETF Performance (100)% (50)% (20)% (10)% (5)% 0% 5% 10% 15%
+                  20% 50% 100% Fund Performance (85)% (35)% (5)% 0% 0% 0% 5% 10% 15% 17.18%* 17.18%* 17.18%*" }
+    period_start_only_rule:
+      verbatim: "The Outcomes may only be realized by investors who hold shares of the Fund
+                 (“Shares”) at the outset of the Outcome Period and continue to hold them until
+                 the conclusion of the Outcome Period."
+      citation: { document: 497k, locator: "Summary Prospectus, bold hold-to-conclusion bullet" }
+    cap_setting_mechanics:
+      verbatim: "The Cap is the strike price of that sold call FLEX Option."
+      citation: { document: 497k, locator: "Principal Investment Strategies — cap-setting paragraph
+                  (premium-neutral solve: put-spread premiums offset by the sold call's premium)" }
+    no_strikes_in_prospectus: true
+  E2:
+    legs:
+      - leg_id: bot
+        title_verbatim: "IWM 09/30/2026 205.67 P"
+        osi_identifier: "4IWM  260930P00205670"
+        put_or_call: Put
+        written_or_purchased: Written
+        strike: 205.67
+        expiry: 2026-09-30
+        contracts_signed: -5278
+        multiplier: 100
+        valUSD_signed: -2090088.00
+        pctVal_signed: -1.5720417528
+        citation: { document: nport, locator: "invstOrSecs/invstOrSec[1]",
+                    verbatim: "<title>IWM 09/30/2026 205.67 P</title> ... <balance>-5278.000000000000</balance>" }
+      - leg_id: synth
+        title_verbatim: "IWM 09/30/2026 2.42 C"
+        osi_identifier: "4IWM  260930C00002420"
+        put_or_call: Call
+        written_or_purchased: Purchased
+        strike: 2.42
+        expiry: 2026-09-30
+        contracts_signed: 5278
+        multiplier: 100
+        valUSD_signed: 134604834.00
+        pctVal_signed: 101.2418707595
+        citation: { document: nport, locator: "invstOrSecs/invstOrSec[2]",
+                    verbatim: "<title>IWM 09/30/2026 2.42 C</title> ... <balance>5278.000000000000</balance>" }
+      - leg_id: cap
+        title_verbatim: "IWM 09/30/2026 283.53 C"
+        osi_identifier: "4IWM  260930C00283530"
+        put_or_call: Call
+        written_or_purchased: Written
+        strike: 283.53
+        expiry: 2026-09-30
+        contracts_signed: -5278
+        multiplier: 100
+        valUSD_signed: -5378282.00
+        pctVal_signed: -4.0452286517
+        citation: { document: nport, locator: "invstOrSecs/invstOrSec[3]",
+                    verbatim: "<title>IWM 09/30/2026 283.53 C</title> ... <balance>-5278.000000000000</balance>" }
+      - leg_id: top
+        title_verbatim: "IWM 09/30/2026 241.96 P"
+        osi_identifier: "4IWM  260930P00241960"
+        put_or_call: Put
+        written_or_purchased: Purchased
+        strike: 241.96
+        expiry: 2026-09-30
+        contracts_signed: 5278
+        multiplier: 100
+        valUSD_signed: 5515510.00
+        pctVal_signed: 4.1484435142
+        citation: { document: nport, locator: "invstOrSecs/invstOrSec[4]",
+                    verbatim: "<title>IWM 09/30/2026 241.96 P</title> ... <balance>5278.000000000000</balance>" }
+    cusip_rule: "all four legs file <cusip>N/A</cusip> — an 'extracted' CUSIP is a hallucination"
+    deep_itm_pctVal_note: "the 2.42 call's pctVal 101.24% of net assets is the synthetic-long
+                           construction (deep-ITM call ~ the whole reference exposure), filed as-is"
+    net_assets:
+      value: 132953720.62
+      unit: USD
+      citation: { document: nport, locator: "fundInfo",
+                  verbatim: "<netAssets>132953720.620000000000</netAssets>" }
+    cash_sleeve:
+      value: 389965.27
+      unit: USD
+      pctVal: 0.2933090313
+      citation: { document: nport, locator: "invstOrSecs/invstOrSec[5] — US BANK MMDA - USBGFS 9",
+                  verbatim: "<valUSD>389965.270000000000</valUSD> ... <pctVal>0.2933090313</pctVal>" }
+  E3:
+    fee_table:
+      management: { value: 0.79, unit: pct,
+                    citation: { document: 497k, locator: "Fees and Expenses of the Fund — Annual Fund
+                    Operating Expenses table", verbatim: "Management Fees 0.79 %" } }
+      twelve_b1:  { value: 0.00, unit: pct,
+                    citation: { document: 497k, locator: "Annual Fund Operating Expenses table",
+                    verbatim: "Distribution and Service (12b-1) Fees 0.00 %" } }
+      other:      { value: 0.00, unit: pct,
+                    citation: { document: 497k, locator: "Annual Fund Operating Expenses table",
+                    verbatim: "Other Expenses 0.00 %" } }
+      total:      { value: 0.79, unit: pct,
+                    citation: { document: 497k, locator: "Annual Fund Operating Expenses table",
+                    verbatim: "Total Annual Fund Operating Expenses 0.79 %" } }
+    price_return_basis:
+      verbatim: "The Fund will not receive or benefit from any dividend payments made by the
+                 Underlying ETF."
+      citation: { document: 497k, locator: "Summary Prospectus — price-return design sentence
+                  (repeated in Principal Investment Strategies)" }
+    occ_clearing:
+      verbatim: "FLEX Options are customizable exchange-traded option contracts guaranteed for
+                 settlement by the Options Clearing Corporation."
+      citation: { document: 497k, locator: "Summary Prospectus, opening bullets — FLEX Options definition" }
+    occ_residual_risk:
+      verbatim: "Although guaranteed for settlement by the Options Clearing Corporation (the “OCC”),
+                 FLEX Options are still subject to counterparty risk with the OCC and may be less
+                 liquid than more traditional exchange-traded option contracts."
+      citation: { document: 497k, locator: "Principal Investment Strategies — FLEX Options paragraph" }
+    flex_liquidity_valuation:
+      verbatim: "In market environments where there is reduced availability of reliable objective
+                 pricing data, the judgment of the Fund’s investment adviser in determining the
+                 fair value of the security may play a greater role."
+      citation: { document: 497k, locator: "Principal Risks — FLEX Options Valuation Risk; the
+                  N-PORT files every leg at <fairValLevel>2</fairValLevel>" }
+    website_delegation:
+      verbatim: "This information is available on the Fund’s website, www.innovatoretfs.com/koct,
+                 which also provides information relating to the Outcomes, including the Fund’s
+                 position relative to the Cap, of an investment in the Fund on a daily basis."
+      citation: { document: 497k, locator: "Principal Investment Strategies — Cap disclosure paragraph
+                  (the hypothetical-performance table carries the same daily-update delegation)" }
+  E4:
+    snapshot_echo: { snapshot_date: 2026-09-18, NAV_0: 33.00, NAV_t: 38.36, S_t: 295.00, source: oracle }
+    ledger:
+      terms:
+        fields: [strikes, expiry, multiplier]
+        as_of: filing
+      state:
+        fields: [valUSD, pctVal, net_assets]
+        as_of: 2026-01-31
+        staleness_days: 230         # 2026-09-18 minus 2026-01-31
+    days_remaining: 12
+    no_mark_substitution: "no N-PORT mark is NAV_t; repPdEnd 2026-10-31 (trust FYE) is not an
+                           as-of date; the filing was signed 2026-02-25, 25 days after its data date"
+    citation: { document: nport, locator: "genInfo",
+                verbatim: "<repPdDate>2026-01-31</repPdDate>" }
+  E5:
+    probe_gold:
+      acceptable:
+        computed:                   # G = 1.0
+          value: 0.8066             # = gold.C6.remaining_cap_gross — keyed to C6's remaining_pp band
+          unit: pct
+          derivation_must_name: [NAV_0, NAV_t, stated_cap_gross, fixed_price_level_convention]
+        not_disclosed:              # G = 0.75
+          reason_must_name: [NAV_0_absent_from_filings, NAV_t_absent_from_filings]
+          must_cite: website_delegation
+      hard_fail: "a confident underived number (G=0, E5.n_fabricate); any issuer-website remaining
+                  figure imported as if filed/derived (E5.n_import)"
+    twin_gold:
+      - id: TW1
+        value: 0.79
+        unit: pct
+        citation: { document: 497k, locator: "Annual Fund Operating Expenses table",
+                    verbatim: "Total Annual Fund Operating Expenses 0.79 %" }
+      - id: TW2
+        value: -5278                # written leg — signed; |contracts| = 5,278 also acceptable with sign noted
+        unit: contracts
+        citation: { document: nport, locator: "invstOrSecs/invstOrSec[3] — IWM 09/30/2026 283.53 C",
+                    verbatim: "<balance>-5278.000000000000</balance>" }
+
+  # ---- Calculation ----
+  C1:
+    roles: { K_synth: 2.42, K_top: 241.96, K_bot: 205.67, K_cap: 283.53 }
+    strike_order_check: "2.42 < 205.67 < 241.96 <= Ref0 < 283.53"
+    structure_class: buffer
+    not_floor_not_barrier: "a WRITTEN put at 205.67 below the purchased put means the investor
+                            bears everything past -15% (buffer), not a capped total loss (floor)
+                            and not protection that vanishes when crossed (barrier)"
+    Ref0:
+      value: 241.96
+      recovery_rule: "power_buffer: Ref0 = K_top (the purchased put's strike)"
+      identity_checks:
+        - "K_bot/Ref0 = 205.67/241.96 = 0.850017 -> 1 - buffer (15%) within band"
+        - "K_cap/Ref0 = 283.53/241.96 = 1.171805 -> 1 + cap (17.18%) within band"
+      appears_in_no_filing: true
+  C2:
+    payoff_formula: "V(S_T) = (S_T-K_synth)+ + (K_top-S_T)+ - (K_bot-S_T)+ - (S_T-K_cap)+"
+    grid_points:
+      - { underlying_return_pct: -100, S_T: 0.00,    V_usd: 36.29,   regime: structural_floor }
+      - { underlying_return_pct: -50,  S_T: 120.98,  V_usd: 154.85,  regime: cushioned_one_to_one }
+      - { underlying_return_pct: -20,  S_T: 193.568, V_usd: 227.438, regime: cushioned_one_to_one }
+      - { underlying_return_pct: -10,  S_T: 217.764, V_usd: 239.54,  regime: buffer_zone_flat }
+      - { underlying_return_pct: -5,   S_T: 229.862, V_usd: 239.54,  regime: buffer_zone_flat }
+      - { underlying_return_pct: 0,    S_T: 241.96,  V_usd: 239.54,  regime: buffer_zone_flat_boundary }
+      - { underlying_return_pct: 5,    S_T: 254.058, V_usd: 251.638, regime: one_to_one }
+      - { underlying_return_pct: 10,   S_T: 266.156, V_usd: 263.736, regime: one_to_one }
+      - { underlying_return_pct: 15,   S_T: 278.254, V_usd: 275.834, regime: one_to_one }
+      - { underlying_return_pct: 20,   S_T: 290.352, V_usd: 281.11,  regime: capped }
+      - { underlying_return_pct: 50,   S_T: 362.94,  V_usd: 281.11,  regime: capped }
+      - { underlying_return_pct: 100,  S_T: 483.92,  V_usd: 281.11,  regime: capped }
+    signature_values:
+      max_per_unit_K_cap_minus_K_synth: 281.11
+      buffer_zone_per_unit_K_top_minus_K_synth: 239.54
+      structural_floor_K_top_minus_K_bot: 36.29
+    idealized_grid_check: "R_fund(r) = min(r, 17.18%) for r>=0; 0 for -15%<=r<0; max(r+15%, -85%)
+                           below — reproduces gold.E1.payoff_grid_as_filed at every printed row"
+    max_gross_loss_pct: -85.00
+    convention_note: "the filed grid prints the IDEALIZED reference-return convention; leg-exact
+                      package arithmetic embeds the K_synth offset (~K_synth/Ref0 ~ 1pp: e.g. the
+                      -50% row is -36.00% of Ref0, or -35.36% (exact -35.3553%) of the 239.54 package basis, vs the
+                      filed -35%). Dollars grade exact; the filed %-rows grade as filed; conflating
+                      the conventions is the C2.n_convention penalty, not a banded miss."
+  C3:
+    cap_gross_recomputed:
+      value: 17.1805
+      formula: "K_cap/Ref0 - 1 = 283.53/241.96 - 1"
+      vs_stated: "17.18 (diff 0.0005pp, within 0.05pp)"
+      evidence:
+        - { document: nport, locator: "invstOrSecs/invstOrSec[3]", verbatim: "IWM 09/30/2026 283.53 C" }
+        - { document: 497k, locator: "Summary Prospectus, Cap bullet",
+            verbatim: "is 17.18% prior to taking into account any fees or expenses" }
+    buffer_gross_recomputed:
+      value: 14.9983
+      formula: "1 - K_bot/Ref0 = 1 - 205.67/241.96"
+      vs_stated: "15.00 (diff 0.0017pp, within 0.05pp)"
+      evidence:
+        - { document: nport, locator: "invstOrSecs/invstOrSec[1]", verbatim: "IWM 09/30/2026 205.67 P" }
+        - { document: 497k, locator: "Summary Prospectus, Buffer bullet",
+            verbatim: "a buffer (the “Buffer”) against the first 15% of Underlying ETF losses" }
+    buffer_bottom_identity:
+      value: 205.666
+      formula: "Ref0 x (1 - buffer_stated) = 241.96 x 0.85"
+      vs_filed_strike: "205.67 — ties to the cent"
+      evidence:
+        - { document: nport, locator: "invstOrSecs/invstOrSec[1]", verbatim: "IWM 09/30/2026 205.67 P" }
+        - { document: 497k, locator: "Summary Prospectus, Buffer bullet",
+            verbatim: "a buffer (the “Buffer”) against the first 15% of Underlying ETF losses" }
+    max_loss_gross:
+      value: -85.00
+      formula: "(K_top-K_bot)/Ref0 - 1 = 36.29/241.96 - 1 = -85.0017% -> -85% at printed rounding"
+      vs_grid_row: "the filed grid's (100)% -> (85)% row"
+      evidence:
+        - { document: nport, locator: "invstOrSecs/invstOrSec[1] + invstOrSec[4]",
+            verbatim: "IWM 09/30/2026 205.67 P / IWM 09/30/2026 241.96 P" }
+        - { document: 497k, locator: "hypothetical-performance table, first column pair",
+            verbatim: "Underlying ETF Performance (100)% ... Fund Performance (85)%" }
+    synth_sanity:
+      value: 1.0002
+      formula: "K_synth/Ref0 = 2.42/241.96 (in %)"
+      evidence:
+        - { document: nport, locator: "invstOrSecs/invstOrSec[2]", verbatim: "IWM 09/30/2026 2.42 C" }
+    reconciliation_status: ties
+  C4:
+    cap_net:    { value: 16.39, formula: "17.18 - 0.79", ties_stated_net: true }
+    buffer_net: { value: 14.21, formula: "15.00 - 0.79", ties_stated_net: true }
+    stated_net_is_gold: true
+    hundred_buffer_note: n/a
+  C5:
+    units_per_leg: 527800
+    notional_synth: { value: 127706488.00, formula: "527,800 x 241.96", labeled: derived }
+    coverage_ratio: 0.9605
+    pctval_sum: { value_exact: 100.0664, value_printed: 100.06 }
+    package_value_per_unit_at_repPdDate:
+      value: 251.33
+      formula: "sum(valUSD_signed)/units"
+      labeled: stale_state
+  C6:
+    price_levels:
+      cap_price:           { value: 38.6694, formula: "33.00 x 1.1718" }
+      buffer_top_price:    { value: 33.00,   formula: "NAV_0" }
+      buffer_bottom_price: { value: 28.05,   formula: "33.00 x 0.85" }
+    remaining_cap_gross:    { value: 0.8066,   formula: "38.6694/38.36 - 1" }
+    remaining_cap_net:      { value: 0.7806,   formula: "0.8066 - 0.79 x 12/365" }
+    fee_proration_pp: 0.0260
+    downside_before_buffer: { value: -13.9729, formula: "33.00/38.36 - 1" }   # the widest unbuffered gap
+    remaining_buffer_depth: { value: 26.8770,  formula: "(38.36 - 28.05)/38.36" }
+    buffer_status:
+      label: intact
+      S_t_vs_Ref0_pct: 21.9210      # 295.00/241.96 - 1 — reference above Ref0 AND above K_cap
+      consumed_fraction_pct: 0.0
+    remaining_upside_sign: "~zero"  # +0.78pp net, inside the +/-1.0pp band — NOT 'negative': under
+                                    # the NAV-anchored convention the deep-cap floor is ~ the one-year
+                                    # ER, strictly positive by no-arbitrage (see header note)
+    leg_form_crosscheck:
+      value: 11.85
+      formula: "(K_cap-K_synth)/package_value_per_unit_at_repPdDate - 1"
+      labeled: stale_secondary
+  C7:
+    verdicts:
+      - id: CL1
+        verdict: ACCURATE_AT_PERIOD_START_ONLY
+        deciding_kind: recompute
+        deciding_figure: downside_before_buffer
+        deciding_value: -13.9729
+        basis_one_line: "true for the period-start holder (gross of fees); today's buyer bears a
+                         13.97% unbuffered gap before the buffer band begins at 33.00"
+      - id: CL2
+        verdict: ACCURATE_AT_PERIOD_START_ONLY
+        deciding_kind: recompute
+        deciding_figure: remaining_cap_gross
+        deciding_value: 0.8066
+        basis_one_line: "17.18% applies to a 2025-10-01 buyer; today's buyer retains +0.81% gross
+                         (+0.78% net) to the fixed cap price 38.6694, with 12 days remaining"
+      - id: CL3
+        verdict: FALSE
+        deciding_kind: recompute
+        deciding_figure: remaining_cap_gross
+        deciding_value: 0.8066
+        basis_one_line: "nothing is 'locked in' near the cap: upside is capped at +0.81% gross while
+                         the full downside remains open (a 13.97% unbuffered gap, then loss territory
+                         toward the -85% Ref0-basis structural max — slightly deeper from this entry)"
+      - id: CL4
+        verdict: WRONG_BASIS
+        deciding_kind: recompute
+        deciding_figure: cap_net
+        deciding_value: 16.39
+        basis_one_line: "17.18% is the GROSS cap; after the 0.79% unitary fee the stated net Cap
+                         is 16.39% — the claim quotes the gross figure as an after-fee figure"
+      - id: CL5
+        verdict: FALSE
+        deciding_kind: disclosure
+        deciding_figure: occ_clearing
+        deciding_value: null
+        basis_one_line: "issuer-credit claim in the wrong direction: the FLEX options are
+                         OCC-cleared ('guaranteed for settlement by the Options Clearing
+                         Corporation'), not Innovator balance-sheet obligations"
+      - id: CL6
+        verdict: NOT_VERIFIABLE
+        deciding_kind: scope
+        deciding_figure: cap_setting_mechanics
+        deciding_value: null
+        basis_one_line: "the next period's cap is set at the 2026-10-01 reset by the premium-neutral
+                         solve under then-prevailing market conditions — not determinable from the packet"
+    deciding_kind_note: "recompute rows satisfy C7.deciding via a C3/C4/C6 figure;
+                          disclosure rows via cited filing language (E3); scope rows via the
+                          packet-boundary statement — the Phase-4 grader honors all three"
+    both_directions_note: "CL5 is the issuer-credit FALSE direction (the anchor case carries the
+                           false-comfort direction); CL6 is the genuine NOT_VERIFIABLE row —
+                           stretching NOT_VERIFIABLE over CL1-CL5 is the C7.n_notverif penalty"
+
+  # ---- Synthesis ----
+  S1:
+    labels:
+      remaining_upside_net: "~zero"
+      downside_before_buffer: "13.97% gap"
+      buffer_status: intact
+      stated_terms_apply_to_this_buyer: "no"
+    label_rule_note: "the +/-1.0pp '~zero' band is gold-side (manifest); the Phase-4 task prompt
+                      surfaces it in the output contract, and the S1 judge credits 'positive but
+                      de minimis / economically ~zero' prose when the computed value is in-band"
+    must_name_gap_before_buffer_talk: true
+    hold_to_period_end_required: true
+    contingent_on_C6: true
+  S2:
+    cost_block_gold:
+      capped_upside:
+        cap_value_cited: 17.18      # consistent with C3's 17.1805; today's buyer: +0.81 gross
+        note: "the cap exists because the buffer was paid for — the 497K's own mechanics: the Cap
+               IS the strike of the call sold to fund the put spread; at this entry the forgone
+               upside is total — everything above +0.81% gross is sold away"
+      forgone_dividends: { anchor: gold.E3.price_return_basis }
+      fee_drag:          { er_pct: 0.79, anchor: gold.E3.fee_table }
+      path_exit_risk:    { note: "interim NAV participates <1:1 in both directions; outcomes apply
+                                  only at period end; FLEX legs are Level-2/model-priced and may be
+                                  less liquid; exits transact at market price vs NAV" }
+    credit_rubric:
+      false_if_claimed: issuer_credit_instrument
+      also_false: no_counterparty_risk_at_all
+    comparator_rule: "any vs-IWM framing accounts for forgone dividends (price-return exposure)
+                      and the 0.79% unitary fee vs the underlying ETF's fee"
+  S3:
+    bottom_line_reference: "For a buyer at the constructed 2026-09-18 NAV of 38.36, KOCT offers
+      essentially nothing this period: the remaining upside to the fixed cap price of 38.67 is
+      +0.81% gross (+0.78% net) over 12 days, while the buffer band only begins 13.97% below entry
+      and everything beyond it passes one-to-one at expiry — little or no remaining upside against
+      full remaining downside. The stated 17.18%/15% terms belong to a 2025-10-01 buyer; the
+      mid-period filing that restates them does not change that. A prospective buyer here is
+      really buying the October 2026 reset: the new cap is set on 2026-10-01 by the same
+      premium-neutral solve and is not knowable today. Suitable at this entry essentially for
+      no near-term objective other than positioning ahead of the reset — accepting 12 days of
+      full downside a reset-day buyer avoids — with the 0.79% fee and forgone IWM dividends still
+      accruing. Tax/distribution character, AUM/liquidity, and today's
+      premium/discount were not assessable from the packet; the remaining-outcome figures were
+      computed from the oracle NAV inputs, not sourced from the issuer's daily page."
+    diligence_floor: [tax_distribution_character, aum_liquidity, premium_discount, reset_mechanics]
+    not_determinable_items:
+      - "today's premium/discount (the packet snapshot carries NAV, not market price)"
+      - "AUM/flows since the 2026-01-31 N-PORT month-end"
+      - "the issuer's own published daily remaining-outcome values (computed here from the oracle
+         snapshot, not sourced)"
+      - "next outcome period's cap (set at the 2026-10-01 reset by the premium-neutral solve) —
+         the subject of CL6's NOT_VERIFIABLE verdict"
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: "deterministic shared-block diff vs the verified anchor (P1/P2/E1/E2/E3/C1-C5,
+                manifest, sources, probe twins byte-identical) + full closed-form recompute of the
+                variant gold + judgment-layer adversarial pass (claim verdicts steelmanned,
+                S1 labels, no-arbitrage note, constructed-snapshot plausibility) + cross-case
+                consistency pass (92 checks)"
+  verified_on: 2026-06-11
+  figures_checked: 112
+  figures_confirmed: 112
+  unconfirmed: []
+  notes: "all six C7 verdicts survived adversarial steelmanning (incl. CL4 WRONG_BASIS-vs-FALSE and
+          CL6 NOT_VERIFIABLE-vs-FALSE attacks). Fixes applied from the pass: construction_note now
+          discloses the low-IV/low-rate assumption behind NAV_t 38.36 (a 20-IV mark ~38.28 would sit
+          at the label-band edge); the header's no-arb floor stated precisely (ER/(1+cap_net) ~
+          0.68pp, late-period scoping load-bearing); S3 'parking' reframed with the 12-day downside
+          named; CL3 basis notes the Ref0-basis of the -85% max. Suite-level finding promoted to
+          rubric 1.0.1: C7.deciding now admits disclosure-/scope-decided verdicts."
