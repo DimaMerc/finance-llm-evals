@@ -77,6 +77,58 @@ workflow definition + eval creation + capability assessment + data curation
 
 ## Phase 6 — Publish & extend
 - [x] MIT-licensed, public-ready: `LICENSE`, line-ending normalization, README + `PAPER.md`.
-- [ ] Push to GitHub (public).
+- [x] Push to GitHub (public): `github.com/DimaMerc/finance-llm-evals`.
 - [ ] **Next:** broaden the suite (more issuers/quarters) and run the judge-vs-expert calibration.
-- [ ] **Moat version:** an options / ETF / defined-outcome eval that few others can author.
+- [x] **Moat version** chosen and started → Eval #2 below.
+
+---
+
+# Eval #2 — Defined-outcome (buffer) ETF analysis  *(the moat eval; same repo, same machinery)*
+
+The workflow almost nobody else can author: given a buffer ETF's prospectus + its
+N-PORT FLEX-option legs + a dated market snapshot, **recompute the marketing from the
+options math** — stated cap/buffer from the strikes, the remaining outcome for a
+mid-period buyer, claim-by-claim verification — with the **free-lunch gate** (downside
+protection asserted with no forgone-upside cost = auto-fail) as the signature.
+
+## Phase 1 — Workflow decomposition  → `workflow/defined-outcome-analysis.md`  ✅ done
+- [x] Feasibility verified live on EDGAR first: KOCT (Innovator U.S. Small Cap Power
+      Buffer ETF – October, CIK 1415726, NPORT-P 0000894189-26-009590) — 4 FLEX legs on
+      IWM whose strikes reproduce the stated terms exactly (241.96 × 0.85 = 205.67;
+      283.53/241.96 − 1 = 17.18%); 497K stated terms verified (17.18/16.39 gross/net cap,
+      15/14.21 buffer, 0.79% fee).
+- [x] 18 checkpoints (3/5/7/3, deliberately calculation-heavy): P1–P3 planning (vintage
+      pin · reference/strike-scale · fee basis), E1–E5 extraction (incl. the remaining-cap
+      calibrated-refusal probe with the `{COMPUTED, value, derivation}` typed-answer
+      extension), C1–C7 calculation (leg roles/Ref₀ · payoff regimes · recompute-vs-stated
+      reconciliation · fee netting · notional tie-outs · remaining outcome at NAV_t ·
+      claim verdicts), S1–S3 synthesis (entry-timing verdict · cost of protection ·
+      calibrated suitability).
+- [x] Gates: GATE.VINTAGE + GATE.REFSCALE (hard), GATE.FEEBASIS (scoped),
+      **GATE.FREELUNCH** (scoped, deterministic predicate on the required
+      cost-of-protection block → zeros S2+S3; the suite's one synthesis-stage gate),
+      GATE.FABRICATION (reused), three in-checkpoint fails (C1/C2/C6).
+- [x] Every formula and every live figure independently verified (strikes, OSI ids,
+      contracts, 497K terms, payoff regimes, grid conventions, the Day-20 anchor).
+
+## Phase 2 — Rubric atoms  → `rubric/` *(reuse the criteria.yaml schema; no schema change)*
+- [ ] Atoms for the 18 checkpoints (per_leg_row expansion for E2); the gate ledger as
+      deterministic predicates; the tolerance keys (strike-exact, 0.05pp recompute band,
+      0.5pp grid %-row band, 0.1/0.15pp remaining-terms bands); checkpoint weights.
+- [ ] The `COMPUTED` G-score mapping for the E5 probe documented in `rubric/judge.md`.
+
+## Phase 3 — Gold cases  → `cases/`
+- [ ] KOCT anchor case (+ same-day sibling-vintage N-PORTs as live distractors);
+      post-rally (≈0/negative net remaining upside); post-drawdown (buffer partially
+      consumed); Ultra/Deep Buffer (Ref₀ = K_top/0.95 rule); 100%-buffer fund; a
+      floor-vs-buffer discrimination probe; an SPX contrast case (~20× strike scale);
+      a designed reconciliation-break case.
+
+## Phase 4 — Harness extension  → `harness/`
+- [ ] **Precondition:** refactor graders.py to data-driven dispatch (currently hardcodes
+      earnings atom ids) + scoring.py's gate→atom map; then the `COMPUTED`-aware refusal
+      grader and the `free_lunch_fired` headline flag.
+
+## Phase 5 — Graded runs + write-up
+- [ ] Run models through both evals; populate the taxonomy from real traces; extend
+      `PAPER.md` (or a v2) with the suite framing.
