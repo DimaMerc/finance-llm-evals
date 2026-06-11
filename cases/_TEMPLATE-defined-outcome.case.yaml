@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # One file per case, for the DEFINED-OUTCOME (BUFFER) ETF eval. Supplies the GOLD
 # the Phase-4 harness scores a model against, for every checkpoint/atom in
-# ../rubric/criteria-defined-outcome.yaml (eval-#2 rubric_version 1.0.0, suite
+# ../rubric/criteria-defined-outcome.yaml (eval-#2 rubric_version 1.0.1, suite
 # schema 2.1.0). Workflow spec: ../workflow/defined-outcome-analysis.md.
 #
 # HARD RULES (carried from eval #1 — a wrong number discredits the artifact):
@@ -30,7 +30,7 @@
 
 case_id: TICKER-opYYYY-variant      # e.g. koct-op2026-anchor (op = outcome period ending YYYY)
 suite: defined-outcome-etf          # routes the harness to criteria-defined-outcome.yaml
-rubric_version: "1.0.0"
+rubric_version: "1.0.1"
 authored_from_primary_sources: true # set true only after the verify pass confirms every cite
 
 # ----------------------------------------------------------------------------- MANIFEST
@@ -67,6 +67,7 @@ manifest:
     grid_rows: 12                   # C2.regimes (the filed payoff grid's points)
     claim_rows: 6                   # C7.verdicts
   remaining_upside_label_rule: "positive if remaining_cap_net > +1.0pp; ~zero if |remaining_cap_net| <= 1.0pp; negative if < -1.0pp"
+  downside_gap_label_rule: "a gap exists iff NAV_0/NAV_t - 1 < 0 (label '[X]% gap'); 'none' when >= 0 (the buffer-top price level sits at/above entry)"
 
 # ----------------------------------------------------------------------------- SOURCES
 sources:

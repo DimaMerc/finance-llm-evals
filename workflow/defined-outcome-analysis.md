@@ -909,8 +909,10 @@ taxonomy table is generated mechanically from graded traces.
         buyer faces the C6 remaining cap, not 17.18%); a net figure marketed against
         a gross recompute → `WRONG_BASIS`; *"defined outcome regardless of when you
         buy"* → `FALSE`.
-  - [ ] Every verdict names its **deciding figure** from C3/C4/C6 — a verdict without
-        a recomputed number behind it earns nothing (no vibes).
+  - [ ] Every numerically decidable verdict names its **deciding figure** from C3/C4/C6 —
+        a numeric verdict without a recomputed number behind it earns nothing (no vibes).
+        Claims decided by cited filing language (credit-structure claims, per E3) or by
+        the packet boundary (`NOT_VERIFIABLE`) name that disclosure/boundary fact instead.
   - [ ] False claims are caught in **both directions** — overclaims (protection
         without scope) and false-comfort claims (a "no credit risk whatsoever" claim
         is also not `ACCURATE`; the honest residual is OCC/clearing-member tail risk).

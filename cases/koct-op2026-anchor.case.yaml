@@ -4,7 +4,7 @@
 # snapshot (REAL, 2026-06-10).
 # -----------------------------------------------------------------------------
 # Authored from primary SEC sources per cases/_TEMPLATE-defined-outcome.case.yaml
-# (eval-#2 rubric 1.0.0). The suite's running example, eight months into the
+# (eval-#2 rubric 1.0.1). The suite's running example, eight months into the
 # outcome period. Traps deliberately exercised:
 #   * sibling-vintage distractors: the September and November Power Buffer N-PORTs,
 #     filed the SAME DAY with adjacent accession numbers, strikes ~1.7-2.9% apart.
@@ -35,7 +35,7 @@
 
 case_id: koct-op2026-anchor
 suite: defined-outcome-etf
-rubric_version: "1.0.0"
+rubric_version: "1.0.1"
 authored_from_primary_sources: true
 
 # ----------------------------------------------------------------------------- MANIFEST
@@ -69,6 +69,7 @@ manifest:
     grid_rows: 12
     claim_rows: 6
   remaining_upside_label_rule: "positive if remaining_cap_net > +1.0pp; ~zero if |remaining_cap_net| <= 1.0pp; negative if < -1.0pp"
+  downside_gap_label_rule: "a gap exists iff NAV_0/NAV_t - 1 < 0 (label '[X]% gap'); 'none' when >= 0 (the buffer-top price level sits at/above entry)"
 
 # ----------------------------------------------------------------------------- SOURCES
 sources:

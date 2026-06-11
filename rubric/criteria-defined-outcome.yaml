@@ -19,7 +19,10 @@
 #     beta = 0.5, with the {COMPUTED, value, derivation} G-mapping documented in judge.md.
 
 meta:
-  rubric_version: "1.0.0"          # eval #2 atom set, first cut (suite schema 2.1.0)
+  rubric_version: "1.0.1"          # eval #2 atom set (suite schema 2.1.0); 1.0.1: C7.deciding admits
+                                   # disclosure-/scope-decided verdicts (found by the Phase-3 case
+                                   # verification pass — credit-risk and NOT_VERIFIABLE claims
+                                   # structurally cannot name a C3/C4/C6 recompute)
   eval: defined-outcome-etf
 
   # --- SECONDARY category rollup weights. IDENTICAL to eval #1 for suite comparability. ---
@@ -917,7 +920,7 @@ criteria:
   - id: C7.deciding
     checkpoint: C7
     category: reasoning
-    criterion: "Every verdict names its deciding figure from C3/C4/C6 — a verdict without a recomputed number behind it earns nothing."
+    criterion: "Every numerically decidable verdict names its deciding figure from C3/C4/C6 — a numeric verdict without a recomputed number behind it earns nothing. Claims decided by cited filing language (e.g. credit-structure claims, per E3's verbatims) or by the packet boundary (NOT_VERIFIABLE) instead name that disclosure or boundary fact as the deciding evidence (case files tag these deciding_kind: disclosure | scope vs recompute)."
     points: 4
     grader: deterministic
     gate: none
