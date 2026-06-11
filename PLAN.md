@@ -126,12 +126,26 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
 - [x] `rubric/rubric-defined-outcome.md`: compact scoring doc (deliberately does NOT mirror the mass
       tables — the validator prints them as the source of truth, closing eval #1's drift-bug class).
 
-## Phase 3 — Gold cases  → `cases/`
-- [ ] KOCT anchor case (+ same-day sibling-vintage N-PORTs as live distractors);
-      post-rally (≈0/negative net remaining upside); post-drawdown (buffer partially
-      consumed); Ultra/Deep Buffer (Ref₀ = K_top/0.95 rule); 100%-buffer fund; a
-      floor-vs-buffer discrimination probe; an SPX contrast case (~20× strike scale);
-      a designed reconciliation-break case.
+## Phase 3 — Gold cases  → `cases/`  ✅ core done (KOCT trio; new-fund cases deferred)
+- [x] **KOCT core** (scoped by budget decision 2026-06-10): the anchor case with a REAL
+      cited snapshot (issuer NAV 36.46 / NAV₀ 33.00 / IWM 285.02, 2026-06-10 → remaining
+      cap +6.06 gross / +5.82 net vs stated 17.18), plus **post-rally** (constructed,
+      near-cap, +0.78 net → "~zero"; the NAV-anchored no-arb floor ≈ ER/(1+cap_net)
+      documented) and **post-drawdown** (constructed, buffer 43.98% consumed ≠ breached,
+      remaining cap ENLARGED to +18.26 gross) — both labeled hypothetical with
+      construction notes. Same-day sibling-vintage N-PORTs (Sep/Nov) + a mid-period
+      497K restating period-start terms packaged as live distractors in every case.
+- [x] Eval-#2 case contract: `cases/_TEMPLATE-defined-outcome.case.yaml`; cases are
+      self-contained YAML; `cases/README.md` carries the suite section.
+- [x] Verified: a 4-agent adversarial pass on the anchor (N-PORT + 497K re-extraction,
+      closed-form recompute, rubric-coverage map; 349 checks, zero blockers) and a
+      3-agent judgment-layer pass on the variants — which caught a REAL no-arb
+      construction error (post-drawdown NAV re-golded 31.85 → 32.70) and a rubric gap
+      promoted to **rubric 1.0.1** (C7.deciding now admits disclosure-/scope-decided
+      verdicts). Each case logs its pass in `verification:`.
+- [ ] *(deferred to a later budget cycle)* Ultra/Deep Buffer (Ref₀ = K_top/0.95 rule);
+      100%-buffer fund; floor-vs-buffer discrimination probe; SPX contrast case
+      (~20× strike scale); designed reconciliation-break case.
 
 ## Phase 4 — Harness extension  → `harness/`
 - [ ] **Precondition:** refactor graders.py to data-driven dispatch (currently hardcodes
