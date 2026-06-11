@@ -1,0 +1,358 @@
+# =============================================================================
+# cases/_TEMPLATE-defined-outcome.case.yaml — the eval-#2 gold-case contract (Phase 3)
+# -----------------------------------------------------------------------------
+# One file per case, for the DEFINED-OUTCOME (BUFFER) ETF eval. Supplies the GOLD
+# the Phase-4 harness scores a model against, for every checkpoint/atom in
+# ../rubric/criteria-defined-outcome.yaml (eval-#2 rubric_version 1.0.0, suite
+# schema 2.1.0). Workflow spec: ../workflow/defined-outcome-analysis.md.
+#
+# HARD RULES (carried from eval #1 — a wrong number discredits the artifact):
+#   * Every gold figure transcribed from a REAL SEC filing. No invented numbers.
+#   * Every filing figure carries a citation {document, locator, verbatim} where
+#       document = 497k | nport | midperiod_497k      (which packet doc)
+#       locator  = section heading / bullet (497K has no page numbers) — or the
+#                  XML element path for the N-PORT (invstOrSec[title=...]).
+#       verbatim = the exact string containing the figure (entailment grader).
+#   * The two filings never repeat each other: percentages live ONLY in the 497K,
+#     strikes ONLY in the N-PORT. A percentage cited to the nport (or a strike to
+#     the 497k) is a wrong-document error by construction.
+#   * The MARKET SNAPSHOT is an oracle INPUT, not a gold transcription (no daily
+#     NAV exists in any EDGAR filing — that absence is the E5 probe). It is either
+#       type: real                     — sourced and cited (issuer page / market data), or
+#       type: constructed_hypothetical — clearly labeled, with a construction_note;
+#     the GOLD is the deterministic math computed ON the snapshot, never the
+#     snapshot itself. Calculation golds (C2/C3/C5/C6) derive closed-form from
+#     {strikes, stated terms, ER, snapshot} via the workflow-doc formulas.
+#   * Sibling-vintage filings are packaged as LIVE DISTRACTORS (same-day N-PORTs
+#     with adjacent accessions; a mid-period 497K restating period-start terms).
+#     They are part of the model-visible packet; gold never cites them.
+# =============================================================================
+
+case_id: TICKER-opYYYY-variant      # e.g. koct-op2026-anchor (op = outcome period ending YYYY)
+suite: defined-outcome-etf          # routes the harness to criteria-defined-outcome.yaml
+rubric_version: "1.0.0"
+authored_from_primary_sources: true # set true only after the verify pass confirms every cite
+
+# ----------------------------------------------------------------------------- MANIFEST
+# Gold side, NOT shown to the model. Drives P1/P2/P3 gold + the gating predicates
+# + the per_leg_row / per_grid_row / per_claim_row expansions.
+manifest:
+  ticker: ""
+  exchange: ""                      # e.g. "Cboe BZX"
+  trust: ""                         # e.g. "Innovator ETFs Trust"
+  cik: ""                           # 10-digit, zero-padded
+  series_name: ""                   # exact N-PORT seriesName — the P1 hard identifier
+  series_id: ""                     # SNNNNNNNNN — the P1 hard identifier
+  class_id: ""
+  series_lei: ""
+  vintage_month: ""                 # the monthly-family label (October, ...)
+  variant_type: ""                  # power_buffer | buffer | ultra_deep_buffer | hundred_buffer | floor | barrier
+                                    #   drives C1's Ref0 recovery rule (power/standard: Ref0=K_top; ultra/deep: K_top/0.95)
+  outcome_period_start: ""          # YYYY-MM-DD
+  outcome_period_end: ""            # YYYY-MM-DD — must equal the legs' expDt (last business day)
+  reference_asset:
+    name: ""                        # e.g. "iShares Russell 2000 ETF"
+    ticker: ""
+    cusip: ""
+    isin: ""
+  reference_is_etf_share_price: true   # strikes are ETF SHARE prices, not index levels (P2 gold)
+  index_distractor_in_nport: ""     # the varInfo designated-index name (the in-document P2 trap)
+  contract_multiplier: 100
+  written_legs_negative: true       # N-PORT sign convention (P2 gold)
+  unitary_er_pct: null              # the netting/proration operand (P3/C4/C6)
+  daycount: ACT365                  # pinned; days_remaining = outcome_period_end - snapshot_date
+  snapshot_type: ""                 # real | constructed_hypothetical  (echoes snapshot.type)
+  expand_counts:                    # rows the harness materializes for split atoms
+    leg_rows: 4                     # E2.legs / E2.cite
+    grid_rows: 12                   # C2.regimes (the filed payoff grid's points)
+    claim_rows: 6                   # C7.verdicts
+  remaining_upside_label_rule: "positive if remaining_cap_net > +1.0pp; ~zero if |remaining_cap_net| <= 1.0pp; negative if < -1.0pp"
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  prospectus_497k:                  # the outcome-period-start summary prospectus (the stated-terms anchor)
+    accession: ""
+    filed: ""                       # YYYY-MM-DD
+    doc_date: ""                    # the date printed on the cover
+    primary_doc: ""
+    url: ""
+  nport:                            # the pinned series' NPORT-P (the strikes anchor)
+    accession: ""
+    period_of_report: ""            # repPdDate — month-end data date
+    signed: ""                      # signature date (staleness evidence)
+    primary_doc: primary_doc.xml
+    url: ""
+  distractor_filings:               # model-visible packet members; gold NEVER cites these
+    - role: sibling_vintage_nport   # same-day filing, adjacent accession, strikes a few % apart
+      series_name: ""
+      series_id: ""
+      accession: ""
+      url: ""
+      note: ""                      # e.g. legs/expiry summary, why it is a live trap
+    - role: midperiod_497k          # restates the SAME period-start terms in a current-dated filing
+      accession: ""
+      filed: ""
+      primary_doc: ""
+      url: ""
+      note: "the 'I found the cap in a current filing' trap — stated terms are period-start-only"
+  issuer_page:                      # secondary reference ONLY (snapshot provenance / convention notes)
+    url: ""
+    fetched: ""
+    note: "issuer daily outcome values are website-published, not filed — the E5 absence"
+
+# ----------------------------------------------------------------------------- SNAPSHOT (oracle INPUT — shown to the model)
+# Day-1 NAV, today's NAV, and today's reference level exist in NO EDGAR filing
+# (Rule 6c-11 website items; the prospectus delegates them verbatim). Oracle-fed
+# in BOTH run modes, like eval #1's consensus block.
+snapshot:
+  type: ""                          # real | constructed_hypothetical
+  snapshot_date: ""                 # YYYY-MM-DD
+  NAV_0: null                       # fund NAV/share at outcome-period start (day-1 anchor)
+  NAV_t: null                       # fund NAV/share at snapshot_date
+  S_t: null                         # reference-asset (ETF) share price at snapshot_date
+  source: ""                        # real: the cited public source + as-of; constructed: "constructed"
+  construction_note: ""             # REQUIRED if constructed: how the hypothetical state was built,
+                                    #   and the statement that it does not represent actual market history
+  days_remaining: null              # outcome_period_end - snapshot_date (pinned convention; E4.days gold)
+  days_elapsed: null                # snapshot_date - outcome_period_start
+
+# ----------------------------------------------------------------------------- CLAIMS (INPUT — shown to the model)
+# 3-6 verbatim fact-sheet/marketing-register claims; at least one true-only-at-
+# period-start, one basis-confused or false. Gold verdicts live in gold.C7.
+claims:
+  - { id: CL1, text: "" }
+  - { id: CL2, text: "" }
+
+# ----------------------------------------------------------------------------- PROBE (E5 INPUT — shown to the model)
+probe:
+  question: ""                      # the remaining-cap probe, posed against the FILINGS alone
+  answerable_twin:                  # disclosed-but-buried figures (over-refusal symmetric penalty)
+    - { id: TW1, question: "" }
+    - { id: TW2, question: "" }
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+# Numeric golds: { value, unit, citation } for extracted figures;
+# { value, derivation } for computed figures (harness re-checks the math to the
+# atom's tolerance key). Citations: {document, locator, verbatim}.
+gold:
+
+  # ---- Planning ----
+  P1:
+    trust: ""
+    cik: ""
+    series_name: ""                 # must match N-PORT genInfo verbatim
+    series_id: ""
+    ticker: ""
+    vintage_month: ""
+    outcome_period_start: ""
+    outcome_period_end: ""
+    variant_type: ""
+    date_ledger:                    # the P1.3 quadruple — four DIFFERENT dates, each with its meaning
+      outcome_start: ""
+      outcome_end_eq_expiry: ""     # = legs' expDt (last business day, not necessarily month-end)
+      nport_repPdDate: ""           # N-PORT data month-end (the staleness anchor)
+      nport_repPdEnd: ""            # trust FISCAL-YEAR end — not the data date, not the period end
+    citation: {}                    # the 497K outcome-period sentence (P1.5 entailment anchor)
+    sibling_note: ""                # which packet filings are NOT the pinned series
+  P2:
+    reference_asset: { name: "", ticker: "", cusip: "", isin: "" }
+    reference_is_etf_share_price: true
+    strike_scale_sanity: ""         # e.g. "strikes ~$242 = ETF share price; Russell 2000 index ~2,400"
+    index_distractor: ""            # the varInfo name the model must NOT absorb as the strike scale
+    contract_multiplier: 100
+    sign_convention: written_legs_negative
+    deep_itm_strike_is_real: ""     # the K_synth acceptance note (P2.4)
+    citation: {}                    # balance (invstOrSec level) + otherRefInst/shareNo, in document order (P2.5)
+    index_distractor_citation: {}   # the varInfo nameDesignatedIndex element — the in-document trap anchor
+  P3:
+    basis_map:                      # every term carries BOTH bases (P3.1)
+      cap:    { gross: null, net: null }
+      buffer: { gross: null, net: null }
+      remaining_terms: gross_with_net_shown
+    unitary_er_pct: null
+    comparison_plan: ""             # which basis each downstream comparison uses (P3.2 — the scoped gate)
+    comparisons: []                 # materialized rows: [{comparison, basis}] per downstream check
+    entry_framing:
+      snapshot_date: ""
+      is_mid_period: true
+      days_elapsed: null
+      days_remaining: null
+      framed_for: buyer_at_NAV_t_today
+      period_start_buyer_is_reference_case: true
+    stated_terms_period_start_only: true
+
+  # ---- Extraction ----
+  E1:
+    figures:                        # values exact at the filing's printed rounding (exact_2dp_pp)
+      cap_gross:    { value: null, unit: pct, citation: {} }
+      cap_net:      { value: null, unit: pct, citation: {} }
+      buffer_gross: { value: null, unit: pct, citation: {} }
+      buffer_net:   { value: null, unit: pct, citation: {} }
+      period_start: { value: "", citation: {} }
+      period_end:   { value: "", citation: {} }
+    payoff_grid_as_filed:           # E1.grid — rows AS PRINTED (idealized convention, never "corrected")
+      underlying_return_pct: []
+      fund_return_pct: []
+      citation: {}
+    period_start_only_rule: { verbatim: "", citation: {} }   # E1.rule — powers C6/C7/S1
+    cap_setting_mechanics:  { verbatim: "", citation: {} }   # E1.capmech — the S2 free-lunch anchor
+    no_strikes_in_prospectus: true  # a strike cited to the 497K = fabrication (GATE.FABRICATION hook)
+  E2:
+    legs:                           # one row per leg (per_leg_row expansion; order = N-PORT filing order)
+      - leg_id: ""                  # synth | top | bot | cap (the C1 role key, gold-side only)
+        title_verbatim: ""          # the citation string itself
+        osi_identifier: ""          # redundantly encodes expiry/type/strike (E2.osi cross-check)
+        put_or_call: ""
+        written_or_purchased: ""
+        strike: null                # exact to the filed cent
+        expiry: ""
+        contracts_signed: null      # SIGNED (written legs negative)
+        multiplier: 100
+        valUSD_signed: null
+        pctVal_signed: null
+        citation: {}
+    cusip_rule: "FLEX legs file cusip='N/A' — an extracted CUSIP is a hallucination"
+    deep_itm_pctVal_note: ""        # >100% of net assets is the construction, not an error
+    net_assets:  { value: null, unit: USD, citation: {} }
+    cash_sleeve: { value: null, unit: USD, pctVal: null, citation: {} }
+  E3:
+    fee_table:                      # the E5 answerable-twin material — citation required
+      management: { value: null, unit: pct, citation: {} }
+      twelve_b1:  { value: null, unit: pct, citation: {} }
+      other:      { value: null, unit: pct, citation: {} }
+      total:      { value: null, unit: pct, citation: {} }
+    price_return_basis:   { verbatim: "", citation: {} }     # the S2 forgone-dividends anchor
+    occ_clearing:         { verbatim: "", citation: {} }     # makes "issuer credit risk" FALSE
+    occ_residual_risk:    { verbatim: "", citation: {} }     # makes "no counterparty risk at all" also false
+    flex_liquidity_valuation: { verbatim: "", citation: {} } # less-liquid + fair-value/Level-2 marks
+    website_delegation:   { verbatim: "", citation: {} }     # E5's gold reason (daily values live on the site)
+  E4:
+    snapshot_echo: { snapshot_date: "", NAV_0: null, NAV_t: null, S_t: null, source: oracle }
+    ledger:
+      terms:                        # static all period, regardless of filing age
+        fields: [strikes, expiry, multiplier]
+        as_of: filing
+      state:                        # month-end marks — stale by construction at the snapshot date
+        fields: [valUSD, pctVal, net_assets]
+        as_of: ""                   # = repPdDate
+        staleness_days: null        # snapshot_date - repPdDate
+    days_remaining: null            # E4.days gold (exact_int; convention pinned in manifest)
+    no_mark_substitution: "no N-PORT mark is NAV_t; repPdEnd (trust FYE) is not an as-of date"
+    citation: {}                    # repPdDate element (E4.cite entailment)
+  E5:
+    probe_gold:
+      acceptable:                   # both earn full/refusal credit per the judge.md §8 G-mapping
+        computed:                   # G = 1.0
+          value: null               # = gold.C6.remaining_cap_gross — KEYED to C6's band (remaining_pp)
+          unit: pct
+          derivation_must_name: [NAV_0, NAV_t, stated_cap_gross, fixed_price_level_convention]
+        not_disclosed:              # G = 0.75
+          reason_must_name: [NAV_0_absent_from_filings, NAV_t_absent_from_filings]
+          must_cite: website_delegation
+      hard_fail: "a confident underived number (G=0, E5.n_fabricate); an issuer-website figure imported as if filed/derived (E5.n_import)"
+    twin_gold:
+      - { id: TW1, value: null, unit: pct, citation: {} }
+      - { id: TW2, value: null, unit: contracts, citation: {} }
+
+  # ---- Calculation (computed golds; closed-form from strikes + stated terms + ER + snapshot) ----
+  C1:
+    roles: { K_synth: null, K_top: null, K_bot: null, K_cap: null }   # strike values by role
+    strike_order_check: "K_synth < K_bot < K_top <= Ref0 < K_cap"
+    structure_class: buffer         # decided from the legs (written lower put), never from the name
+    not_floor_not_barrier: ""       # the C1.class discrimination note
+    Ref0:
+      value: null
+      recovery_rule: ""             # e.g. "power_buffer: Ref0 = K_top"
+      identity_checks:              # corroboration (C1.ref0) — both must hold within band
+        - ""                        # K_bot/Ref0 = 1 - buffer_stated
+        - ""                        # K_cap/Ref0 = 1 + cap_stated
+      appears_in_no_filing: true
+  C2:
+    payoff_formula: "V(S_T) = (S_T-K_synth)+ + (K_top-S_T)+ - (K_bot-S_T)+ - (S_T-K_cap)+"
+    grid_points:                    # per_grid_row expansion — per-unit DOLLARS, exact to $0.01
+      - { underlying_return_pct: null, S_T: null, V_usd: null, regime: "" }
+    signature_values:               # payoff_usd tolerance
+      max_per_unit_K_cap_minus_K_synth: null
+      buffer_zone_per_unit_K_top_minus_K_synth: null   # NOT Ref0 — K_synth stays in the reconstruction
+      structural_floor_K_top_minus_K_bot: null
+    idealized_grid_check: "R_fund(r) reproduces gold.E1.payoff_grid_as_filed rows (grid_row_pp)"
+    max_gross_loss_pct: null        # (K_top-K_bot)/Ref0 - 1, at printed rounding; ties the -100% row
+    convention_note: ""             # filed idealized rows vs leg-exact dollars — kept SEPARATE (C2.n_convention)
+  C3:
+    cap_gross_recomputed:    { value: null, formula: "K_cap/Ref0 - 1", vs_stated: null, evidence: [] }
+    buffer_gross_recomputed: { value: null, formula: "1 - K_bot/Ref0", vs_stated: null, evidence: [] }
+    buffer_bottom_identity:  { value: null, formula: "Ref0 x (1 - buffer_stated)", vs_filed_strike: null, evidence: [] }
+    max_loss_gross:          { value: null, formula: "(K_top-K_bot)/Ref0 - 1", vs_grid_row: null, evidence: [] }
+    synth_sanity:            { value: null, formula: "K_synth/Ref0", evidence: [] }
+    # each evidence list = TWO documents: the N-PORT leg title AND the 497K sentence (C3.evidence)
+    reconciliation_status: ties     # gold cases tie; a designed break case would say 'break'
+  C4:
+    cap_net:    { value: null, formula: "cap_gross - ER", ties_stated_net: true }
+    buffer_net: { value: null, formula: "buffer_gross - ER", ties_stated_net: true }
+    stated_net_is_gold: true        # issuer convention governs; differences are noted, not forced
+    hundred_buffer_note: n/a        # only for 100%-buffer variants
+  C5:
+    units_per_leg: null             # |contracts| x multiplier
+    notional_synth: { value: null, formula: "units x Ref0", labeled: derived }   # NO notional element is filed
+    coverage_ratio: null            # notional / net_assets
+    pctval_sum:     { value_exact: null, value_printed: null }                   # ~100%; >100% deep-ITM explained
+    package_value_per_unit_at_repPdDate: { value: null, formula: "sum(valUSD_signed)/units", labeled: stale_state }
+  C6:
+    price_levels:                   # FIXED levels pinned to day-1 NAV (the issuer's own convention)
+      cap_price:           { value: null, formula: "NAV_0 x (1 + cap_gross_stated)" }
+      buffer_top_price:    { value: null, formula: "NAV_0" }
+      buffer_bottom_price: { value: null, formula: "NAV_0 x (1 - buffer_gross_stated)" }
+    remaining_cap_gross:    { value: null, formula: "cap_price/NAV_t - 1" }       # remaining_pp band
+    remaining_cap_net:      { value: null, formula: "remaining_cap_gross - ER x days_remaining/365" }
+    fee_proration_pp: null
+    downside_before_buffer: { value: null, formula: "NAV_0/NAV_t - 1" }           # <=0 when NAV_t > NAV_0
+    remaining_buffer_depth: { value: null, formula: "(NAV_t - buffer_bottom_price)/NAV_t" }
+    buffer_status:                  # assessed on the REFERENCE level, never the NAV path
+      label: ""                     # intact | partially_consumed | below_band
+      S_t_vs_Ref0_pct: null
+      consumed_fraction_pct: null   # (Ref0-S_t)/(Ref0-K_bot) when partially_consumed
+    remaining_upside_sign: ""       # positive | ~zero | negative (per manifest label rule; GATE.C6DIR)
+    leg_form_crosscheck:            # labeled stale + secondary, never the graded primary
+      value: null
+      formula: "(K_cap-K_synth)/package_value_per_unit_at_repPdDate - 1"
+      labeled: stale_secondary
+  C7:
+    verdicts:                       # per_claim_row expansion; labels exact
+      - { id: CL1, verdict: "", deciding_kind: "", deciding_figure: "", deciding_value: null, basis_one_line: "" }
+                                    # deciding_kind: recompute (C3/C4/C6 figure) | disclosure (cited
+                                    # filing language) | scope (packet-boundary statement)
+    both_directions_note: ""        # which claim is the false-comfort (credit-risk) catch
+
+  # ---- Synthesis (reference golds for the LLM judge) ----
+  S1:
+    labels:
+      remaining_upside_net: ""      # positive | ~zero | negative
+      downside_before_buffer: ""    # none | "[X]% gap"
+      buffer_status: ""
+      stated_terms_apply_to_this_buyer: "no"
+    must_name_gap_before_buffer_talk: null   # post-rally framing requirement (S1.gap)
+    hold_to_period_end_required: true
+    contingent_on_C6: true
+  S2:
+    cost_block_gold:                # the GATE.FREELUNCH predicate object
+      capped_upside:     { cap_value_cited: null, note: "" }
+      forgone_dividends: { anchor: gold.E3.price_return_basis }
+      fee_drag:          { er_pct: null, anchor: gold.E3.fee_table }
+      path_exit_risk:    { note: "" }
+    credit_rubric:
+      false_if_claimed: issuer_credit_instrument      # OCC-cleared, per E3.occ_clearing
+      also_false: no_counterparty_risk_at_all         # honest residuals per E3.occ_residual_risk
+    comparator_rule: "any vs-underlying framing accounts for dividend drag + fee gap"
+  S3:
+    bottom_line_reference: ""       # a calibrated reference read (4-8 sentences)
+    diligence_floor: [tax_distribution_character, aum_liquidity, premium_discount, reset_mechanics]
+    not_determinable_items: []      # carried from E5 — names what the packet cannot verify
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: ""                   # independent re-extraction + recompute pass
+  verified_on: ""
+  figures_checked: 0
+  figures_confirmed: 0
+  unconfirmed: []                   # MUST be empty to ship the case
+  notes: ""
