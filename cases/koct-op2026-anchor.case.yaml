@@ -552,21 +552,21 @@ gold:
         basis_one_line: "17.18% applies to a 2025-10-01 buyer; today's buyer retains +6.06% gross
                          (+5.82% net) to the fixed cap price 38.6694"
       - id: CL3
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: recompute
         deciding_figure: max_loss_gross
         deciding_value: -85.00
         basis_one_line: "a buffer is not a floor: losses beyond -15% pass one-to-one; max gross
                          loss is -85%, per the filing's own (100)% -> (85)% grid row"
       - id: CL4
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: recompute
         deciding_figure: remaining_cap_gross
         deciding_value: 6.0598
         basis_one_line: "the prospectus restricts the Outcomes to outset-to-conclusion holders;
                          a 2026-06-10 buyer faces 6.06% remaining cap, not the stated outcome"
       - id: CL5
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: disclosure
         deciding_figure: occ_residual_risk
         deciding_value: null

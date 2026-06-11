@@ -556,7 +556,7 @@ gold:
         basis_one_line: "17.18% applies to a 2025-10-01 buyer; today's buyer retains +0.81% gross
                          (+0.78% net) to the fixed cap price 38.6694, with 12 days remaining"
       - id: CL3
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: recompute
         deciding_figure: remaining_cap_gross
         deciding_value: 0.8066
@@ -571,7 +571,7 @@ gold:
         basis_one_line: "17.18% is the GROSS cap; after the 0.79% unitary fee the stated net Cap
                          is 16.39% — the claim quotes the gross figure as an after-fee figure"
       - id: CL5
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: disclosure
         deciding_figure: occ_clearing
         deciding_value: null

@@ -537,7 +537,7 @@ gold:
   C7:
     verdicts:
       - id: CL1
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: recompute
         deciding_figure: buffer_status.S_t_vs_Ref0_pct
         deciding_value: -6.5961
@@ -560,7 +560,7 @@ gold:
                          43.98% of it is already consumed — today's buyer gets the remaining band
                          from 226.00 down to 205.67 plus recovery upside to the buffer top"
       - id: CL4
-        verdict: FALSE
+        verdict: "FALSE"
         deciding_kind: recompute
         deciding_figure: max_loss_gross
         deciding_value: -85.00

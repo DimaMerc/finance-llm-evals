@@ -92,7 +92,8 @@ gates:
     fired_by: P2.1
     # Explicit exclusion-list style (eval #1 GATE.P2 / F2): zeros the LEG-DERIVED chain only.
     # SURVIVORS (carry no strike scale): E1 (prospectus-side percentages), E3 (fee table/language),
-    # E5's answerable twin, E4.snapshot/E4.days (oracle-supplied, scale-free).
+    # E5's answerable twin, E4.snapshot/E4.days (oracle-supplied, scale-free), E2.completeness
+    # (a leg COUNT — scale-free) and E4.cite (the repPdDate citation).
     condition: "reference-asset / strike-scale / contract-convention error: ETF-share-price strikes read as index levels (~10x IWM, ~20x SPX), multiplier dropped, or written-leg sign flipped"
     dependents:
       - E2.legs
@@ -740,6 +741,7 @@ criteria:
     points: 2
     grader: deterministic
     gate: none
+    tolerance: recompute_pp
   - id: C3.evidence
     checkpoint: C3
     category: entailment

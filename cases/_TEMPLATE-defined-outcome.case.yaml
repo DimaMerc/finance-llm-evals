@@ -322,6 +322,8 @@ gold:
       - { id: CL1, verdict: "", deciding_kind: "", deciding_figure: "", deciding_value: null, basis_one_line: "" }
                                     # deciding_kind: recompute (C3/C4/C6 figure) | disclosure (cited
                                     # filing language) | scope (packet-boundary statement)
+                                    # NB: QUOTE the verdict label — bare FALSE is a YAML boolean,
+                                    # not the enum string (write verdict: "FALSE")
     both_directions_note: ""        # which claim is the false-comfort (credit-risk) catch
 
   # ---- Synthesis (reference golds for the LLM judge) ----
