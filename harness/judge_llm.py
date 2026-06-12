@@ -28,13 +28,13 @@ def _section(container, cp):
     return container.get(cp, {}) if isinstance(container, dict) else {}
 
 
-def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=300, rubric=None,
+def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=2500, rubric=None,
                memo_kind="an equity analyst's earnings memo"):
     """Return judge_fn(atom, model, gold) -> met in {0.0, 1.0} using the local model.
     Pass the case's RUBRIC so criterion text resolves for both suites (review fix: the old
     module-level cache loaded only criteria.yaml, so eval-#2 atoms judged on bare ids)."""
     crit = {a["id"]: a.get("criterion", "") for a in rubric["criteria"]} if rubric else None
-    sys_prompt = _SYS.format(memo_kind=memo_kind)
+    sys_prompt = _SYS.replace("{memo_kind}", memo_kind)   # plain replace: _SYS contains literal JSON braces
 
     def judge_fn(atom, model, gold):
         cp = atom.checkpoint

@@ -63,6 +63,21 @@ surrounding discipline:
    cost shows up instead as degraded extraction (wrong-leg bleed) and a ~0.08 gated drop vs the
    oracle packet.
 
+## The LLM-judge pass (mock vs live judge, the four complete answers)
+
+| Run | mock | LLM judge | delta |
+|---|---|---|---|
+| anchor (oracle-packet) | 0.732 | **0.712** | −0.020 |
+| postrally | 0.708 | **0.682** | −0.026 |
+| postdrawdown | 0.702 | **0.657** | −0.045 |
+| anchor (e2e) | 0.651 | **0.615** | −0.036 |
+
+The live judge (qwen3.6-27b judging the 7 S2/S3 free-form atoms per case, judge.md contract)
+moves the headline by only 2–4.5 points — versus eval #1's −0.147 for the same swap on the same
+model family. That is the calculation-heavy design doing its job: eval #2's deterministic surface
+(planning, extraction, all seven calculation checkpoints, the gates) is immune to judge
+permissiveness by construction, so the mock-vs-live gap collapses to the synthesis tier.
+
 ## Grader calibration (changes made after batch 1, all runs re-graded)
 
 - **C1 structure-class labels normalize to the buffer/floor/barrier families**: run 3 answered
