@@ -125,34 +125,8 @@
    }
   },
   "payoff_grid_as_filed": {
-   "underlying_return_pct": [
-    -100,
-    -50,
-    -20,
-    -10,
-    -5,
-    0,
-    5,
-    10,
-    15,
-    20,
-    50,
-    100
-   ],
-   "fund_return_pct": [
-    -85,
-    -35,
-    -5,
-    0,
-    0,
-    0,
-    5,
-    10,
-    15,
-    17.18,
-    17.18,
-    17.18
-   ],
+   "underlying_return_pct": [-100, -50, -20, -10, -5, 0, 5, 10, 15, 20, 50, 100],
+   "fund_return_pct": [-85, -35, -5, 0, 0, 0, 5, 10, 15, 17.18, 17.18, 17.18],
    "citation": {
     "document": "497k",
     "locator": "payoff_grid_table",
@@ -177,7 +151,7 @@
     "expiry": "2026-09-30",
     "contracts_signed": -5278,
     "multiplier": 100,
-    "valUSD_signed": -2090088.0,
+    "valUSD_signed": -2090088.00,
     "pctVal_signed": -1.5720417528,
     "citation": {
      "document": "nport",
@@ -194,7 +168,7 @@
     "expiry": "2026-09-30",
     "contracts_signed": 5278,
     "multiplier": 100,
-    "valUSD_signed": 134604834.0,
+    "valUSD_signed": 134604834.00,
     "pctVal_signed": 101.2418707595,
     "citation": {
      "document": "nport",
@@ -211,7 +185,7 @@
     "expiry": "2026-09-30",
     "contracts_signed": -5278,
     "multiplier": 100,
-    "valUSD_signed": -5378282.0,
+    "valUSD_signed": -5378282.00,
     "pctVal_signed": -4.0452286517,
     "citation": {
      "document": "nport",
@@ -228,7 +202,7 @@
     "expiry": "2026-09-30",
     "contracts_signed": 5278,
     "multiplier": 100,
-    "valUSD_signed": 5515510.0,
+    "valUSD_signed": 5515510.00,
     "pctVal_signed": 4.1484435142,
     "citation": {
      "document": "nport",
@@ -266,7 +240,7 @@
     }
    },
    "twelve_b1": {
-    "value": 0.0,
+    "value": 0.00,
     "citation": {
      "document": "497k",
      "locator": "fee_table",
@@ -274,7 +248,7 @@
     }
    },
    "other": {
-    "value": 0.0,
+    "value": 0.00,
     "citation": {
      "document": "497k",
      "locator": "fee_table",
@@ -316,19 +290,11 @@
   },
   "ledger": {
    "terms": {
-    "fields": [
-     "strikes",
-     "expiry",
-     "multiplier"
-    ],
+    "fields": ["strikes", "expiry", "multiplier"],
     "as_of": "filing"
    },
    "state": {
-    "fields": [
-     "valUSD",
-     "pctVal",
-     "net_assets"
-    ],
+    "fields": ["valUSD", "pctVal", "net_assets"],
     "as_of": "2026-01-31",
     "staleness_days": 130
    }

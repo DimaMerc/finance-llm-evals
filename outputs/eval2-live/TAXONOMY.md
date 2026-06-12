@@ -7,58 +7,84 @@
 
 ## Run log
 
-| # | Case | Model | Mode | Gated | Ungated | Gates fired | Notes |
-|---|---|---|---|---|---|---|---|
-| 1 | koct-op2026-anchor | qwen3.6-27b (reasoning) | oracle-packet, mock judge | **0.517** | 0.527 | GATE.C2SIGN, GATE.FREELUNCH† | stream truncated by the 900s deadline mid-C7; answer salvaged (S1–S3 absent); † the free-lunch fire is **truncation-driven** (the memo never reached S2), not a content finding |
+All runs: qwen3.6-27b (a reasoning model; think phase 10–15k chars per case), oracle-packet mode
+unless noted, mock judge. Grading = handler calibration v2 (see *Grader calibration*, below).
 
-## Findings from run 1 (N=1, truncated — content findings only from sections the model completed)
+| # | Case | Mode | Gated | Ungated | Gates fired | Notes |
+|---|---|---|---|---|---|---|
+| 1 | anchor | oracle-packet | 0.517 | 0.527 | C2SIGN, FREELUNCH† | superseded by run 2 — 900s-deadline truncation cut S1–S3/C7 (salvaged); † truncation-driven |
+| 2 | anchor | oracle-packet | **0.732** | 0.741 | C2SIGN | complete memo (926s, 17.1k chars) |
+| 3 | postrally | oracle-packet | **0.708** | 0.754 | C2SIGN, C6DIR‡ | complete (932s); ‡ see *band-rule contract gap* |
+| 4 | postdrawdown | oracle-packet | **0.473** | 0.507 | FREELUNCH†, C2SIGN, C6DIR | 16k-token cap truncated mid-C7 (salvaged); † truncation-driven; C6DIR is REAL (consumed-buffer miss); full-budget rerun queued |
+| 5 | anchor | **e2e** (distractor packet) | **0.651** | 0.660 | C2SIGN | pinned the RIGHT vintage out of 3 same-day filings — no GATE.VINTAGE; paid in extraction quality (0.863 → 0.725) |
 
-**The headline contrast.** E1/E2 extraction = 1.000 (every stated term and every FLEX leg exact,
-citations included) and **E5 = 1.000**: the model answered the remaining-cap probe with a perfect
-`COMPUTED` response — named NAV₀/NAV_t/stated-cap inputs, stated the fixed-price-level convention,
-computed 6.06% (gold 6.0598). The same model then leaked errors across the *surrounding*
-calculation block. Strong-extractor / weak-derivation is the same profile eval #1 measured for
-Qwen2.5-32B; eval #2 localizes it to specific options-math steps:
+## Confirmed failure modes (qwen3.6-27b, N=4 complete-or-salvaged runs)
 
-1. **Grid-convention conflation** (C2, fired `GATE.C2SIGN`): the payoff grid rows were filled with
-   the prospectus's idealized %-convention (−85, −5, 0, 17.18 …) instead of per-unit dollars —
-   while the model's own `signature_values` are exactly right (281.11 / 239.54 / 36.29). It knows
-   the dollar arithmetic; it conflated the two conventions the workflow doc deliberately separates
-   (the C2.n_convention failure mode, caught at the gate tier).
-2. **Stated-value echo in place of recompute** (C3): the "recomputed" cap/buffer/identity are the
-   filing's printed figures verbatim (17.18 / 15 / 205.67); `synth_sanity` came back as the raw
-   strike (2.42) instead of the ratio (1.0002); max loss came back **+85 — the sign dropped**.
-   The 0.05pp recompute band cannot distinguish an echo from a real recompute when the terms tie
-   (by design — the designed reconciliation-BREAK case, deferred, is the discriminator); the
-   sanity row and the sign are where the echo became visible.
-3. **Ref₀ recovered by inversion, then rounded** (C1): used `K_cap/(1+cap)` (defensible inversion,
-   wrong rule — Power Buffer pins `Ref₀ = K_top`) and reported 242.0, failing exact-cents against
-   241.96. The roles map itself was perfect.
-4. **Per-contract vs per-unit confusion** (C5): units 5,278 (the 100-share multiplier dropped at
-   exactly the step the rubric predicts), "notional" 527,800 (which IS the unit count, mislabeled),
-   package value null — while `pctval_sum` is exact to 10 decimal places. Extraction-grade
-   precision feeding arithmetic-grade confusion.
-5. **Sign discipline on buyer-relative terms** (C6): `downside_before_buffer` reported +9.49 —
-   right magnitude, dropped sign (the convention's negative marks the unbuffered gap);
-   `remaining_buffer_depth` echoed the stated 15% instead of computing 23.07%; the fee proration
-   used a wrong day count (0.46pp vs 0.2424pp). Yet `remaining_cap_gross` 6.06 ✓, buffer status
-   `intact` ✓, sign label `positive` ✓ — so the C6 in-checkpoint gate did NOT fire; the failures
-   were banded-value misses, exactly the granularity the per-atom design wants.
+**The headline contrast (systematic).** Extraction is near-perfect everywhere (E1/E2 = 1.000 in
+oracle-packet runs; every stated term, every FLEX leg, exact to the cent with citations) and the
+**E5 remaining-cap probe scored a perfect `COMPUTED` derivation in all runs** — inputs named,
+fixed-price-level convention stated, value in C6's band (6.06 / 0.81 / 18.26 vs gold 6.0598 /
+0.8066 / 18.2550). The model can do *the* headline calculation. The failures live in the
+surrounding discipline:
 
-**Infrastructure findings** (not model capability, but real harness lessons):
-- Qwen3.6 is a reasoning model: its think phase streams as `delta.reasoning_content` and runs
-  thousands of tokens on this task (~15k chars observed). The client now budgets for it
-  (16k tokens / `--deadline 2400`), captures the reasoning stream for diagnostics, and salvages
-  deadline-truncated JSON (close-the-brackets parser, `_salvaged: true`).
-- A truncated memo fires `GATE.FREELUNCH` "honestly" (protection asserted upstream, no cost block
-  present) — true by the predicate's letter, but run reports must label truncation-driven fires
-  separately from content fires. This run's flag is truncation-driven.
-- The M5 Max rig drops ~30 min after last user interaction (macOS sleep; network streaming does
-  not prevent it). Use `caffeinate -dims` for queue sessions.
+1. **Grid-convention conflation — 4/4 runs, fired `GATE.C2SIGN` every time.** The payoff-grid rows
+   come back in the prospectus's idealized %-convention (−85, −5, 0, 17.18 …) instead of per-unit
+   dollars — while the same answers carry exactly correct `signature_values`
+   (281.11 / 239.54 / 36.29). The model knows the dollar arithmetic and still swaps conventions in
+   the table the prospectus prints in %. This is the C2.n_convention failure mode the workflow doc
+   predicted, surfaced at gate tier, on every single run.
+2. **Consumed-buffer miss — the post-drawdown case's designed trap, caught** (`GATE.C6DIR`, run 4):
+   with S_t at 226.00 — 6.6% below Ref₀, inside the band — the model labeled buffer status
+   `intact` and reported `downside_before_buffer: 0`, after computing the enlarged remaining cap
+   (18.26 ✓) correctly. Stated-vs-remaining arithmetic survives; the reference-side STATE read does
+   not.
+3. **Stated-value echo in place of recompute** (C3, all runs): "recomputed" terms are the filing's
+   printed figures verbatim; `synth_sanity` echoes the raw strike (2.42) instead of the ratio;
+   max loss arrives sign-dropped (+85). The 0.05pp band cannot separate echo from recompute when
+   the terms tie (by design — the deferred reconciliation-BREAK case is the discriminator); the
+   sanity row and the sign are where the echo shows.
+4. **Per-contract / per-unit confusion** (C5, all runs): units 5,278 (multiplier dropped),
+   "notional" = the unit count or a 100×-off value, package value null — while `pctval_sum` is
+   exact to 10 dp. Extraction-grade precision feeding arithmetic-grade confusion.
+5. **Sign discipline on buyer-relative terms** (C6 values, runs 2–5): `downside_before_buffer`
+   magnitude right / sign dropped; remaining buffer depth echoes the stated 15% instead of the
+   23.07% depth; fee proration day-count slips. The flagship `remaining_cap_gross` is right every
+   time.
+6. **The e2e result worth quoting**: given three same-day N-PORTs (Sep/Oct/Nov vintages, strikes
+   ~2% apart) and a mid-period 497K restating period-start terms, the model **pinned the correct
+   series** (S000065317, October, 2026-09-30) — the hard-gate trap did not fire. The distractor
+   cost shows up instead as degraded extraction (wrong-leg bleed) and a ~0.08 gated drop vs the
+   oracle packet.
+
+## Grader calibration (changes made after batch 1, all runs re-graded)
+
+- **C1 structure-class labels normalize to the buffer/floor/barrier families**: run 3 answered
+  `power_buffer` (the variant name) where the enum wanted `buffer` — buffer-family ≠ an inversion,
+  and the gate's intent is catching floor/barrier flips. (Fire cleared on re-grade: 0.629 → 0.708.)
+- **Extra-leg fabrication now requires a non-filed strike**: runs 3/5 listed the cash-sleeve MMDA
+  row as a fifth "leg" (strike null). Over-including a real filed row is an E2.completeness error,
+  not an invented instrument; `GATE.FABRICATION` no longer fires for it. (0.627 → 0.651 on e2e.)
+- **Band-rule contract gap (run 3's remaining `C6DIR` fire)**: the model's numbers are exactly
+  right (0.81 / 0.78 vs gold 0.8066 / 0.7806) but it labeled the sign `positive` where the gold
+  label is `~zero` — the ±1.0pp band rule lived only gold-side. The live SCHEMA now states the
+  band rule (and that the cash sleeve is not a leg, and that structure_class is the class, not the
+  variant name). Run 3 keeps its grade; the fire is annotated as contract-gap-driven.
+
+## Infrastructure notes
+
+- Qwen3.6 thinks in `delta.reasoning_content` for 10–15k chars per case; the client captures it,
+  budgets 16k+ tokens / 2400s, and salvages truncated JSON (`_salvaged`, flagged in run output).
+  The post-drawdown case provokes the longest think — it needed >16k total tokens (rerun at 24k).
+- A truncated memo fires `GATE.FREELUNCH` by the predicate's letter (protection asserted upstream,
+  cost block never reached). Truncation-driven fires are labeled † in the run log, never counted
+  as content findings.
+- The M5 Max rig sleeps ~30 min after last user interaction unless caffeinated; runs ~15–17 min
+  per case at ~10k prompt tokens.
 
 ## Open items
 
-- Re-run the anchor un-truncated (deadline 2400s) to replace run 1's S1–S3/C7 blanks with content.
-- postrally / postdrawdown / anchor `--e2e` (the vintage-distractor probe).
-- A non-reasoning subject (qwen3-coder-next) for the thinking-vs-non-thinking contrast.
-- `--judge llm` pass on completed runs (mock judge inflates S-tier presence atoms).
+- Post-drawdown full-budget rerun (queued) — replaces run 4; the FREELUNCH predicate then gets a
+  genuine test on a complete memo.
+- qwen3-coder-next contrast runs (queued) — non-reasoning subject, same three cases.
+- `--judge llm` pass on completed answers (mock judge inflates S-tier presence atoms).
+- PAPER v2 once the run matrix is filled.

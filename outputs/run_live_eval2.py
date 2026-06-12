@@ -61,7 +61,9 @@ def main():
     model = ans.get("_model_id", "unknown")
     slug = re.sub(r"[^A-Za-z0-9.-]+", "-", model)
     print(f"[{name}] {model} answered in {dt:.0f}s "
-          f"(prompt ~{ans.get('_prompt_tokens_approx', 0):,} tok, raw {len(ans.get('_raw', '')):,} chars)", flush=True)
+          f"(prompt ~{ans.get('_prompt_tokens_approx', 0):,} tok, raw {len(ans.get('_raw', '')):,} chars)"
+          + ("  ** SALVAGED: stream truncated (raise --max-tokens/--deadline) **" if ans.get("_salvaged") else ""),
+          flush=True)
 
     os.makedirs(OUT, exist_ok=True)
     base = os.path.join(OUT, f"{name}__{slug}__{mode}")

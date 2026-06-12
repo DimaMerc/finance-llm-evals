@@ -17,8 +17,8 @@
   },
   "citation": {
    "document": "497k",
-   "locator": "cover/outcome_bullets",
-   "verbatim": "The current Outcome Period is from October 1, 2025 through September 30, 2026."
+   "locator": "cover",
+   "verbatim": "Innovator U.S. Small Cap Power Buffer ETF October (Cboe BZX KOCT) October 1, 2025"
   }
  },
  "P2": {
@@ -67,9 +67,9 @@
    }
   ],
   "entry_framing": {
-   "snapshot_date": "2026-06-10",
-   "days_elapsed": 252,
-   "days_remaining": 213,
+   "snapshot_date": "2026-08-14",
+   "days_elapsed": 317,
+   "days_remaining": 48,
    "framed_for": "buyer_at_NAV_t_today"
   }
  },
@@ -155,8 +155,8 @@
    ],
    "citation": {
     "document": "497k",
-    "locator": "payoff_grid_table",
-    "verbatim": "Underlying ETF Performance (100)% (50)% (20)% (10)% (5)% 0% 5% 10% 15% 20% 50% 100% Fund Performance (85)% (35)% (5)% 0% 0% 0% 5% 10% 15% 17.18%* 17.18%* 17.18%*"
+    "locator": "payoff_grid",
+    "verbatim": "Underlying ETF Performance (100)% (50)% (20)% (10)% (5)% 0% 5% 10% 15% 20% 50% 100% Fund Performance (85)% (35)% (5)% 0% 0% 0% 5% 10% 15% 17.18%* 17.18%* 17.18%* "
    }
   },
   "period_start_only_rule": {
@@ -297,7 +297,7 @@
    "verbatim": "FLEX Options are customizable exchange -traded option contracts guaranteed for settlement by the Options Clearing Corporation."
   },
   "occ_residual_risk": {
-   "verbatim": "FLEX Options are customizable exchange -traded option contracts guaranteed for settlement by the Options Clearing Corporation."
+   "verbatim": ""
   },
   "flex_liquidity_valuation": {
    "verbatim": "Valuation Risk. During periods of reduced market liquidity or in the absence of readily available market quotations for the holdings of the Fund, the valuation of the Fund's FLEX Options will become more difficult."
@@ -308,10 +308,10 @@
  },
  "E4": {
   "snapshot_echo": {
-   "snapshot_date": "2026-06-10",
+   "snapshot_date": "2026-08-14",
    "NAV_0": 33.0,
-   "NAV_t": 36.46,
-   "S_t": 285.02,
+   "NAV_t": 32.7,
+   "S_t": 226.0,
    "source": "oracle"
   },
   "ledger": {
@@ -330,21 +330,17 @@
      "net_assets"
     ],
     "as_of": "2026-01-31",
-    "staleness_days": 130
+    "staleness_days": 195
    }
   },
-  "days_remaining": 213,
-  "citation": {
-   "document": "nport",
-   "locator": "genInfo/repPdDate",
-   "verbatim": "2026-01-31"
-  }
+  "days_remaining": 48,
+  "citation": {}
  },
  "E5": {
   "probe": {
    "label": "COMPUTED",
-   "value": 6.06,
-   "derivation": "Inputs: NAV_0=33.0, NAV_t=36.46, stated gross cap=17.18. Fixed-price-level convention: cap_price = NAV_0 * (1 + 0.1718) = 38.6694. Remaining cap gross = (38.6694 / 36.46) - 1 = 6.06%."
+   "value": 18.26,
+   "derivation": "Inputs: NAV_0=33.0, NAV_t=32.7, stated gross cap=17.18. Fixed-price-level convention pins cap_price = NAV_0 * (1 + 0.1718) = 38.6694. Remaining cap = cap_price / NAV_t - 1 = 38.6694 / 32.7 - 1 = 18.255%."
   },
   "twins": [
    {
@@ -376,11 +372,11 @@
   },
   "structure_class": "buffer",
   "Ref0": {
-   "value": 242.0,
-   "recovery_rule": "Derived from K_cap / (1 + stated_cap_gross)",
+   "value": 241.96,
+   "recovery_rule": "price return",
    "identity_checks": [
-    "K_cap/Ref0-1=17.18%",
-    "1-K_bot/Ref0=15%"
+    "K_top - K_bot = 36.29",
+    "K_cap - K_top = 41.57"
    ]
   }
  },
@@ -388,33 +384,27 @@
   "grid_points": [
    {
     "underlying_return_pct": -100,
-    "S_T": 0,
-    "V_usd": -85,
+    "S_T": 0.0,
+    "V_usd": -85.0,
     "regime": "total_loss"
    },
    {
-    "underlying_return_pct": -20,
-    "S_T": 193.6,
-    "V_usd": -5,
-    "regime": "buffer_zone"
+    "underlying_return_pct": -15,
+    "S_T": 205.67,
+    "V_usd": -15.0,
+    "regime": "buffer_floor"
    },
    {
     "underlying_return_pct": 0,
-    "S_T": 242.0,
-    "V_usd": 0,
-    "regime": "buffer_top"
+    "S_T": 241.96,
+    "V_usd": 0.0,
+    "regime": "flat"
    },
    {
     "underlying_return_pct": 17.18,
     "S_T": 283.53,
     "V_usd": 17.18,
     "regime": "cap"
-   },
-   {
-    "underlying_return_pct": 50,
-    "S_T": 363.0,
-    "V_usd": 17.18,
-    "regime": "capped"
    }
   ],
   "signature_values": {
@@ -432,63 +422,49 @@
    "evidence": [
     {
      "document": "nport",
-     "locator": "invstOrSecs/invstOrSec[3]/exercisePrice",
+     "locator": "invstOrSecs/invstOrSec[3]/derivativeInfo/exercisePrice",
      "verbatim": "283.530000000000"
     },
     {
-     "document": "497k",
-     "locator": "outcome_bullets",
-     "verbatim": "17.18%"
+     "document": "nport",
+     "locator": "invstOrSecs/invstOrSec[4]/derivativeInfo/exercisePrice",
+     "verbatim": "241.960000000000"
     }
    ]
   },
   "buffer_gross_recomputed": {
-   "value": 15,
+   "value": 15.0,
    "formula": "1 - K_bot/Ref0",
    "evidence": [
     {
      "document": "nport",
-     "locator": "invstOrSecs/invstOrSec[1]/exercisePrice",
+     "locator": "invstOrSecs/invstOrSec[1]/derivativeInfo/exercisePrice",
      "verbatim": "205.670000000000"
     },
     {
-     "document": "497k",
-     "locator": "outcome_bullets",
-     "verbatim": "15%"
+     "document": "nport",
+     "locator": "invstOrSecs/invstOrSec[4]/derivativeInfo/exercisePrice",
+     "verbatim": "241.960000000000"
     }
    ]
   },
-  "buffer_bottom_identity": {
-   "value": 205.67
-  },
-  "max_loss_gross": {
-   "value": 85
-  },
-  "synth_sanity": {
-   "value": 2.42
-  }
+  "buffer_bottom_identity": 205.67,
+  "max_loss_gross": 85,
+  "synth_sanity": 2.42
  },
  "C4": {
-  "cap_net": {
-   "value": 16.39
-  },
-  "buffer_net": {
-   "value": 14.21
-  }
+  "cap_net": 16.39,
+  "buffer_net": 14.21
  },
  "C5": {
-  "units_per_leg": {
-   "value": 5278
-  },
+  "units_per_leg": 5278,
   "notional_synth": {
    "value": 527800,
    "labeled": "derived"
   },
-  "coverage_ratio": {
-   "value": 1
-  },
+  "coverage_ratio": 1.0,
   "pctval_sum": {
-   "value_exact": 100.0663528995
+   "value_exact": 99.77
   },
   "package_value_per_unit_at_repPdDate": {
    "value": null,
@@ -497,39 +473,19 @@
  },
  "C6": {
   "price_levels": {
-   "cap_price": {
-    "value": 38.6694
-   },
-   "buffer_top_price": {
-    "value": 33.0
-   },
-   "buffer_bottom_price": {
-    "value": 28.05
-   }
+   "cap_price": 38.67,
+   "buffer_top_price": 33.0,
+   "buffer_bottom_price": 28.05
   },
-  "remaining_cap_gross": {
-   "value": 6.06
-  },
-  "remaining_cap_net": {
-   "value": 5.6
-  },
-  "fee_proration_pp": {
-   "value": 0.46
-  },
-  "downside_before_buffer": {
-   "value": 9.49
-  },
-  "remaining_buffer_depth": {
-   "value": 15
-  },
+  "remaining_cap_gross": 18.26,
+  "remaining_cap_net": 18.16,
+  "fee_proration_pp": 0.1,
+  "downside_before_buffer": 0,
+  "remaining_buffer_depth": 14.22,
   "buffer_status": {
    "label": "intact",
-   "S_t_vs_Ref0_pct": {
-    "value": 17.78
-   },
-   "consumed_fraction_pct": {
-    "value": 0
-   }
+   "S_t_vs_Ref0_pct": -6.6,
+   "consumed_fraction_pct": 44.0
   },
   "remaining_upside_sign": "positive",
   "leg_form_crosscheck": {
@@ -541,82 +497,33 @@
   "verdicts": [
    {
     "id": "CL1",
-    "verdict": "ACCURATE_AT_PERIOD_START_ONLY",
-    "deciding_figure": "buffer_gross",
-    "deciding_value": 15,
-    "basis_one_line": "Prospectus explicitly limits buffer realization to investors holding from the outset of the Outcome Period."
+    "verdict": "FALSE",
+    "deciding_figure": "NAV_t vs buffer_bottom_price",
+    "deciding_value": 32.7,
+    "basis_one_line": "NAV_t (32.7) is above buffer bottom (28.05); buffer is intact."
    },
    {
     "id": "CL2",
-    "verdict": "ACCURATE_AT_PERIOD_START_ONLY",
-    "deciding_figure": "cap_gross",
-    "deciding_value": 17.18,
-    "basis_one_line": "Cap is fixed at period start; mid-period buyers face compressed remaining upside."
+    "verdict": "ACCURATE",
+    "deciding_figure": "remaining_cap_gross",
+    "deciding_value": 18.26,
+    "basis_one_line": "18.26% remaining gross cap exceeds stated 17.18% period-start cap."
    },
    {
     "id": "CL3",
-    "verdict": "FALSE",
-    "deciding_figure": "max_loss_gross",
-    "deciding_value": 85,
-    "basis_one_line": "Payoff grid shows -85% fund return at -100% underlying loss; losses beyond 15% are borne 1:1."
+    "verdict": "ACCURATE_AT_PERIOD_START_ONLY",
+    "deciding_figure": "period_start_only_rule",
+    "deciding_value": null,
+    "basis_one_line": "15% buffer applies strictly to day-1 holders per prospectus rule."
    },
    {
     "id": "CL4",
     "verdict": "FALSE",
-    "deciding_figure": "period_start_only_rule",
-    "deciding_value": null,
-    "basis_one_line": "Filings state outcomes may only be realized by investors holding from the outset; mid-period entry alters risk/reward."
+    "deciding_figure": "max_loss_gross",
+    "deciding_value": 85,
+    "basis_one_line": "Maximum loss is 85%, not 15%."
    },
    {
     "id": "CL5",
-    "verdict": "FALSE",
-    "deciding_figure": "occ_clearing",
-    "deciding_value": null,
-    "basis_one_line": "OCC guarantees settlement but does not eliminate all counterparty, valuation, or structural risks; absolute claim is misleading."
-   },
-   {
-    "id": "CL6",
-    "verdict": "FALSE",
-    "deciding_figure": "buffer_net",
-    "deciding_value": 14.21,
-    "basis_one_line": "Net buffer after 0.79% ER is 14.21%, not 15%."
-   }
-  ]
- },
- "S1": {
-  "labels": {
-   "remaining_upside_net": "positive",
-   "downside_before_buffer": "9.49% gap",
-   "buffer_status": "intact",
-   "stated_terms_apply_to_this_buyer": "no"
-  },
-  "framing": "Purchasing KOCT today at NAV 36.46 locks in a significantly reduced upside profile compared to the stated 17.18% cap, as the fixed cap price level (38.67) leaves only ~6.06% gross remaining upside. The 15% downside buffer does not apply to today's entry price; instead, the fund will track underlying losses 1:1 until it falls back to the period-start NAV of 33.00, creating a ~9.49% gap of unprotected downside before buffer protection engages. Consequently, the stated outcomes are strictly period-start specific and do not apply to mid-period buyers."
- },
- "S2": {
-  "cost_block": {
-   "capped_upside": {
-    "cap_value_cited": 17.18,
-    "note": "Gross cap applies only to period-start NAV; today's buyer faces ~6.06% gross remaining upside."
-   },
-   "forgone_dividends": {
-    "note": "Fund does not receive or benefit from Underlying ETF dividends."
-   },
-   "fee_drag": {
-    "er_pct": 0.79,
-    "note": "Annual fee reduces net cap and buffer; prorated ~0.46% for remaining period."
-   },
-   "path_exit_risk": {
-    "note": "Selling before period end locks in mark-to-market losses/gains; outcomes only realized at expiry."
-   }
-  },
-  "credit_read": "FLEX Options are guaranteed for settlement by the Options Clearing Corporation, mitigating direct counterparty default risk, though OCC residual risk and valuation risks remain."
- },
- "S3": {
-  "bottom_line_reference": "KOCT is a defined-outcome power buffer ETF structured via a long/short call and put FLEX option collar on IWM, expiring 2026-09-30. The stated 17.18% gross cap and 15% gross buffer are mathematically consistent with the filed option strikes (283.53C/241.96P/205.67P) relative to an inferred period-start reference price of ~242.00. However, these terms are strictly conditional on holding from the outcome period start (2025-10-01). A mid-period purchase at today's NAV of 36.46 compresses the remaining gross upside to ~6.06% (net ~5.60% after fee proration) while exposing the buyer to ~9.49% of immediate, unbundled downside risk before the buffer zone activates. The fund's 0.79% ER and lack of dividend pass-through further erode net returns. While OCC clearing mitigates direct counterparty default, valuation and path dependency risks remain material for intraperiod traders. The product is suitable only for investors seeking a fixed, reduced upside in exchange for conditional downside protection, fully aware that mid-period entry fundamentally alters the risk/reward profile.",
-  "not_determinable_items": [
-   "Exact period-start IWM share price (Ref0)",
-   "Current shares outstanding",
-   "Intraday liquidity spreads"
-  ]
- }
-}
+    "verdict": "WRONG_BASIS",
+    "deciding

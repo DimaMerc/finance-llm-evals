@@ -365,7 +365,18 @@ def handle(a, ctx):
                  for k in ("K_synth", "K_top", "K_bot", "K_cap"))
         return det(ok, "role map")
     if a.id == "C1.class":  # GATE.C1ROLE
-        return det(_eq(_g(model, "C1", "structure_class"), _g(gold, "C1", "structure_class")),
+        # the discrimination this gate tests is buffer-vs-floor-vs-barrier; a buffer-FAMILY label
+        # ("power_buffer", "standard buffer") is the right class, not an inversion
+        def _cls(v):
+            v = str(v or "").strip().lower()
+            if "floor" in v:
+                return "floor"
+            if "barrier" in v:
+                return "barrier"
+            if "buffer" in v:
+                return "buffer"
+            return v
+        return det(_eq(_cls(_g(model, "C1", "structure_class")), _cls(_g(gold, "C1", "structure_class"))),
                    "structure class (in-checkpoint)")
     if a.id == "C1.ref0":
         ok = within(Mv("C1", "Ref0", "value"), Gv("C1", "Ref0", "value"), "exact_cents", tol) \
@@ -554,8 +565,14 @@ def penalty_present(a, model, gold) -> bool:
             cusip = L.get("cusip")
             if cusip not in (None, "", "N/A"):
                 return True
-        if len(_legs(model)) > len(_legs(gold)) > 0:    # an invented extra leg
-            return True
+        # an EXTRA leg counts as fabrication only when it carries an option strike not in the
+        # filing (an invented instrument); a strike-less extra row (e.g. the cash sleeve listed
+        # as a "leg") is an over-inclusion error - E2.completeness charges it, not the gate
+        gstr = {round(_num({"value": L.get("strike")}) or -1, 2) for L in _legs(gold)}
+        for L in _legs(model):
+            s = _num({"value": L.get("strike")})
+            if s is not None and round(s, 2) not in gstr and len(_legs(model)) > len(_legs(gold)):
+                return True
         return "E2.n_halluc" in set(model.get("_injected_penalties", []))
     if a.id == "E2.n_sign":
         for gleg in _legs(gold):
