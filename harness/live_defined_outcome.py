@@ -288,11 +288,17 @@ def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=16000, 
     try:
         out = parse_answer(content)
     except json.JSONDecodeError:
+        first_raw = content                      # never lose a long completion to a parse failure
         msgs.append({"role": "assistant", "content": content[:2000]})
         msgs.append({"role": "user", "content": "That was not valid JSON. Return ONLY the JSON object."})
-        content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
-                             deadline=deadline)
-        out = parse_answer(content)
+        try:
+            content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
+                                 deadline=deadline, timeout=300)
+            out = parse_answer(content)
+        except Exception as e:
+            err = RuntimeError(f"unparseable model JSON and the retry failed too: {e}")
+            err.raw = first_raw                  # the driver saves this for post-mortem/repair
+            raise err from e
     out["_model_id"] = used
     out["_raw"] = content
     out["_prompt_tokens_approx"] = approx_tok

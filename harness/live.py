@@ -201,19 +201,86 @@ def _repair_json(s: str) -> str:
     s = re.sub(r"(?<=\d),(?=\d{3}(?:\D|$))", "", s)                              # thousands separators inside numbers
     s = re.sub(r":\s*-?[\d.]+\s*[-+*/][-+*/\d.()\s]*(?=[,}\]\n])", ": null", s)  # un-evaluated arithmetic expr -> null
     s = re.sub(r",\s*([}\]])", r"\1", s)                                          # trailing commas
+    # missing comma between members: a line ending in a value, next line opening a quoted key or object
+    s = re.sub(r'([\"\]}0-9el])[ \t]*\n([ \t]*[\"{])', r"\1,\n\2", s)            # ...l = null/bool tails
+    s = re.sub(r",\s*([}\]])", r"\1", s)                                          # re-strip commas the fix overshot
     return s
+
+
+def salvage_json(s: str) -> dict:
+    """best-effort parse of a TRUNCATED completion (a deadline/length cut mid-generation):
+    keep the longest prefix that ends on a complete value, drop the dangling partial member,
+    close the open containers. The result is a valid-but-partial answer — missing sections
+    grade as missing, which is the honest outcome for a budget-truncated run."""
+    depth_stack, in_str, esc = [], False, False
+    last_good = -1                                   # index AFTER the last complete value at depth >= 1
+    for i, c in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+                last_good = i + 1
+            continue
+        if c == '"':
+            in_str = True
+        elif c in "{[":
+            depth_stack.append(c)
+        elif c in "}]":
+            if len(depth_stack) > 1:
+                depth_stack.pop()
+                last_good = i + 1
+            elif depth_stack:                        # closing the root: the document is complete
+                return json.loads(_repair_json(s[: i + 1]))
+        elif c in "0123456789.elu" and (i + 1 == len(s) or s[i + 1] in ",}] \n\t"):
+            last_good = i + 1                        # number / true / false / null tail
+    if last_good < 0:
+        raise json.JSONDecodeError("nothing salvageable", s, 0)
+    head = s[:last_good]
+    # drop a dangling partial member ("key": <nothing>) left before the cut
+    head = re.sub(r',\s*"[^"]*"\s*:\s*$', "", head)
+    head = re.sub(r",\s*$", "", head)
+    # rebuild the open-container stack for the kept prefix, then close it
+    stack, in_str, esc = [], False, False
+    for c in head:
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c in "{[":
+            stack.append(c)
+        elif c in "}]":
+            stack.pop()
+    closers = "".join("}" if c == "{" else "]" for c in reversed(stack))
+    return json.loads(_repair_json(head + closers))
 
 
 def parse_answer(content: str) -> dict:
     s = content.strip()
     s = re.sub(r"^```(?:json)?|```$", "", s, flags=re.MULTILINE).strip()
     a, b = s.find("{"), s.rfind("}")
-    if a >= 0 and b > a:
-        s = s[a:b + 1]
+    if a >= 0 and b > a + 100:                       # a real closing brace, not a stray one early on
+        s2 = s[a:b + 1]
+    else:
+        s2 = s[a:] if a >= 0 else s
     try:
-        return json.loads(s)
+        return json.loads(s2)
     except json.JSONDecodeError:
-        return json.loads(_repair_json(s))            # repair common LLM-JSON errors and retry
+        pass
+    try:
+        return json.loads(_repair_json(s2))           # repair common LLM-JSON errors and retry
+    except json.JSONDecodeError:
+        out = salvage_json(s2)                        # truncated stream: keep the complete prefix
+        out["_salvaged"] = True
+        return out
 
 
 def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, with_tenq=False):

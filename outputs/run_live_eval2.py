@@ -34,6 +34,7 @@ def main():
     ap.add_argument("--model-id", default=None)
     ap.add_argument("--endpoint", default="http://192.168.1.10:1234/v1")
     ap.add_argument("--max-tokens", type=int, default=16000)   # reasoning models think for thousands of tokens first
+    ap.add_argument("--deadline", type=int, default=2400)       # qwen3.6-27b on the M5 Max needs ~20 min/case (think + 4k-token JSON)
     a = ap.parse_args()
 
     path = next(p for p in sorted(glob.glob(os.path.join(REPO, "cases", "*.case.yaml")))
@@ -44,8 +45,18 @@ def main():
     print(f"[{name}] building packet ({mode}) and calling {a.endpoint} ...", flush=True)
 
     t0 = time.time()
-    ans = ldo.answer(case, endpoint=a.endpoint, model_id=a.model_id,
-                     max_tokens=a.max_tokens, e2e=a.e2e)
+    try:
+        ans = ldo.answer(case, endpoint=a.endpoint, model_id=a.model_id,
+                         max_tokens=a.max_tokens, e2e=a.e2e, deadline=a.deadline)
+    except Exception as e:
+        raw = getattr(e, "raw", "")
+        if raw:
+            os.makedirs(OUT, exist_ok=True)
+            fp = os.path.join(OUT, f"{name}__parsefail__{int(time.time())}.raw.txt")
+            with open(fp, "w", encoding="utf-8") as fh:
+                fh.write(raw)
+            print(f"[{name}] parse failed; raw completion saved to {fp}")
+        raise
     dt = time.time() - t0
     model = ans.get("_model_id", "unknown")
     slug = re.sub(r"[^A-Za-z0-9.-]+", "-", model)
