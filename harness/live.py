@@ -212,7 +212,6 @@ def _escape_inner_quotes(s: str) -> str:
 
 
 def _repair_json(s: str) -> str:
-    s = _escape_inner_quotes(s)
     s = re.sub(r"(?<=\d),(?=\d{3}(?:\D|$))", "", s)                              # thousands separators inside numbers
     s = re.sub(r":\s*-?[\d.]+\s*[-+*/][-+*/\d.()\s]*(?=[,}\]\n])", ": null", s)  # un-evaluated arithmetic expr -> null
     s = re.sub(r",\s*([}\]])", r"\1", s)                                          # trailing commas
@@ -283,19 +282,27 @@ def parse_answer(content: str) -> dict:
     s = re.sub(r"^```(?:json)?|```$", "", s, flags=re.MULTILINE).strip()
     a, b = s.find("{"), s.rfind("}")
     if a >= 0 and b > a + 100:                       # a real closing brace, not a stray one early on
-        s2 = s[a:b + 1]
-    else:
-        s2 = s[a:] if a >= 0 else s
-    try:
-        return json.loads(s2)
-    except json.JSONDecodeError:
-        pass
-    try:
-        return json.loads(_repair_json(s2))           # repair common LLM-JSON errors and retry
-    except json.JSONDecodeError:
-        out = salvage_json(s2)                        # truncated stream: keep the complete prefix
-        out["_salvaged"] = True
-        return out
+        s = s[a:b + 1]
+    elif a >= 0:
+        s = s[a:]
+    # repair ladder: plain -> base repairs -> inner-quote escape + base repairs.
+    # The escape stage fixes pretty-printed answers quoting filing text ('the "Buffer"') but can
+    # corrupt COMPACT multi-pair lines, so it is an alternative branch, never always-on.
+    for fix in (lambda x: x, _repair_json, lambda x: _repair_json(_escape_inner_quotes(x))):
+        try:
+            return json.loads(fix(s))
+        except json.JSONDecodeError:
+            pass
+    # truncated stream (deadline/length/degeneration cut): keep the complete prefix
+    for fix in (lambda x: x, _escape_inner_quotes):
+        try:
+            out = salvage_json(fix(s))
+            out["_salvaged"] = True
+            return out
+        except json.JSONDecodeError:
+            continue
+    raise json.JSONDecodeError("unrepairable model JSON", s, 0)
+
 
 
 def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, with_tenq=False):

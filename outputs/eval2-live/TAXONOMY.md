@@ -103,9 +103,20 @@ permissiveness by construction, so the mock-vs-live gap collapses to the synthes
 - The M5 Max rig sleeps ~30 min after last user interaction unless caffeinated; runs ~15–17 min
   per case at ~10k prompt tokens.
 
-## Open items
+## The qwen3-coder-next attempt (single run, recorded as-is)
 
-- qwen3-coder-next contrast runs — BLOCKED: the model 400s via API (not loaded server-side;
-  needs a manual load in LM Studio or JIT loading enabled).
+The non-reasoning contrast subject produced an **ungradeable answer** on its one attempt
+(JIT-loaded with a small context): no think phase and instant emission, but (a) **percentage
+values as decimal fractions** (0.06058 where the schema demands 6.06 — an instruction-compliance
+failure that would fail every band), (b) **unescaped quotes inside compact-line citations**
+(raw XML attribute fragments pasted into verbatims), and (c) a **degeneration loop** in the
+synthesis prose ("…remaining_cap_gross = 0.06058; but the oracle NAV_t…" repeating until the
+context cut at ~32.5k chars). Three repair classes (base, inner-quote escape, truncation salvage)
+could not recover a parseable memo — which is itself the graded outcome an unassisted run would
+score: zero. A fair re-attempt needs the model loaded with a ≥32k context; until then this stands
+as N=1: the reasoning model produced four complete, parseable, ~0.7-gated memos; the coder model
+produced none.
+
+## Open items
 - `--judge llm` pass on completed answers (mock judge inflates S-tier presence atoms).
 - PAPER v2 once the run matrix is filled.
