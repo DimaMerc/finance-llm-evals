@@ -57,11 +57,14 @@ def cmd_run(a):
     for v in variants:
         mo, label = None, v
         if v == "live":
-            if suite_of(case) != "earnings-analysis":
-                raise SystemExit("--model live is wired for the earnings suite only (Phase 5 extends it)")
-            from . import live
-            print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
-            ans = live.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens, with_tenq=a.tenq)
+            if suite_of(case) == "defined-outcome-etf":
+                from . import live_defined_outcome as ldo
+                print(f"[live] building the filings packet{' + distractors (--e2e)' if a.e2e else ''} and calling LM Studio at {a.endpoint} ...")
+                ans = ldo.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens, e2e=a.e2e)
+            else:
+                from . import live
+                print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
+                ans = live.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens, with_tenq=a.tenq)
             mo, label = ans, "live:" + str(ans.get("_model_id", "?"))
             print(f"[live] model={ans.get('_model_id')}  (parsed {len([k for k in ans if not k.startswith('_')])} sections; raw {len(ans.get('_raw',''))} chars)")
         if a.judge == "llm":
@@ -154,6 +157,16 @@ def _selftest_defined_outcome(p, name):
     if not ("GATE.C6DIR" in cf.fired_gates and cf.checkpoints["C6"]["score_gated"] == 0.0):
         failures.append(f"{name}: c6_flip expected GATE.C6DIR + C6->0, got gates={cf.fired_gates} "
                         f"C6={cf.checkpoints['C6']['score_gated']}")
+    # live-schema round-trip: a schema-perfect answer (oracle re-serialized through the live OUTPUT
+    # SCHEMA's wire format, JSON-parsed back) must grade 1.000/AllPass — proves the live contract's
+    # key paths stay aligned with the suite handlers (no network involved)
+    import json as _json
+    from . import live_defined_outcome as _ldo
+    from .live import parse_answer as _parse
+    rt, _ = run_case(p, model_output=_parse(_json.dumps(_ldo.oracle_to_schema(case))))
+    if not (rt.allpass == 1 and abs(rt.case_gated - 1.0) < 1e-6):
+        failures.append(f"{name}: live-schema round-trip expected 1.0/AllPass, got "
+                        f"gated={rt.case_gated} allpass={rt.allpass} gates={rt.fired_gates}")
     return failures
 
 
@@ -201,7 +214,8 @@ def main():
     r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
     r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")
     r.add_argument("--max-tokens", type=int, default=4000)
-    r.add_argument("--tenq", action="store_true", help="also feed a 10-Q excerpt (needs ~40k context; fairer on ratio/working-capital checkpoints)")
+    r.add_argument("--tenq", action="store_true", help="also feed a 10-Q excerpt (earnings suite; needs ~40k context; fairer on ratio/working-capital checkpoints)")
+    r.add_argument("--e2e", action="store_true", help="defined-outcome suite: include the sibling-vintage N-PORTs + the mid-period 497K as live distractors (end-to-end mode)")
     r.set_defaults(fn=cmd_run)
     s = sub.add_parser("suite"); s.add_argument("--model", default="oracle"); s.add_argument("--judge", default="mock", choices=["mock", "llm"])
     s.set_defaults(fn=cmd_suite)

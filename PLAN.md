@@ -168,5 +168,14 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
       `suite`/`selftest`, which crashed on the KOCT cases after Phase 3 landed them.
 
 ## Phase 5 — Graded runs + write-up
-- [ ] Run models through both evals; populate the taxonomy from real traces; extend
-      `PAPER.md` (or a v2) with the suite framing.
+- [x] **Eval-#2 live path** (`harness/live_defined_outcome.py`): the two-filing packet builder
+      (anchored 497K excerpts + slimmed N-PORT XML; EDGAR + `.edgar_tmp/` cache fallback;
+      ~10k-token oracle-packet mode, `--e2e` distractor mode ~20k), the live OUTPUT SCHEMA
+      mirroring the gold key paths, prompt + tolerant parse reusing `live.py`'s client.
+      The selftest now round-trips a schema-perfect answer to **1.000/AllPass** on every
+      defined-outcome case — the live contract is pinned to the graders by regression test.
+- [ ] Run local models (LM Studio) through BOTH suites; grade (`--judge mock` + `llm`);
+      capture to `outputs/`. *(blocked on the rig being up; one command away:
+      `python -m harness run --case koct-op2026-anchor --model live [--e2e]`)*
+- [ ] Populate the failure taxonomy from real traces; judge-vs-expert calibration sample.
+- [ ] Extend `PAPER.md` (or a v2) with the suite framing + the eval-#2 findings.
