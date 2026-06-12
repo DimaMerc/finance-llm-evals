@@ -29,10 +29,12 @@ def _section(container, cp):
 
 
 def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=2500, rubric=None,
-               memo_kind="an equity analyst's earnings memo"):
+               memo_kind="an equity analyst's earnings memo", record=None):
     """Return judge_fn(atom, model, gold) -> met in {0.0, 1.0} using the local model.
     Pass the case's RUBRIC so criterion text resolves for both suites (review fix: the old
-    module-level cache loaded only criteria.yaml, so eval-#2 atoms judged on bare ids)."""
+    module-level cache loaded only criteria.yaml, so eval-#2 atoms judged on bare ids).
+    Pass a dict as `record` to capture {atom_id: {met, reasoning}} per call — the Phase-5
+    judge-vs-expert calibration worksheet is built from this."""
     crit = {a["id"]: a.get("criterion", "") for a in rubric["criteria"]} if rubric else None
     sys_prompt = _SYS.replace("{memo_kind}", memo_kind)   # plain replace: _SYS contains literal JSON braces
 
@@ -49,8 +51,13 @@ def make_judge(endpoint=live.DEFAULT_ENDPOINT, model_id=None, max_tokens=2500, r
             content, _ = live.chat([{"role": "system", "content": sys_prompt}, {"role": "user", "content": user}],
                                    endpoint=endpoint, model_id=model_id, max_tokens=max_tokens, temperature=0.0)
             verdict = live.parse_answer(content)
-            return 1.0 if bool(verdict.get("criteria_met")) else 0.0
-        except Exception:
+            met = 1.0 if bool(verdict.get("criteria_met")) else 0.0
+            if isinstance(record, dict):
+                record[atom.id] = {"met": met, "reasoning": str(verdict.get("reasoning", ""))[:600]}
+            return met
+        except Exception as e:
+            if isinstance(record, dict):
+                record[atom.id] = {"met": 0.0, "reasoning": f"(judge call failed: {e})"}
             return 0.0   # a judge that can't decide does not award credit
     return judge_fn
 
