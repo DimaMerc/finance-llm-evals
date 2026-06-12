@@ -197,7 +197,22 @@ def build_messages(case, text, tenq_text=""):
 
 
 # ---------------- tolerant JSON parse ----------------
+def _escape_inner_quotes(s: str) -> str:
+    """escape unescaped quotes INSIDE one-line string values - models quoting filing text
+    ('a buffer (the "Buffer") against...') emit raw inner quotes that break JSON hard."""
+    out = []
+    sentinel = "\x01"
+    for line in s.split("\n"):
+        m = re.match(r'^(\s*"[^"]+"\s*:\s*")(.*)("\s*,?\s*)$', line)
+        if m and '"' in m.group(2):
+            body = m.group(2).replace('\\"', sentinel).replace('"', '\\"').replace(sentinel, '\\"')
+            line = m.group(1) + body + m.group(3)
+        out.append(line)
+    return "\n".join(out)
+
+
 def _repair_json(s: str) -> str:
+    s = _escape_inner_quotes(s)
     s = re.sub(r"(?<=\d),(?=\d{3}(?:\D|$))", "", s)                              # thousands separators inside numbers
     s = re.sub(r":\s*-?[\d.]+\s*[-+*/][-+*/\d.()\s]*(?=[,}\]\n])", ": null", s)  # un-evaluated arithmetic expr -> null
     s = re.sub(r",\s*([}\]])", r"\1", s)                                          # trailing commas

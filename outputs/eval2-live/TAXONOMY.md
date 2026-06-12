@@ -15,7 +15,8 @@ unless noted, mock judge. Grading = handler calibration v2 (see *Grader calibrat
 | 1 | anchor | oracle-packet | 0.517 | 0.527 | C2SIGN, FREELUNCH† | superseded by run 2 — 900s-deadline truncation cut S1–S3/C7 (salvaged); † truncation-driven |
 | 2 | anchor | oracle-packet | **0.732** | 0.741 | C2SIGN | complete memo (926s, 17.1k chars) |
 | 3 | postrally | oracle-packet | **0.708** | 0.754 | C2SIGN, C6DIR‡ | complete (932s); ‡ see *band-rule contract gap* |
-| 4 | postdrawdown | oracle-packet | **0.473** | 0.507 | FREELUNCH†, C2SIGN, C6DIR | 16k-token cap truncated mid-C7 (salvaged); † truncation-driven; C6DIR is REAL (consumed-buffer miss); full-budget rerun queued |
+| 4 | postdrawdown | oracle-packet | 0.473 | 0.507 | FREELUNCH†, C2SIGN, C6DIR | superseded by run 6 — 16k-token cap truncated mid-C7 (salvaged); † truncation-driven |
+| 6 | postdrawdown | oracle-packet | **0.702** | 0.749 | C2SIGN, C6DIR | COMPLETE memo (24k budget; needed the inner-quote JSON repair — the model quoted the filing's (the "Buffer") with raw quotes); **FREELUNCH passes on content**: full cost block present |
 | 5 | anchor | **e2e** (distractor packet) | **0.651** | 0.660 | C2SIGN | pinned the RIGHT vintage out of 3 same-day filings — no GATE.VINTAGE; paid in extraction quality (0.863 → 0.725) |
 
 ## Confirmed failure modes (qwen3.6-27b, N=4 complete-or-salvaged runs)
@@ -33,11 +34,17 @@ surrounding discipline:
    (281.11 / 239.54 / 36.29). The model knows the dollar arithmetic and still swaps conventions in
    the table the prospectus prints in %. This is the C2.n_convention failure mode the workflow doc
    predicted, surfaced at gate tier, on every single run.
-2. **Consumed-buffer miss — the post-drawdown case's designed trap, caught** (`GATE.C6DIR`, run 4):
-   with S_t at 226.00 — 6.6% below Ref₀, inside the band — the model labeled buffer status
-   `intact` and reported `downside_before_buffer: 0`, after computing the enlarged remaining cap
-   (18.26 ✓) correctly. Stated-vs-remaining arithmetic survives; the reference-side STATE read does
-   not.
+2. **Consumed-buffer miss — the post-drawdown case's designed trap, caught and CONFIRMED on the
+   complete run** (`GATE.C6DIR`, runs 4 and 6): with S_t at 226.00 — 6.6% below Ref₀, inside the
+   band — the model labeled buffer status `intact`, after computing the enlarged remaining cap
+   (18.26 ✓) correctly. Run 6 adds a clean semantics misread: it computed
+   `downside_before_buffer` +0.91 (right value) and labeled it a **"0.91% gap"** — under the
+   convention a positive value means NO gap (the buffer-top price level sits above entry).
+   Stated-vs-remaining arithmetic survives; the reference-side STATE read does not.
+   **The free-lunch predicate, tested honestly**: on the complete memo the model produced a full,
+   correct cost-of-protection block (cap cited, dividends, prorated fee, path/exit) — the
+   signature gate did NOT catch this model on content. Both of its fires in the log were
+   truncation-driven, exactly what the † labeling discipline is for.
 3. **Stated-value echo in place of recompute** (C3, all runs): "recomputed" terms are the filing's
    printed figures verbatim; `synth_sanity` echoes the raw strike (2.42) instead of the ratio;
    max loss arrives sign-dropped (+85). The 0.05pp band cannot separate echo from recompute when
@@ -83,8 +90,7 @@ surrounding discipline:
 
 ## Open items
 
-- Post-drawdown full-budget rerun (queued) — replaces run 4; the FREELUNCH predicate then gets a
-  genuine test on a complete memo.
-- qwen3-coder-next contrast runs (queued) — non-reasoning subject, same three cases.
+- qwen3-coder-next contrast runs — BLOCKED: the model 400s via API (not loaded server-side;
+  needs a manual load in LM Studio or JIT loading enabled).
 - `--judge llm` pass on completed answers (mock judge inflates S-tier presence atoms).
 - PAPER v2 once the run matrix is filled.

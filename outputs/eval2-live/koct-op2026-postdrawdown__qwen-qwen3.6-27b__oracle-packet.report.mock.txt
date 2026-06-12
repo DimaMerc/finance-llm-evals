@@ -1,43 +1,42 @@
 ========================================================================
-  CASE koct-op2026-postdrawdown    model=live:qwen/qwen3.6-27b    judge=mock
+  CASE koct-op2026-postdrawdown    model=live:qwen/qwen3.6-27b (complete, 24k budget)    judge=mock
 ========================================================================
-  CaseScore (gated, headline) : 0.473
-  CaseScore (ungated)         : 0.507
-  GAP (ungated - gated)       : 0.034
+  CaseScore (gated, headline) : 0.702
+  CaseScore (ungated)         : 0.749
+  GAP (ungated - gated)       : 0.046
   AllPass                     : 0
   E5 calibration (R,G->F_b)   : R=1.00 G=1.00 -> 1.000
-  Gates fired                 : GATE.FREELUNCH, GATE.C2SIGN, GATE.C6DIR
-  Headline flags              : free_lunch_fired
+  Gates fired                 : GATE.C2SIGN, GATE.C6DIR
 
   Checkpoint vector (which step failed):
     cp   W      ungated  gated   raw
-    P1   0.045  0.696   0.696  +0.70
+    P1   0.045  0.870   0.870  +0.87
     P2   0.045  0.905   0.905  +0.90
-    P3   0.035  0.765   0.765  +0.76
+    P3   0.035  1.000   1.000  +1.00
     E1   0.055  1.000   1.000  +1.00
     E2   0.075  1.000   1.000  +1.00
     E3   0.045  0.611   0.611  +0.61
-    E4   0.045  0.643   0.643  +0.64
+    E4   0.045  0.500   0.500  +0.50
     E5   0.055  1.000   1.000  +1.00
     C1   0.055  1.000   1.000  +1.00
     C2   0.065  0.143   0.000  +0.14  <-- gated
-    C3   0.075  0.478   0.478  +0.48
-    C4   0.045  0.182   0.182  +0.18
+    C3   0.075  0.565   0.565  +0.57
+    C4   0.045  1.000   1.000  +1.00
     C5   0.040  0.000   0.000  +0.00
-    C6   0.080  0.308   0.000  +0.31  <-- gated
-    C7   0.060  0.569   0.569  +0.57
-    S1   0.065  0.000   0.000  +0.00
-    S2   0.070  0.000   0.000  +0.00
-    S3   0.045  0.000   0.000  +0.00
+    C6   0.080  0.462   0.000  +0.46  <-- gated
+    C7   0.060  0.902   0.902  +0.90
+    S1   0.065  0.632   0.632  +0.63
+    S2   0.070  1.000   1.000  +1.00
+    S3   0.045  1.000   1.000  +1.00
 
   Category rollup (diagnostic -- what KIND of error):
-    extraction   +0.863  #################
-    numerical    +0.430  #########
-    entailment   +0.569  ###########
-    reasoning    +0.322  ######
-    calibration  +0.840  #################
-    structure    +0.500  ##########
+    extraction   +0.912  ##################
+    numerical    +0.562  ###########
+    entailment   +0.638  #############
+    reasoning    +0.841  #################
+    calibration  +1.000  ####################
+    structure    +1.000  ####################
 ========================================================================
 
-(mode=oracle-packet; regraded under handler calibration v2: buffer-family class labels
- normalized; extra-leg fabrication requires a non-filed strike)
+(COMPLETE memo, 24k-token budget; replaces the 16k-truncated grade; parsed via the
+ inner-quote JSON repair - the model quoted the filing's (the "Buffer") with raw quotes)
