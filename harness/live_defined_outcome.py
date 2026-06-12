@@ -261,12 +261,25 @@ def build_messages(case, packet: str):
 
 
 # ---------------- live answer ----------------
-def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=6000, e2e=False):
+def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=16000, e2e=False,
+           deadline=900):
+    """max_tokens/deadline are sized for REASONING models (Qwen3.6 etc.): the think phase streams
+    as reasoning_content and can run thousands of tokens before the first content token — the
+    structured JSON itself is ~3-4k tokens on top. Non-thinking models just finish early."""
     packet = build_packet(case, e2e=e2e)
     msgs = build_messages(case, packet)
     approx_tok = sum(len(m["content"]) for m in msgs) // 4
-    content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
+    stats = {}
+    # timeout=300: a queued request (or the think->content handoff) can stall the SSE stream for
+    # minutes without a byte; the wall-clock `deadline` still hard-caps the whole call.
+    content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
+                         deadline=deadline, timeout=300, stats=stats)
     if not content.strip():
+        if stats.get("reasoning_chars"):
+            raise RuntimeError(
+                f"Model spent its whole budget THINKING ({stats['reasoning_chars']:,} reasoning "
+                f"chars, no content; prompt ~{approx_tok:,} tokens). Raise --max-tokens (currently "
+                f"{max_tokens}) / deadline, or use a non-reasoning model.")
         raise RuntimeError(
             f"Model returned an EMPTY completion (prompt ~{approx_tok:,} tokens). This almost always "
             f"means the prompt exceeded the model's loaded context window in LM Studio. Reload the "
@@ -277,11 +290,13 @@ def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=6000, e
     except json.JSONDecodeError:
         msgs.append({"role": "assistant", "content": content[:2000]})
         msgs.append({"role": "user", "content": "That was not valid JSON. Return ONLY the JSON object."})
-        content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens)
+        content, used = chat(msgs, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
+                             deadline=deadline)
         out = parse_answer(content)
     out["_model_id"] = used
     out["_raw"] = content
     out["_prompt_tokens_approx"] = approx_tok
+    out["_reasoning_chars"] = stats.get("reasoning_chars", 0)
     return out
 
 

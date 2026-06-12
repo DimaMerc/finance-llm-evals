@@ -43,10 +43,13 @@ def list_models(endpoint=DEFAULT_ENDPOINT):
 
 
 def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0,
-         stream=True, timeout=90, deadline=240, _folded=False):
+         stream=True, timeout=90, deadline=240, stats=None, _folded=False):
     """Call the OpenAI-compatible chat endpoint. Streaming by default so a long generation trickles
     tokens. `timeout` is the per-read socket timeout; `deadline` is a HARD wall-clock cap on the whole
     call -- the loop breaks past it no matter what, so a stalled/looping server can never hang forever.
+    Reasoning models (e.g. Qwen3.6) stream their think-phase as `delta.reasoning_content`, NOT
+    `delta.content`; pass a dict as `stats` to receive {'reasoning_chars', 'content_chars'} so a
+    caller can tell 'spent the whole budget thinking' apart from a context overflow.
     On a 400 (some templates, e.g. Gemma, reject a `system` role) we fold system into user and retry."""
     if model_id is None:
         ms = list_models(endpoint)
@@ -61,7 +64,7 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
             return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        parts, t0 = [], time.monotonic()
+        parts, think, t0 = [], 0, time.monotonic()
         with urllib.request.urlopen(req, timeout=timeout) as r:
             for raw in r:                               # SSE: one "data: {...}" line per token chunk
                 if time.monotonic() - t0 > deadline:    # hard wall-clock cap -> never hang
@@ -76,9 +79,15 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
                     obj = json.loads(d)
                 except json.JSONDecodeError:
                     continue
-                delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content")
-                if delta:
-                    parts.append(delta)
+                delta = (obj.get("choices") or [{}])[0].get("delta", {})
+                if delta.get("content"):
+                    parts.append(delta["content"])
+                rc = delta.get("reasoning_content") or delta.get("reasoning")
+                if rc:
+                    think += len(rc)                    # think-phase tokens (reasoning models)
+        if isinstance(stats, dict):
+            stats["reasoning_chars"] = think
+            stats["content_chars"] = sum(len(p) for p in parts)
         return "".join(parts), model_id
     except urllib.error.HTTPError as e:
         if e.code == 400 and not _folded and any(m.get("role") == "system" for m in messages):
