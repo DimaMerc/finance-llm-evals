@@ -14,6 +14,13 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 
 def main():
     rows = list(csv.DictReader(open(os.path.join(OUT, "calibration.csv"), encoding="utf-8")))
+    # expert grades live in the human-friendly sheet (calibration-grades.csv), joined by row order
+    gpath = os.path.join(OUT, "calibration-grades.csv")
+    if os.path.exists(gpath):
+        grades = list(csv.DictReader(open(gpath, encoding="utf-8")))
+        for r, g in zip(rows, grades):
+            r["expert_met"] = g.get("expert_met", "")
+            r["expert_note"] = g.get("note", "")
     graded = [r for r in rows if str(r.get("expert_met", "")).strip() in ("0", "1", "0.0", "1.0")]
     if not graded:
         raise SystemExit("no expert_met values filled in calibration.csv yet")
