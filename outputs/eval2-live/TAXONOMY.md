@@ -103,6 +103,35 @@ permissiveness by construction, so the mock-vs-live gap collapses to the synthes
 - The M5 Max rig sleeps ~30 min after last user interaction unless caffeinated; runs ~15–17 min
   per case at ~10k prompt tokens.
 
+## The second subject: qwen2.5-72b-instruct (non-reasoning, 3 complete runs)
+
+| Case | qwen3.6-27b (reasoning) | qwen2.5-72b (non-reasoning) | 72B gates |
+|---|---|---|---|
+| anchor | 0.732 | **0.638** | none |
+| postrally | 0.708 | **0.584** | C6DIR |
+| postdrawdown | 0.702 | **0.577** | C6DIR |
+
+The reasoning 27B beats the non-reasoning 72B on every case despite a 2.7× size disadvantage —
+N=1 per architecture class, so this is an observation, not an architecture study. What the
+per-checkpoint traces support:
+
+- **The grid conflation is task-level (now N=2).** The 72B filled the same idealized-% rows
+  (−85 / 0 / 17.18) where per-unit dollars belong — same as qwen3.6 in all four of its runs. Two
+  unrelated model families walking into the same trap is evidence the prospectus's %-table
+  convention genuinely captures models, exactly what C2's dollars requirement was designed to
+  detect. (The 72B's grids were complete, so GATE.C2SIGN's structural check passed and the misses
+  landed in the per-row payoff_usd bands instead — same substance, different scoring surface.)
+- **The remaining-outcome arithmetic is where the think phase earns its keep.** qwen3.6 computed
+  the E5 remaining-cap probe perfectly in every run; the 72B missed it in all three — including
+  reporting **4.78% on two different cases with different NAV_t inputs** (an anchored/reused wrong
+  value rather than a recompute), and on post-drawdown a full state inversion (−0.94%, `negative`,
+  `below_band` vs gold +18.26%, `positive`, `partially_consumed` — GATE.C6DIR fired, as designed).
+- **Extraction is architecture-independent**: 0.912 extraction category on all three 72B runs,
+  matching the 27B. Both subjects also share the C5 per-contract/per-unit confusion and
+  stated-echo tendencies (the 72B's `synth_sanity` came back as a literal `true`).
+- Run mechanics: the 72B produced complete, parse-clean memos in ~12 min/case with zero thinking
+  chars — no salvage, no truncation. The failure mode is wrong numbers, not broken output.
+
 ## The qwen3-coder-next attempt (single run, recorded as-is)
 
 The non-reasoning contrast subject produced an **ungradeable answer** on its one attempt

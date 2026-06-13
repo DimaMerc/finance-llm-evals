@@ -1,0 +1,644 @@
+{
+ "P1": {
+  "trust": "Innovator ETFs Trust",
+  "cik": "0001415726",
+  "series_name": "Innovator U.S. Small Cap Power Buffer ETF - October",
+  "series_id": "S000065317",
+  "ticker": "KOCT",
+  "vintage_month": "October",
+  "outcome_period_start": "2025-10-01",
+  "outcome_period_end": "2026-09-30",
+  "variant_type": "power_buffer",
+  "date_ledger": {
+   "outcome_start": "2025-10-01",
+   "outcome_end_eq_expiry": "2026-09-30",
+   "nport_repPdDate": "2026-01-31",
+   "nport_repPdEnd": "2026-10-31"
+  },
+  "citation": {
+   "document": "497k|nport",
+   "locator": "<section/element>",
+   "verbatim": "The current Outcome Period is from October 1, 2025 through September 30, 2026."
+  }
+ },
+ "P2": {
+  "reference_asset": {
+   "name": "iShares Russell 2000 ETF",
+   "ticker": "IWM",
+   "cusip": "464287655",
+   "isin": "US4642876555"
+  },
+  "reference_is_etf_share_price": true,
+  "contract_multiplier": 100,
+  "sign_convention": "written_legs_negative",
+  "citation": {
+   "document": "nport",
+   "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>",
+   "verbatim": "issuerName: iShares Russell 2000 ETF, issueTitle: iShares Russell 2000 ETF, cusip: 464287655, isin: US4642876555"
+  }
+ },
+ "P3": {
+  "basis_map": {
+   "cap": {
+    "gross": 17.18,
+    "net": 16.39
+   },
+   "buffer": {
+    "gross": 15,
+    "net": 14.21
+   }
+  },
+  "comparisons": [
+   {
+    "comparison": "stated_cap_and_buffer_vs_strike_recompute",
+    "basis": "gross_to_gross"
+   },
+   {
+    "comparison": "fee_netted_terms_vs_stated_net",
+    "basis": "net_to_net"
+   },
+   {
+    "comparison": "remaining_terms_at_NAV_t",
+    "basis": "gross_with_net_shown"
+   },
+   {
+    "comparison": "marketing_claims",
+    "basis": "declared_per_claim"
+   }
+  ],
+  "entry_framing": {
+   "snapshot_date": "2026-09-18",
+   "days_elapsed": 354,
+   "days_remaining": 12,
+   "framed_for": "buyer_at_NAV_t_today"
+  }
+ },
+ "E1": {
+  "figures": {
+   "cap_gross": {
+    "value": 17.18,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The Cap is set on the first day of the Outcome Period and is 17.18% prior to taking into account any fees or expenses charged to shareholders."
+    }
+   },
+   "cap_net": {
+    "value": 16.39,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "When the Fund's annual Fund management fee of 0.79% of the Fund's average daily net assets is taken into account, the Cap is 16.39%."
+    }
+   },
+   "buffer_gross": {
+    "value": 15,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The Fund seeks to provide shareholders that hold Shares for the entire Outcome Period with a buffer (the 'Buffer') against the first 15% of Underlying ETF losses during the Outcome Period."
+    }
+   },
+   "buffer_net": {
+    "value": 14.21,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "When the Fund's annual management fee equal to 0.79% of the Fund's daily net assets is taken into account, the net Buffer for an Outcome Period is 14.21%."
+    }
+   },
+   "period_start": {
+    "value": "2025-10-01",
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The current Outcome Period is from October 1, 2025 through September 30, 2026."
+    }
+   },
+   "period_end": {
+    "value": "2026-09-30",
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The current Outcome Period is from October 1, 2025 through September 30, 2026."
+    }
+   }
+  },
+  "payoff_grid_as_filed": {
+   "underlying_return_pct": [
+    -100,
+    -50,
+    -20,
+    -10,
+    -5,
+    0,
+    5,
+    10,
+    15,
+    20,
+    50,
+    100
+   ],
+   "fund_return_pct": [
+    -85,
+    -35,
+    -5,
+    0,
+    0,
+    0,
+    5,
+    10,
+    15,
+    17.18,
+    17.18,
+    17.18
+   ],
+   "citation": {
+    "document": "497k",
+    "locator": "<section/element>",
+    "verbatim": "Underlying ETF Performance (100)% (50)% (20)% (10)% (5)% 0% 5% 10% 15% 20% 50% 100% Fund Performance (85)% (35)% (5)% 0% 0% 0% 5% 10% 15% 17.18%* 17.18%* 17.18%*"
+   }
+  },
+  "period_start_only_rule": {
+   "verbatim": "The Outcomes may only be realized by investors who hold shares of the Fund ( 'Shares' ) at the outset of the Outcome Period and continue to hold them until the conclusion of the Outcome Period."
+  },
+  "cap_setting_mechanics": {
+   "verbatim": "On the first day of the Outcome Period when the Fund enters into its other FLEX Options positions, the portfolio managers will calculate the amount of premiums that the Fund will owe in order to provide the Buffer and will then go into the market and sell a call FLEX Option with terms that entitle the Fund to receive a premium in an amount equal to the amount that the Fund would otherwise owe. The Cap is the strike price of that sold call FLEX Option."
+  }
+ },
+ "E2": {
+  "legs": [
+   {
+    "title_verbatim": "IWM 09/30/2026 205.67 P",
+    "osi_identifier": "4IWM  260930P00205670",
+    "put_or_call": "Put",
+    "written_or_purchased": "Written",
+    "strike": 205.67,
+    "expiry": "2026-09-30",
+    "contracts_signed": -5278,
+    "multiplier": 100,
+    "valUSD_signed": -2090088,
+    "pctVal_signed": -1.5720417528,
+    "citation": {
+     "document": "nport",
+     "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>"
+    }
+   },
+   {
+    "title_verbatim": "IWM 09/30/2026 2.42 C",
+    "osi_identifier": "4IWM  260930C00002420",
+    "put_or_call": "Call",
+    "written_or_purchased": "Purchased",
+    "strike": 2.42,
+    "expiry": "2026-09-30",
+    "contracts_signed": 5278,
+    "multiplier": 100,
+    "valUSD_signed": 134604834,
+    "pctVal_signed": 101.2418707595,
+    "citation": {
+     "document": "nport",
+     "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>"
+    }
+   },
+   {
+    "title_verbatim": "IWM 09/30/2026 283.53 C",
+    "osi_identifier": "4IWM  260930C00283530",
+    "put_or_call": "Call",
+    "written_or_purchased": "Written",
+    "strike": 283.53,
+    "expiry": "2026-09-30",
+    "contracts_signed": -5278,
+    "multiplier": 100,
+    "valUSD_signed": -5378282,
+    "pctVal_signed": -4.0452286517,
+    "citation": {
+     "document": "nport",
+     "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>"
+    }
+   },
+   {
+    "title_verbatim": "IWM 09/30/2026 241.96 P",
+    "osi_identifier": "4IWM  260930P00241960",
+    "put_or_call": "Put",
+    "written_or_purchased": "Purchased",
+    "strike": 241.96,
+    "expiry": "2026-09-30",
+    "contracts_signed": 5278,
+    "multiplier": 100,
+    "valUSD_signed": 5515510,
+    "pctVal_signed": 4.1484435142,
+    "citation": {
+     "document": "nport",
+     "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>"
+    }
+   }
+  ],
+  "net_assets": {
+   "value": 132953720.62,
+   "citation": {
+    "document": "nport",
+    "locator": "<fundInfo>",
+    "verbatim": "netAssets: 132953720.62"
+   }
+  },
+  "cash_sleeve": {
+   "value": 389965.27,
+   "pctVal": 0.2933090313,
+   "citation": {
+    "document": "nport",
+    "locator": "<invstOrSec>",
+    "verbatim": "title: US BANK MMDA - USBGFS 9, valUSD: 389965.27, pctVal: 0.2933090313"
+   }
+  }
+ },
+ "E3": {
+  "fee_table": {
+   "management": {
+    "value": 0.79,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "Management Fees: 0.79%"
+    }
+   },
+   "twelve_b1": {
+    "value": 0.0,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "Distribution and Service (12b-1) Fees: 0.00%"
+    }
+   },
+   "other": {
+    "value": 0.0,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "Other Expenses: 0.00%"
+    }
+   },
+   "total": {
+    "value": 0.79,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "Total Annual Fund Operating Expenses: 0.79%"
+    }
+   }
+  },
+  "price_return_basis": {
+   "verbatim": "The returns that the Fund seeks to provide do not include the costs associated with purchasing Shares and certain expenses incurred by the Fund."
+  },
+  "occ_clearing": {
+   "verbatim": "FLEX Options are customizable exchange-traded option contracts guaranteed for settlement by the Options Clearing Corporation."
+  },
+  "occ_residual_risk": {
+   "verbatim": "If the Fund experiences a significant decrease in net assets, it may be required to sell FLEX Options or other portfolio securities at unfavorable prices and times. If the Fund is unable to meet its obligations under the FLEX Options, the OCC will step in and cover any shortfall, but this could result in the Fund being subject to additional costs."
+  },
+  "flex_liquidity_valuation": {
+   "verbatim": "During periods of reduced market liquidity or in the absence of readily available market quotations for the holdings of the Fund, the valuation of the Fund's FLEX Options will become more difficult. In market environments where there is reduced availability of reliable objective pricing data, the judgment of the Fund's investment adviser in determining the fair value of the security may play a greater role."
+  },
+  "website_delegation": {
+   "verbatim": "The Fund's website, www.innovatoretfs.com/koct, provides important Fund information (including, among other items, Outcome Period start and end dates and information relating to the Cap and Buffer), as well information relating to the potential outcomes of an investment in the Fund on a daily basis."
+  }
+ },
+ "E4": {
+  "snapshot_echo": {
+   "snapshot_date": "2026-09-18",
+   "NAV_0": 33.0,
+   "NAV_t": 38.36,
+   "S_t": 295.0,
+   "source": "oracle"
+  },
+  "ledger": {
+   "terms": {
+    "fields": [
+     "strikes",
+     "expiry",
+     "multiplier"
+    ],
+    "as_of": "filing"
+   },
+   "state": {
+    "fields": [
+     "valUSD",
+     "pctVal",
+     "net_assets"
+    ],
+    "as_of": "2026-01-31",
+    "staleness_days": 231
+   }
+  },
+  "days_remaining": 12,
+  "citation": {}
+ },
+ "E5": {
+  "probe": {
+   "label": "COMPUTED",
+   "value": 4.78,
+   "derivation": "NAV_0: 33.0, NAV_t: 38.36, stated cap: 17.18; cap_price = 33.0 * (1 + 17.18/100) = 38.67; remaining_cap_gross = 38.67 / 38.36 - 1 = 4.78%"
+  },
+  "twins": [
+   {
+    "id": "TW1",
+    "value": 0.79,
+    "citation": {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "Total Annual Fund Operating Expenses: 0.79%"
+    }
+   },
+   {
+    "id": "TW2",
+    "value": -5278,
+    "citation": {
+     "document": "nport",
+     "locator": "<invstOrSec><derivativeInfo><optionSwaptionWarrantDeriv>",
+     "verbatim": "balance: -5278"
+    }
+   }
+  ]
+ },
+ "C1": {
+  "roles": {
+   "K_synth": 33.0,
+   "K_top": 38.67,
+   "K_bot": 28.05,
+   "K_cap": 38.67
+  },
+  "structure_class": "buffer",
+  "Ref0": {
+   "value": 33.0,
+   "recovery_rule": "",
+   "identity_checks": [
+    "",
+    ""
+   ]
+  }
+ },
+ "C2": {
+  "grid_points": [
+   {
+    "underlying_return_pct": -100,
+    "S_T": 0,
+    "V_usd": -85,
+    "regime": "loss"
+   },
+   {
+    "underlying_return_pct": -50,
+    "S_T": 16.5,
+    "V_usd": -35,
+    "regime": "buffered loss"
+   },
+   {
+    "underlying_return_pct": -20,
+    "S_T": 26.4,
+    "V_usd": -5,
+    "regime": "buffered loss"
+   },
+   {
+    "underlying_return_pct": -10,
+    "S_T": 29.7,
+    "V_usd": 0,
+    "regime": "buffered loss"
+   },
+   {
+    "underlying_return_pct": -5,
+    "S_T": 31.35,
+    "V_usd": 0,
+    "regime": "buffered loss"
+   },
+   {
+    "underlying_return_pct": 0,
+    "S_T": 33.0,
+    "V_usd": 0,
+    "regime": "neutral"
+   },
+   {
+    "underlying_return_pct": 5,
+    "S_T": 34.65,
+    "V_usd": 5,
+    "regime": "gain"
+   },
+   {
+    "underlying_return_pct": 10,
+    "S_T": 36.3,
+    "V_usd": 10,
+    "regime": "gain"
+   },
+   {
+    "underlying_return_pct": 15,
+    "S_T": 38.0,
+    "V_usd": 15,
+    "regime": "gain"
+   },
+   {
+    "underlying_return_pct": 20,
+    "S_T": 39.6,
+    "V_usd": 17.18,
+    "regime": "capped gain"
+   },
+   {
+    "underlying_return_pct": 50,
+    "S_T": 49.5,
+    "V_usd": 17.18,
+    "regime": "capped gain"
+   },
+   {
+    "underlying_return_pct": 100,
+    "S_T": 66.0,
+    "V_usd": 17.18,
+    "regime": "capped gain"
+   }
+  ],
+  "signature_values": {
+   "max_per_unit_K_cap_minus_K_synth": 5.67,
+   "buffer_zone_per_unit_K_top_minus_K_synth": 4.92,
+   "structural_floor_K_top_minus_K_bot": 10.62
+  },
+  "idealized_grid_check": "",
+  "max_gross_loss_pct": -85
+ },
+ "C3": {
+  "cap_gross_recomputed": {
+   "value": 17.18,
+   "formula": "K_cap/Ref0 - 1",
+   "evidence": [
+    {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The Cap is set on the first day of the Outcome Period and is 17.18% prior to taking into account any fees or expenses charged to shareholders."
+    },
+    {
+     "document": "E5",
+     "locator": "",
+     "verbatim": "cap_price = 33.0 * (1 + 17.18/100) = 38.67"
+    }
+   ]
+  },
+  "buffer_gross_recomputed": {
+   "value": 15,
+   "formula": "1 - K_bot/Ref0",
+   "evidence": [
+    {
+     "document": "497k",
+     "locator": "<section/element>",
+     "verbatim": "The Fund seeks to provide shareholders that hold Shares for the entire Outcome Period with a buffer (the 'Buffer') against the first 15% of Underlying ETF losses during the Outcome Period."
+    },
+    {
+     "document": "E5",
+     "locator": "",
+     "verbatim": "K_bot = 33.0 * (1 - 15/100) = 28.05"
+    }
+   ]
+  },
+  "buffer_bottom_identity": {
+   "value": 28.05
+  },
+  "max_loss_gross": {
+   "value": -85
+  },
+  "synth_sanity": {
+   "value": true
+  }
+ },
+ "C4": {
+  "cap_net": {
+   "value": 16.39
+  },
+  "buffer_net": {
+   "value": 14.21
+  }
+ },
+ "C5": {
+  "units_per_leg": 5278,
+  "notional_synth": {
+   "value": 527800,
+   "labeled": "derived"
+  },
+  "coverage_ratio": 1.0,
+  "pctval_sum": {
+   "value_exact": 101.2418707595
+  },
+  "package_value_per_unit_at_repPdDate": {
+   "value": 38.67,
+   "labeled": "stale_state"
+  }
+ },
+ "C6": {
+  "price_levels": {
+   "cap_price": {
+    "value": 38.67
+   },
+   "buffer_top_price": {
+    "value": 33.0
+   },
+   "buffer_bottom_price": {
+    "value": 28.05
+   }
+  },
+  "remaining_cap_gross": {
+   "value": 4.78
+  },
+  "remaining_cap_net": {
+   "value": 4.19
+  },
+  "fee_proration_pp": 0.6,
+  "downside_before_buffer": {
+   "value": null
+  },
+  "remaining_buffer_depth": {
+   "value": 15
+  },
+  "buffer_status": {
+   "label": "intact",
+   "S_t_vs_Ref0_pct": -12.3,
+   "consumed_fraction_pct": 0
+  },
+  "remaining_upside_sign": "positive",
+  "leg_form_crosscheck": {
+   "value": true,
+   "labeled": "stale_secondary"
+  }
+ },
+ "C7": {
+  "verdicts": [
+   {
+    "id": "CL1",
+    "verdict": "ACCURATE",
+    "deciding_figure": "buffer_gross_recomputed",
+    "deciding_value": 15,
+    "basis_one_line": "The Fund seeks to provide shareholders that hold Shares for the entire Outcome Period with a buffer (the 'Buffer') against the first 15% of Underlying ETF losses during the Outcome Period."
+   },
+   {
+    "id": "CL2",
+    "verdict": "ACCURATE_AT_PERIOD_START_ONLY",
+    "deciding_figure": "cap_gross_recomputed",
+    "deciding_value": 17.18,
+    "basis_one_line": "The Cap is set on the first day of the Outcome Period and is 17.18% prior to taking into account any fees or expenses charged to shareholders."
+   },
+   {
+    "id": "CL3",
+    "verdict": "WRONG_BASIS",
+    "deciding_figure": "remaining_cap_net",
+    "deciding_value": 4.19,
+    "basis_one_line": "Buyers at today's NAV lock in nearly the full cap return if small caps keep rising."
+   },
+   {
+    "id": "CL4",
+    "verdict": "ACCURATE_AT_PERIOD_START_ONLY",
+    "deciding_figure": "cap_net",
+    "deciding_value": 16.39,
+    "basis_one_line": "When the Fund's annual Fund management fee of 0.79% of the Fund's average daily net assets is taken into account, the Cap is 16.39%."
+   },
+   {
+    "id": "CL5",
+    "verdict": "ACCURATE",
+    "deciding_figure": "",
+    "deciding_value": null,
+    "basis_one_line": "An investment in the Fund is backed by Innovator's balance sheet, so investors bear issuer credit risk just like a structured note."
+   },
+   {
+    "id": "CL6",
+    "verdict": "NOT_VERIFIABLE",
+    "deciding_figure": "",
+    "deciding_value": null,
+    "basis_one_line": "The marketing claim about the next outcome period is not verifiable from the provided filings."
+   }
+  ]
+ },
+ "S1": {
+  "labels": {
+   "remaining_upside_net": "positive",
+   "downside_before_buffer": "none or '[X]% gap'",
+   "buffer_status": "intact",
+   "stated_terms_apply_to_this_buyer": "no"
+  },
+  "framing": "The remaining cap for a buyer at today's NAV is 4.78% gross and 4.19% net of fees, with the buffer intact."
+ },
+ "S2": {
+  "cost_block": {
+   "capped_upside": {
+    "cap_value_cited": 17.18,
+    "note": "The cap applies only to period-start buyers; today's buyer has a remaining cap of 4.78% gross and 4.19% net."
+   },
+   "forgone_dividends": {
+    "note": "The Fund does not receive or benefit from any dividend payments made by the Underlying ETF."
+   },
+   "fee_drag": {
+    "er_pct": 0.79,
+    "note": "The annual management fee of 0.79% reduces both the cap and buffer."
+   },
+   "path_exit_risk": {
+    "note": "Investors who purchase Shares after the Outcome Period has begun or sell Shares prior to the end of the Outcome Period may experience investment returns that are very different from those that the Fund seeks to provide."
+   }
+  },
+  "credit_read": "An investment in the Fund is backed by Innovator's balance sheet, so investors bear issuer credit risk just like a structured note."
+ },
+ "S3": {
+  "bottom_line_reference": "The remaining cap for an investor buying KOCT at today's NAV is 4.78% gross and 4.19% net of fees, with the buffer intact. The Fund does not receive or benefit from any dividend payments made by the Underlying ETF, and the annual management fee of 0.79% reduces both the cap and buffer. Investors who purchase Shares after the Outcome Period has begun or sell Shares prior to the end of the Outcome Period may experience investment returns that are very different from those that the Fund seeks to provide.",
+  "not_determinable_items": [
+   "The marketing claim about the next outcome period is not verifiable from the provided filings."
+  ]
+ }
+}
