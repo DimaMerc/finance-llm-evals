@@ -17,7 +17,7 @@ unless noted, mock judge. Grading = handler calibration v2 (see *Grader calibrat
 | 3 | postrally | oracle-packet | **0.708** | 0.754 | C2SIGN, C6DIR‡ | complete (932s); ‡ see *band-rule contract gap* |
 | 4 | postdrawdown | oracle-packet | 0.473 | 0.507 | FREELUNCH†, C2SIGN, C6DIR | superseded by run 6 — 16k-token cap truncated mid-C7 (salvaged); † truncation-driven |
 | 6 | postdrawdown | oracle-packet | **0.702** | 0.749 | C2SIGN, C6DIR | COMPLETE memo (24k budget; needed the inner-quote JSON repair — the model quoted the filing's (the "Buffer") with raw quotes); **FREELUNCH passes on content**: full cost block present |
-| 5 | anchor | **e2e** (distractor packet) | **0.651** | 0.660 | C2SIGN | pinned the RIGHT vintage out of 3 same-day filings — no GATE.VINTAGE; paid in extraction quality (0.863 → 0.725) |
+| 5 | anchor | **e2e** (distractor packet) | **0.651** | 0.660 | C2SIGN | pinned the RIGHT vintage out of 3 same-day filings — no GATE.VINTAGE; modest extraction cost (0.863 → 0.825, post-recalibration) |
 
 ## Confirmed failure modes (qwen3.6-27b, N=4 complete-or-salvaged runs)
 
@@ -58,10 +58,10 @@ surrounding discipline:
    23.07% depth; fee proration day-count slips. The flagship `remaining_cap_gross` is right every
    time.
 6. **The e2e result worth quoting**: given three same-day N-PORTs (Sep/Oct/Nov vintages, strikes
-   ~2% apart) and a mid-period 497K restating period-start terms, the model **pinned the correct
-   series** (S000065317, October, 2026-09-30) — the hard-gate trap did not fire. The distractor
-   cost shows up instead as degraded extraction (wrong-leg bleed) and a ~0.08 gated drop vs the
-   oracle packet.
+   ~1.7–2.9% apart) and a mid-period 497K restating period-start terms, the model **pinned the
+   correct series** (S000065317, October, 2026-09-30) — the hard-gate trap did not fire. The
+   distractor cost shows up instead as a modest extraction dip (0.863 → 0.825) and a ~0.08 gated
+   drop vs the oracle packet.
 
 ## The LLM-judge pass (mock vs live judge, the four complete answers)
 
@@ -115,19 +115,19 @@ The reasoning 27B beats the non-reasoning 72B on every case despite a 2.7× size
 N=1 per architecture class, so this is an observation, not an architecture study. What the
 per-checkpoint traces support:
 
-- **The grid conflation is task-level (now N=2).** The 72B filled the same idealized-% rows
+- **The grid conflation is shared (now N=2 subjects).** The 72B filled the same idealized-% rows
   (−85 / 0 / 17.18) where per-unit dollars belong — same as qwen3.6 in all four of its runs. Two
-  unrelated model families walking into the same trap is evidence the prospectus's %-table
-  convention genuinely captures models, exactly what C2's dollars requirement was designed to
-  detect. (The 72B's grids were complete, so GATE.C2SIGN's structural check passed and the misses
+  subjects in the same trap is suggestive the prospectus's %-table convention genuinely captures
+  models — though both are Qwen-lineage (different generations), so cross-family replication is
+  needed before calling it task-level. C2's dollars requirement caught both either way. (The 72B's grids were complete, so GATE.C2SIGN's structural check passed and the misses
   landed in the per-row payoff_usd bands instead — same substance, different scoring surface.)
 - **The remaining-outcome arithmetic is where the think phase earns its keep.** qwen3.6 computed
   the E5 remaining-cap probe perfectly in every run; the 72B missed it in all three — including
   reporting **4.78% on two different cases with different NAV_t inputs** (an anchored/reused wrong
   value rather than a recompute), and on post-drawdown a full state inversion (−0.94%, `negative`,
   `below_band` vs gold +18.26%, `positive`, `partially_consumed` — GATE.C6DIR fired, as designed).
-- **Extraction is architecture-independent**: 0.912 extraction category on all three 72B runs,
-  matching the 27B. Both subjects also share the C5 per-contract/per-unit confusion and
+- **Extraction is strong in both subjects**: 0.912 on all three 72B runs; 0.86–0.91 across the
+  27B's runs. Both subjects also share the C5 per-contract/per-unit confusion and
   stated-echo tendencies (the 72B's `synth_sanity` came back as a literal `true`).
 - Run mechanics: the 72B produced complete, parse-clean memos in ~12 min/case with zero thinking
   chars — no salvage, no truncation. The failure mode is wrong numbers, not broken output.

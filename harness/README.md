@@ -77,7 +77,7 @@ Eval #1 (3 cases): oracle 1.000/AllPass; `scale_slip` fires GATE.P2 with GAP > 0
 `fabricate_probe` zeroes E6; `basis_mismatch` fires GATE.P3.
 
 Eval #2 (3 KOCT cases): oracle 1.000/AllPass with no flags; `vintage_slip` fires **GATE.VINTAGE**
-(hard, GAP ≈ 0.82); `refscale_slip` fires **GATE.REFSCALE** (hard, GAP ≈ 0.46); `feebasis_mix`
+(hard, GAP ≈ 0.88); `refscale_slip` fires **GATE.REFSCALE** (hard, GAP ≈ 0.46); `feebasis_mix`
 fires **GATE.FEEBASIS** (scoped, GAP ≈ 0.18); `free_lunch` fires **GATE.FREELUNCH** — S2+S3 zero,
 `free_lunch_fired` raised, AllPass 0 (GAP ≈ 0.07: the signature finding is a *flag*, not a big
 number); `fabricate_probe` zeroes the E5 headline (G=0) and fires GATE.FABRICATION; `c6_flip`

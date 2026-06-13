@@ -174,8 +174,17 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
       mirroring the gold key paths, prompt + tolerant parse reusing `live.py`'s client.
       The selftest now round-trips a schema-perfect answer to **1.000/AllPass** on every
       defined-outcome case — the live contract is pinned to the graders by regression test.
-- [ ] Run local models (LM Studio) through BOTH suites; grade (`--judge mock` + `llm`);
-      capture to `outputs/`. *(blocked on the rig being up; one command away:
-      `python -m harness run --case koct-op2026-anchor --model live [--e2e]`)*
-- [ ] Populate the failure taxonomy from real traces; judge-vs-expert calibration sample.
-- [ ] Extend `PAPER.md` (or a v2) with the suite framing + the eval-#2 findings.
+- [x] **Live runs, both judges**: qwen3.6-27b (reasoning) through all 3 KOCT cases + the
+      e2e distractor probe — 0.732/0.708/0.702/0.651 mock, 0.712/0.682/0.657/0.615 llm-judge;
+      qwen2.5-72b-instruct (non-reasoning) through the 3 cases — 0.638/0.584/0.577. All
+      artifacts + reports committed under `outputs/eval2-live/`.
+- [x] **Failure taxonomy from real traces** (`outputs/eval2-live/TAXONOMY.md`): the shared
+      %-for-$ grid trap (N=2 subjects); the consumed-buffer miss caught by its designed case;
+      the remaining-outcome arithmetic separating the reasoning from the non-reasoning subject;
+      the e2e vintage pin succeeding; FREELUNCH passing on content (truncation fires labeled);
+      grader-calibration log (running real models found 3 contract gaps, all fixed + re-graded).
+- [x] **Judge-vs-expert calibration**: the 28 S2/S3 verdicts hand-graded by the author —
+      28/28, κ = 1.0 (caveats: n=28, self-judging model, anchoring risk; stated in the paper).
+- [x] **PAPER.md v2**: the suite framing + eval-#2 design + the two-model findings +
+      calibration, fact-checked against the artifacts by a 2-agent verification pass
+      (4 blockers fixed pre-commit, incl. a same-lineage honesty fix on the N=2 claim).

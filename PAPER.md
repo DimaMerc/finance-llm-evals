@@ -1,152 +1,260 @@
-# A Runnable, Rubric-Graded Evaluation for Finance LLMs: Quarterly Earnings Analysis
+# A Runnable, Rubric-Graded Evaluation Suite for Finance LLMs: Earnings Analysis and Defined-Outcome ETF Diligence
 
 **Dmitry Krutous** · MBA, PMP · [linkedin.com/in/dmitrykrutous](https://www.linkedin.com/in/dmitrykrutous/) · welt.management.solutions@gmail.com
-*Methodology note & preliminary findings. The artifact is the runnable repository this paper accompanies:
-[github.com/DimaMerc/finance-llm-evals](https://github.com/DimaMerc/finance-llm-evals).*
+*Methodology note & findings, v2. The artifact is the runnable repository this paper accompanies:
+[github.com/DimaMerc/finance-llm-evals](https://github.com/DimaMerc/finance-llm-evals). v1 covered the
+earnings eval alone; v2 adds the defined-outcome ETF eval, a two-model run matrix, the live failure
+taxonomy, and the judge-vs-expert calibration.*
 
 ---
 
 ## Abstract
 
 Most finance-LLM demos show a polished answer; few show the *scoring system* that decides whether the
-answer can be trusted. This work builds one — a runnable evaluation of a real asset-management analyst
-workflow, **quarterly earnings analysis**, judged against an expert-authored rubric the way a finance
-professional would: every figure traced to a source filing, auto-fail "gates" for the errors that
-quietly poison a memo, and credit for *calibrated uncertainty* rather than confident guessing. The
-contribution is the evaluation design and a working harness, not a leaderboard: the workflow decomposed
-into 17 independently-scorable checkpoints, a gating-plus-weighted rubric of 109 machine-readable
-criteria, three gold cases transcribed verbatim from real SEC filings with `{document, locator,
-verbatim}` citations and an independent adversarial verification log (no invented numbers), and a Python
-harness that grades a model end-to-end and **localizes where it fails**. Synthetic perturbations show the
-eval discriminates by design — a perfect answer scores 1.000, a scale misread collapses to 0.45 — and a
-first single-model run (Qwen2.5-32B-Instruct) shows the capability split a firm must see before trusting
-a model with a memo: a strong *extractor* whose *synthesis* and *derived calculations* fall short — on
-one model, with a judge not yet expert-calibrated.
+answer can be trusted. This work builds one — a runnable two-eval suite covering real asset-management
+workflows, judged against expert-authored rubrics the way a finance professional would: every figure
+traced to a source filing, auto-fail "gates" for the errors that quietly poison a memo, and credit for
+*calibrated uncertainty* rather than confident guessing. **Eval #1** scores quarterly **earnings
+analysis** (17 checkpoints, 109 criteria, three gold cases from real 10-Qs). **Eval #2** scores a
+workflow almost nobody publishes evals for: **defined-outcome ("buffer") ETF diligence** — given a
+prospectus, the fund's actual FLEX-option legs from its N-PORT filing, and a dated market snapshot,
+recompute the marketed cap and buffer *from the strikes*, compute what a **mid-period buyer actually
+gets**, verify marketing claims, and price the protection (a memo asserting downside protection with no
+forgone-upside cost auto-fails: the **free-lunch gate**). Both evals run on one scoring engine;
+everything deterministic is graded deterministically, and the LLM judge is confined to the synthesis
+tier. Live runs of two local models produce the intended diagnostics: a reasoning 27B beats a
+non-reasoning 72B on every defined-outcome case; both subjects — two model generations of one vendor
+lineage — walk into the same payoff-table convention trap (suggestive that it is task-level;
+cross-family replication is named future work); the designed mid-period traps catch their targets; and
+swapping the mock judge for a real one moves eval-#2 scores by only 2–4.5 points versus 14.7 on eval #1
+— the calculation-heavy design working as intended. A judge-vs-expert calibration on the free-form
+verdicts finds no overturned verdict (28/28, κ = 1.0, with caveats stated).
 
 ## 1. Motivation
 
-A firm that wants an LLM to do equity analysis has one hard problem before deployment: *how do we know
-when — and exactly where — to trust it?* A single blended accuracy number cannot answer that. The error
-that matters most in finance is rarely a small one: misreading an "in thousands" statement header,
-pinning the wrong fiscal period, comparing GAAP EPS to a non-GAAP street consensus, or fabricating a
-figure the filing never disclosed. Each silently corrupts everything downstream while the prose still
-reads fluently.
+A firm that wants an LLM to do analyst work has one hard problem before deployment: *how do we know
+when — and exactly where — to trust it?* A blended accuracy number cannot answer that. The errors that
+matter in finance are rarely small ones: misreading an "in thousands" header, pinning the wrong fiscal
+period — or, in the structured-product world, quoting a prospectus cap to a client who is buying
+**mid-period** (the stated terms belong only to a day-one buyer), reading FLEX-option strikes quoted on
+an ETF's share price as index levels (~10–20× off), calling a partially-consumed buffer "breached," or
+selling downside protection as if it were free. Each silently corrupts everything downstream while the
+prose still reads fluently.
 
-The public state of the art frames the pieces but not this whole. **HealthBench** grades expert rubric
-criteria with an LLM judge; **FinanceBench** ties every answer to an evidence string and page;
-**FinQA/TAT-QA** execute numeric reasoning with tolerance; the **Vals AI Finance Agent Benchmark**
-checkpoint-scores an end-to-end analyst task (best reported agent ~47% as of this writing); **FailSafeQA**
-rewards calibrated refusal. This work composes those ideas into a single *runnable* evaluation of the
-first-hours earnings-analysis workflow, designed so failure is localized to the step that owns it.
+The public ingredients exist — **HealthBench** (expert rubric criteria, LLM-judged), **FinanceBench**
+(evidence-cited answers over SEC filings), **FinQA/TAT-QA** (numeric reasoning with tolerance), the
+**Vals AI Finance Agent Benchmark** (checkpointed end-to-end tasks), **FailSafeQA** (calibrated refusal)
+— but not composed into a runnable whole, and not for derivatives-overlay products at all. Eval #2 is
+deliberately the eval a generalist cannot author: it requires knowing that a buffer ETF is four FLEX
+legs in a trust wrapper, that the prospectus and the N-PORT share **no figure** and tie only through
+the options math, and that the issuer's own daily "remaining outcome" numbers live on its website, not
+in any filing.
 
 ## 2. Method
 
-**2.1 Workflow → 17 checkpoints.** The task — digest a company's 10-Q/10-K and earnings release, extract
-and reconcile the key figures, benchmark versus consensus, flag material changes — is decomposed into
-four stages and 17 checkpoints, each independently scorable yet chainable into one end-to-end run:
-*Planning* (P1 pin period · P2 lock scale/currency · P3 scope + consensus basis), *Extraction* (E1
-income statement · E2 segments + share counts · E3 non-GAAP reconciliation + cash flow · E4 guidance ·
-E5 working capital · E6 a calibrated-refusal probe), *Calculation* (C1 growth + Δshares · C2 margins/FCF
-· C3 the GAAP→non-GAAP EPS bridge · C4 quality-of-earnings ratios · C5 beat/miss + segment tie-out), and
-*Synthesis* (S1 directional calls · S2 material changes + earnings quality · S3 a calibrated bottom
-line).
+### 2.1 Eval #1 — earnings analysis (summary; unchanged from v1)
 
-**2.2 Rubric.** Each checkpoint's success criteria become **109 atomic, machine-readable criteria** (the
-static template; per-figure extraction atoms expand further at run time; +353 positive / −135 penalty
-mass) routed to the cheapest grader that can score them correctly: 65
-deterministic (value + tolerance, scale-folded), 9 citation-entailment, 29 LLM-judge, 6 calibrated-
-refusal. Scoring is **checkpoint-primary** (a 17-element vector plus one weighted scalar) with a
-six-category diagnostic rollup (extraction · numerical · entailment · reasoning · calibration ·
-structure). Three **gate tiers** auto-fail corrupting errors with differentiated blast radii — *hard*
-(wrong period/scale → zero all dependents), *scoped* (GAAP-vs-street basis → zero the beat/miss chain
-only), and *in-checkpoint* (a flipped sign → zero one checkpoint). Calibrated refusal is first-class: E6
-is scored by an asymmetric F-β composite (LLMC_β, β=0.5) in the spirit of FailSafeQA — confidently
-fabricating a not-disclosed figure scores 0 while an honest "not disclosed" earns credit, and an
-*answerable twin* (a figure that *is* disclosed, just buried) keeps a refuse-everything policy from
-farming safety credit. A `validate.py` linter asserts 18 structural invariants
-(weights sum to 1, masses balance, every gate/atom resolves) so the rubric is provably self-consistent.
+The task — digest a 10-Q/10-K and earnings release, extract and reconcile key figures, benchmark versus
+consensus, flag material changes — decomposes into 17 checkpoints across planning → extraction →
+calculation → synthesis, scored by 109 atomic criteria with three gate tiers (hard / scoped /
+in-checkpoint), evidence-citation entailment, and a FailSafeQA-style calibrated-refusal probe (E6,
+F-β with an *answerable twin* so refuse-everything cannot farm safety credit). Three gold cases from
+real filings (BlackRock Q3'25, Microsoft FQ2'26, Snowflake FQ2'26) exercise every gate tier:
+sector-N/A, fiscal-vs-calendar, the "in thousands" scale trap, a GAAP-loss/non-GAAP-profit share
+divergence, and a genuine not-disclosed probe. Details in v1 / the repository.
 
-**2.3 Gold cases.** Three quarters from real SEC filings, every figure transcribed and cited
-`{document, locator, verbatim}` — **no invented numbers**: **BlackRock Q3 2025** (asset manager;
-sector-N/A with no gross margin; GAAP \$8.43 vs as-adjusted \$11.55 with a basis-guard against a false
-miss; a genuine not-disclosed probe), **Microsoft FQ2 2026** (fiscal-vs-calendar period; three-segment
-tie-out to \$81,273M), and **Snowflake FQ2 2026** ("in thousands" scale trap; GAAP-loss/non-GAAP-profit
-diluted-share divergence; full EPS bridge). Together they exercise every gate tier and most of the
-failure taxonomy.
+### 2.2 Eval #2 — defined-outcome ETF diligence (new)
 
-**2.4 Harness.** A purpose-built Python scorer (chosen over wrapping DeepEval/OpenAI Evals, whose generic
-metric abstractions would hide the gating/aggregation logic that is the point) loads the rubric, grades
-a model's structured memo, and emits the full report — the checkpoint vector, the weighted CaseScore,
-the category rollup, and **gated / ungated / GAP / AllPass**. The deterministic core and all gating run
-offline with no API key; the judge is a pluggable interface (offline mock or a real local/cloud LLM).
+**The task.** What a diligent advisor must do before recommending a buffer ETF to a client buying
+*today*, mid-period: pin the exact fund vintage (the issuer runs twelve monthly series with identical
+names except the month), extract the stated terms from the prospectus and the four FLEX legs from the
+N-PORT, **recompute the marketing from the strikes** (the cap is literally the strike of the call sold
+to finance the put spread — the prospectus says so), compute the *remaining* outcome for a buyer at
+today's NAV, verify a marketing-claim set, and write a calibrated suitability read that prices the
+protection.
 
-## 3. Preliminary findings
+**Decomposition.** 18 checkpoints, deliberately calculation-heavy (3 planning / 5 extraction / 7
+calculation / 3 synthesis; stage weights .125/.275/.420/.180): vintage pin · reference/strike-scale
+lock · fee basis; stated terms · the four legs (per-leg, signed) · fee/credit language · snapshot
+staleness ledger · a calibrated-refusal probe; leg roles + initial reference recovery · payoff
+reconstruction · **recompute-vs-stated reconciliation** · fee netting · notional tie-outs · the
+remaining outcome at NAV_t · claim verdicts; entry-timing verdict · cost of protection · calibrated
+bottom line. **110 atomic criteria** (76 deterministic, 8 entailment, 19 judge, 7 refusal): no *positive* judge
+atom exists before the synthesis stage (one judge-tier anti-gaming penalty sits at planning).
 
-*Sections 1–2 describe the finished instrument; the findings below are an early, single-model read of it.*
+**Gates.** `GATE.VINTAGE` (hard — analyzing the November fund's legs against the October fund's terms
+poisons everything; sibling filings land the same day with adjacent accession numbers, so the
+distractor is built into the source data) · `GATE.REFSCALE` (hard — ETF-share-price strikes read as
+index levels, a dropped 100-share multiplier, or flipped written-leg signs; with an explicit survivor
+list for the prospectus-side figures that carry no strike scale) · `GATE.FEEBASIS` (scoped —
+gross-vs-net mixing zeroes the fee chain only) · three in-checkpoint fails (a buffer/floor/barrier
+inversion; a payoff sign/regime error; a remaining-upside direction or buffer-status flip) · and the
+signature: **`GATE.FREELUNCH`** — the deliverable *requires* a structured cost-of-protection block
+(capped upside with the cap value, forgone dividends, fee drag, path/exit risk); a memo that presents
+downside protection while that block is absent, hollow, or contradicts the recomputed cap is zeroed at
+S2+S3 and flagged `free_lunch_fired` in the headline. The gate is a deterministic predicate, not a
+judge opinion.
 
-**3.1 The gates fire cleanly on planted errors, and the GAP is the diagnostic.** These are synthetic
-injected-error variants the eval was built to catch — a self-test of the gating, not live model behavior.
-Run against a *perfect* answer the eval scores 1.000 / AllPass; against each planted error the three gate
-tiers open cleanly differentiated gaps between the naive (ungated) and honest (gated) score:
+**Calibrated refusal, extended.** The probe — *"what is the remaining cap for a buyer at today's
+NAV?"* — targets a figure that is **computable but undisclosed**: issuers publish daily remaining
+outcomes on their websites (the prospectus delegates them there verbatim), never in EDGAR filings. The
+typed answer therefore adds `{COMPUTED, value, derivation}` beside `{NOT_DISCLOSED, reason}`: full
+credit for a correct computation *with* its derivation, refusal credit only for naming exactly which
+inputs are missing and citing the delegation language, zero for a confident underived number — and an
+imported issuer-website figure scores as an import, not a computation (the issuer's own tool nets out
+fees already incurred, so its number is *correctly different* from the filings-derived one; we verified
+the reconciliation to ≤1bp).
 
-| Injected error | Gate tier | ungated → gated | GAP |
-|---|---|---|---:|
-| misread "in thousands" as "in millions" | hard (`GATE.P2`) | 0.951 → 0.452 | **0.499** |
-| GAAP EPS vs non-GAAP consensus | scoped (`GATE.P3` → C5,S1) | 0.986 → 0.861 | 0.125 |
-| beat called a miss | in-checkpoint (`GATE.C5SIGN`) | 0.989 → 0.935 | 0.054 |
-| fabricated the not-disclosed figure | E6 F-β → 0 | 0.940 → 0.940 | 0.000 |
+**Gold cases.** One real fund — Innovator U.S. Small Cap Power Buffer ETF – October (KOCT), whose four
+filed strikes reproduce its stated 17.18%/15% terms to within 0.002pp — under three oracle snapshots:
+the **anchor** (a real, cited snapshot: NAV₀ \$33.00, NAV \$36.46, IWM \$285.02 → remaining cap
+**+6.06% gross / +5.82% net** against the stated 17.18%, with a 9.49% unbuffered gap), a
+**post-rally** state (constructed, labeled: 12 days to expiry, remaining net **+0.78% ≈ zero**; the
+case documents why the NAV-anchored net floor is ≈ ER/(1+cap_net) ≈ 0.68pp, strictly positive by
+no-arbitrage), and a **post-drawdown** state (constructed, labeled: the reference 6.6% inside the
+band — buffer **43.98% consumed ≠ breached** — while the remaining cap is *enlarged* to +18.26%).
+Every case packets the live distractors: the September and November sibling N-PORTs and a mid-period
+497K restating the period-start terms in a current-dated filing. Constructed snapshots are explicitly
+labeled hypothetical; the gold is the deterministic math computed *on* the snapshot, never the snapshot
+itself. Each case passed a multi-agent adversarial verification before commit — a pass that caught a
+real error in the author's own draft (a constructed NAV that violated no-arbitrage at 47 days to
+expiry: in-band, the put spread pins the package near the flat-zone PV, so the fund can only dip ~1%)
+and a gold-encoding bug (a bare YAML `FALSE` parsing as a boolean), both fixed pre-publication and
+logged in the case files.
 
-The first row is the headline: a model that does the math flawlessly but misreads the scale looks ~95%
-right on a blended average yet collapses to 0.45 once the gate zeroes every figure that inherits the
-error — *"can do the math, cannot be trusted to read a statement header."*
+**Harness.** One suite-agnostic scoring engine, two suite modules. The eval-#1 port was proven
+**byte-identical** against a captured pre-refactor baseline; gate firing is derived from each rubric's
+own `fired_by` hooks, never hardcoded. The engine and the new suite were adversarially reviewed
+pre-commit (engine semantics, per-atom coverage, gaming surfaces, perturbation probes); the review
+found and killed several exploit classes — among them placeholder cost blocks buying off the
+free-lunch gate, substring-fished refusal credit, and two pre-existing eval-#1 grader bugs the
+byte-identical baseline had only proven parity for (the full list is in the Phase-4 commit message). The live path drives any OpenAI-compatible local endpoint, and a **schema
+round-trip selftest** (a schema-perfect answer must grade 1.000/AllPass on every case) pins the live
+output contract to the graders permanently.
 
-**3.2 A real model: strong extractor, weak synthesis and derived calculations.** Qwen2.5-32B-Instruct (run
-locally, no API spend) scored **0.679** with the offline mock judge but **0.532** once a real LLM judge
-graded the free-form synthesis (a same-family, not-yet-calibrated judge — see §4). The drop is
-directionally right and matches a manual read of the memo: the model listed surface metrics ("revenue
-+32%") instead of the thesis-moving changes and never flagged that Snowflake is GAAP-unprofitable, so
-S2/S3 fell from a free 1.0 to 0.0. It extracted well (segments + shares E2 = 0.91, working capital
-E5 = 0.91) and handled the harder *structured* calculations decently (the GAAP→non-GAAP EPS bridge
-C3 = 0.70, beat/miss C5 = 0.83), but collapsed on the plain *derived* ratios (margins C2 = 0.14,
-quality-of-earnings ratios C4 = 0.13 — it emitted *formulas* instead of numbers, or nothing). Feeding it
-a 10-Q excerpt (the working-capital footnotes; the income statement and cash flow are already in the
-release) did **not** move those checkpoints (0.679 → 0.671): the weakness is **computation, not data
-access**.
+## 3. Findings
 
-**3.3 Running a real model improves the eval.** The first live run immediately surfaced two grader bugs
-that the synthetic tests could not — they had been written around the grader's own assumptions. The
-period check demanded an exact label string (failing a model that wrote "Second Quarter Fiscal 2026" for
-"Fiscal Q2 2026"), and the scale check compared a label rather than figure magnitude (failing a model
-whose numbers were correct). Both were fixed; the model went from a false 0.09 to an honest 0.68. *This
-is why one runs real models against an eval: they find the calibration errors a synthetic test never
-will.*
+*The instrument first, then live models. All artifacts (answers, raw streams, scored reports, the
+taxonomy) are committed under `outputs/eval2-live/`.*
+
+**3.1 The gates fire cleanly, with tier-differentiated blast radii.** Against a perfect answer eval #2
+scores 1.000/AllPass on all three cases; against planted errors (the selftest asserts these as
+thresholds; the values below are from the current build):
+
+| Injected error | Gate tier | GAP |
+|---|---|---:|
+| pinned the sibling vintage | hard (`GATE.VINTAGE`) | **0.88** |
+| strikes read as index levels | hard (`GATE.REFSCALE`) | 0.46 |
+| net committed against a gross recompute | scoped (`GATE.FEEBASIS`) | 0.18 |
+| protection asserted, no cost block | scoped (`GATE.FREELUNCH`) + headline flag | 0.07 |
+| remaining-upside sign flipped | in-checkpoint (`GATE.C6DIR`) | 0.07 |
+
+The free-lunch GAP is deliberately small — the signature finding is a *flag*, not a big number: a memo
+can be 93% "right" and still be the memo that mis-sells the product.
+
+**3.2 Two real models, three cases each (local, no API spend).** A reasoning model (Qwen3.6-27B) and a
+non-reasoning one (Qwen2.5-72B-Instruct); gated scores, offline judge:
+
+| Case | Qwen3.6-27B (reasoning) | Qwen2.5-72B (non-reasoning) |
+|---|---:|---:|
+| anchor (real snapshot) | **0.732** | 0.638 |
+| post-rally (near-cap) | **0.708** | 0.584 |
+| post-drawdown (consumed buffer) | **0.702** | 0.577 |
+| anchor, end-to-end (distractor packet) | **0.651** | — |
+
+One subject per architecture class, so the reasoning-vs-non-reasoning contrast is an *observation*, not
+an architecture study. What the per-checkpoint traces support:
+
+- **A shared trap (N=2 subjects).** Both models filled the payoff-grid rows with the prospectus's
+  idealized %-convention (−85, 0, 17.18 …) where per-unit dollars belong — the 27B in all four of its
+  runs *while simultaneously producing the exactly-correct per-unit signature values* (281.11 / 239.54
+  / 36.29). The prospectus prints the table in %; models follow the document instead of the asked-for
+  reconstruction. Two subjects in the same trap is suggestive that the eval measures the task — but
+  both are Qwen-lineage models (different generations), so cross-family replication is required
+  before calling it task-level.
+- **The remaining-outcome arithmetic is where the think phase earned its keep.** The reasoning model
+  answered the remaining-cap probe with a perfect `COMPUTED` derivation in *every* run (6.06 / 0.81 /
+  18.26 against gold 6.0598 / 0.8066 / 18.2550). The 72B missed all three — including reporting the
+  *same* wrong 4.78% on two cases with different NAVs (an anchored value, not a recompute) and, on the
+  post-drawdown case, a full state inversion (−0.94%, "negative," "below band" against gold +18.26%,
+  positive, partially consumed). `GATE.C6DIR` caught both bad runs, as designed.
+- **The designed traps catch their targets.** The post-drawdown case exists to test the consumed-buffer
+  read: the 27B computed the enlarged cap correctly and *still* labeled the buffer `intact` with the
+  reference 6.6% inside the band — and separately computed the downside-gap value correctly (+0.91) while
+  inverting its semantics ("0.91% gap" where the positive sign means *no* gap). Right numbers, wrong
+  state — precisely the failure class C6's label atoms exist to isolate from the arithmetic.
+- **The end-to-end probe.** Given three same-day sibling N-PORTs (strikes ~2–3% apart) and a
+  mid-period 497K restating stale terms, the 27B **pinned the correct vintage** — the hard gate did not
+  fire — and paid for retrieval with a modest extraction cost (0.863 → 0.825) and a 0.08 gated drop
+  (0.732 → 0.651).
+- **The free-lunch gate, tested honestly.** On its complete memos the 27B produced a full, correct
+  cost-of-protection block — the signature gate caught neither subject *on content*. Its only fires in
+  the log were stream-truncation artifacts (a memo cut before S2 trivially "asserts protection with no
+  cost block"), which the run log labels separately. An eval that wants to be trusted must distinguish
+  its infrastructure artifacts from its findings.
+- **Extraction is strong in both subjects** (0.91 on every 72B run; 0.86–0.91 across the 27B's),
+  and both share the same
+  per-contract/per-unit confusion at the notional tie-outs (the 100-share multiplier dropped at exactly
+  the step the rubric predicted) and a stated-value-echo tendency in the reconciliation block — visible
+  only where the echo diverges from a true recompute (a sanity ratio returned as the raw strike; a max
+  loss returned sign-dropped). A third candidate (a code-specialized model) produced structurally
+  unparseable output on its single attempt (schema-noncompliant decimals, unescaped quotes, a
+  degeneration loop) — recorded as-is: an unassisted run would score zero.
+
+**3.3 The judge matters far less here — by design.** Swapping the offline mock judge for a real LLM
+judge moves eval-#2 scores by **2.0–4.5 points** (e.g. anchor 0.732 → 0.712). The same swap on eval #1
+moved its single-model score by **14.7 points** (0.679 → 0.532). Eval #2 was built calculation-heavy
+precisely so the headline would not ride on judge permissiveness; its deterministic surface —
+extraction, all seven calculation checkpoints, every gate — does not touch the judge at all.
+
+**3.4 Judge-vs-expert calibration.** The live judge's 28 free-form verdicts (7 synthesis atoms × 4
+complete runs) were independently hand-graded by the author (ETF/derivatives background) from a
+worksheet showing each criterion, the model's actual section, and the gold reference. Result: **28/28
+agreement (κ = 1.0)** on a sample with real signal (the judge had awarded only 57% of the verdicts).
+Caveats stated plainly: n = 28, one model's answers, and the worksheet displayed the judge's verdict
+(an anchoring risk); the claim is *no verdict was overturned on expert review*, not that the judge is
+infallible. The strongest caveat: the judge here is the *same model* whose memos it graded (qwen3.6-27b
+judging qwen3.6-27b) — self-judging is a stronger bias channel than mere family overlap; an
+independent cross-family judge is the correct next setup.
+
+**3.5 Running real models improves the eval — again.** The first live batch surfaced three
+grader-contract gaps the synthetic tests could not: a structure-class enum graded so literally that
+`power_buffer` (the variant name) failed where `buffer` was meant; the fund's real cash-sleeve row
+counted as a "fabricated fifth leg"; and a gold-side labeling band (when "≈ zero" applies to remaining
+upside) that the model could never have known because the output contract never stated it. All three
+were fixed and all runs re-graded, with the calibration log published in the taxonomy. This mirrors
+v1's §3.3 finding on eval #1 — it appears to be a law of eval-building: *the first real model finds the
+grader bugs your self-tests were written around.*
 
 ## 4. Limitations & future work
 
-These findings are **preliminary** and honestly scoped. (i) **One model.** A multi-model comparison was
-blocked by local-inference infrastructure limits, not the eval; the harness is wired (`--model live
---endpoint …`) for it. (ii) **Judge calibration** is specified as a contract (macro-F1 / Cohen's κ versus
-an expert on a hand-graded sample) but not yet run; the present judge is also same-family (a Qwen model
-judging a Qwen model), where a cross-family judge is the correct setup. (iii) **Three cases**; broadening
-the suite and adding an options/ETF/defined-outcome "moat" case is the planned next step. None of these
-affect the method; they bound the *results* section, which grows as more models are run.
+(i) **Two models, one fund family.** The matrix is 2 subjects × 3 cases + one end-to-end probe; the
+deferred case set (an Ultra/Deep Buffer testing a different reference-recovery rule, a 100%-buffer
+fund, a floor-vs-buffer discrimination probe, an SPX-scale contrast, a designed reconciliation break)
+is specified in the repository plan. (ii) **Judge calibration** is small-sample and author-graded with
+the anchoring caveat above; the cross-family judge and a larger blind sample are next. (iii) **Offline
+judge-tier permissiveness**: in mock mode several synthesis atoms are presence-graded (documented and
+quantified in the repo); the live judge is the swap, and the deterministic core is unaffected. (iv)
+The constructed snapshots are clearly labeled hypotheticals; the anchor case's snapshot is real and
+cited. None of these affect the method; they bound the results, which grow as the matrix fills.
 
 ## 5. Reproduce
 
-The evaluation is runnable with one dependency (`pyyaml`) and no API key:
+One dependency (`pyyaml`), no API key for everything deterministic:
 
 ```bash
-python -m harness demo        # grade a known-good and a known-broken answer, side by side
-python -m harness suite       # score all three gold cases
-python -m harness selftest    # assert the gate-tier invariants
-python rubric/validate.py     # assert the 18 rubric invariants
+python -m harness suite                      # score all six gold cases, both evals
+python -m harness selftest                   # gate tiers + the live-schema round-trip invariants
+python -m harness run --case koct-op2026-anchor --model free_lunch   # watch the signature gate fire
+python rubric/validate.py rubric/criteria-defined-outcome.yaml       # the rubric's 18 invariants
 ```
 
-A real model is one flag away: `python -m harness run --case snow --model live --judge llm
---endpoint http://<host>:1234/v1`. The full design, gold cases, and harness are in the accompanying
-repository.
+A real model is one flag away (any OpenAI-compatible endpoint):
+`python outputs/run_live_eval2.py koct-op2026-anchor [--e2e] [--model-id …]` — artifacts, the failure
+taxonomy, and the calibration worksheet are committed under `outputs/eval2-live/`.
 
 ## References
 
 OpenAI HealthBench · FinanceBench (Patronus AI) · FinQA / ConvFinQA / TAT-QA · Vals AI Finance Agent
-Benchmark · FailSafeQA. Filings: SEC EDGAR (BlackRock, Microsoft, Snowflake).
+Benchmark · FailSafeQA. Filings: SEC EDGAR (BlackRock, Microsoft, Snowflake; Innovator ETFs Trust —
+KOCT 497K and NPORT-P, with sibling-series N-PORTs as packaged distractors).
