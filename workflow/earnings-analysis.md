@@ -10,8 +10,8 @@ first one-to-three hours after the release crosses the wire, the job is narrow
 and mechanical at the edges and judgmental in the middle: pin the print, reconcile
 the press release to the GAAP statements, do the desk math the way the desk does it,
 benchmark against consensus and guidance, and write a calibrated bottom line that a
-PM can act on. I ran the change-management side of an ETF servicing platform at
-Brown Brothers Harriman — creation/redemption, derivatives processing, the lifecycle
+PM can act on. I ran the change-management side of an institutional ETF servicing platform —
+creation/redemption, derivatives processing, the lifecycle
 plumbing where a thousands-vs-millions slip or a wrong fiscal-period label is not a
 rounding error but a break that has to be reconciled before anything downstream
 clears. That instinct is what this eval encodes: **the workflow is evaluated as a

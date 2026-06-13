@@ -18,7 +18,7 @@
 When a company prints, the analyst's job in the first hours is a chain: pin the period and the
 scale, extract each figure off the right statement with a citation, redo the desk math, benchmark
 against consensus on a like-for-like basis, and write a bottom line a PM can act on. I ran the
-change-management side of an ETF servicing platform at Brown Brothers Harriman, where a
+change-management side of an institutional ETF servicing platform, where a
 thousands-vs-millions slip or a wrong fiscal-period label is not a rounding error — it is a break
 that has to be reconciled before anything downstream clears. **This rubric encodes that discipline:
 it scores the workflow checkpoint-by-checkpoint, so the headline number tells you *which step*

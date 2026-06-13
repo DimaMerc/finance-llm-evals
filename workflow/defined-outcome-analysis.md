@@ -10,7 +10,7 @@
 A buffer ETF is four FLEX option legs in a trust wrapper. Everything the marketing
 says — the cap, the buffer, the "defined outcome" — is a closed-form consequence of
 four strike prices, one initial reference level, and one fee. I ran the
-change-management side of an ETF servicing platform at Brown Brothers Harriman —
+change-management side of an institutional ETF servicing platform —
 creation/redemption, derivatives processing, the lifecycle plumbing where an options
 position that doesn't reconcile to its stated terms is a break, not a rounding error.
 Later, building an options-overlay analyzer, the signature bug I caught was the

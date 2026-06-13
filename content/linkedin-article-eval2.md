@@ -167,5 +167,6 @@ running the models, and finding where they break **is the job.** It's the one I 
 
 **Repo:** github.com/DimaMerc/finance-llm-evals · **Methodology paper** in the repo (`PAPER.md`).
 
-*Dmitry Krutous — I build evals for finance LLMs. ETF / derivatives domain expert (ex-BBH ETF
-servicing platform — creation/redemption, derivatives processing). MBA, PMP. Greater Boston.*
+*Dmitry Krutous — I build evals for finance LLMs. ETF / derivatives domain expert — I
+ran the change-management side of an institutional ETF servicing platform (creation/redemption,
+derivatives processing). MBA, PMP. Greater Boston.*
