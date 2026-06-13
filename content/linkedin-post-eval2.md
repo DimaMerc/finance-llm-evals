@@ -2,33 +2,35 @@
 
 ---
 
-A "buffer ETF" brochure promises "15% downside protected, 17% upside cap."
+"Can an AI replace a financial analyst?" is the wrong question. The useful one: **where can you
+trust it — and how would you even know?**
 
-If you bought mid-period — which is when almost everyone buys — both numbers can be wrong. And here's
-the part the brochure never says: that protection isn't free. The fund pays for your downside cushion
-by selling away your upside. Any analysis that describes the protection and not its cost is selling a
-free lunch that doesn't exist.
+Most "AI for finance" takes stop at the question. I build the measurement.
 
-A few weeks ago I published a runnable eval for whether an AI can read an earnings report. The fair
-next question: can you build the eval that needs a *domain expert*, not just a coder?
+Here's a case AI — and plenty of advisors — get wrong. A "buffer ETF" brochure promises "15%
+downside protected, 17% upside cap." Buy mid-period — when almost everyone buys — and both can be
+wrong. And that protection was never free: the fund caps your upside to pay for it. An analysis that
+names the protection but not its cost is selling a free lunch.
 
-So I built one for **defined-outcome (buffer) ETF diligence** — and it auto-fails any AI memo that
-claims protection with no cost. The "free-lunch gate."
+So I built a runnable eval for **buffer-ETF diligence** — it makes the model recompute the marketing
+from the fund's actual filed option strikes, and auto-fails any memo that claims protection with no
+cost (the "free-lunch gate").
 
-I ran two real open models through it. What I found:
+I ran two real open models through it:
 
-→ Both nailed extraction and the one headline calculation.
+→ Extraction was perfect on both. On the headline calc they split — the smaller reasoning model
+   nailed it every run, the bigger non-reasoning one missed it every time.
 → Both fell into the *same* trap reconstructing the payoff — a signal (both are same-vendor lineage,
-   so suggestive, not proven) that the eval is catching the task's difficulty, not a model quirk.
-→ The designed traps fired: one model computed a buffer's enlarged cap correctly, then still called a
-   partly-consumed buffer "intact."
-→ And running real models found three bugs in my *own* grader. That's the law of the genre — the
-   first real model finds the calibration errors your self-tests were written around.
+   so suggestive, not proven) the eval is catching the task's difficulty, not a model quirk.
+→ One computed a buffer's enlarged cap correctly, then still called a partly-consumed buffer
+   "intact" — right math, wrong read of the actual risk.
 
-Runnable, MIT-licensed, every number traced to a real SEC filing.
+So — can it do the job? Today's models are strong extractors and shaky on judgment. That's
+**augmentation with guardrails, not replacement** — and the eval shows you exactly which steps need
+it. Runnable, MIT-licensed, every number traced to a real SEC filing.
 
-This is what the role actually is: define the workflow, build the eval, run the models, find where
-they break. For finance LLMs.
+This is the work: define the workflow, build the eval, run the models, find where they break. For
+finance LLMs.
 
 Full write-up + repo in the comments. 👇
 
