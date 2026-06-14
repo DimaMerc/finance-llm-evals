@@ -1,0 +1,33 @@
+"Can an AI replace a financial analyst?" is the wrong question. The useful one: where can you trust it - and how would you even know?
+
+Most "AI for finance" takes stop at the question. I build the measurement.
+
+Here's a case AI - and plenty of advisors - get wrong. A "buffer ETF" brochure promises "15% downside protected, 17% upside cap." Buy mid-period - when almost everyone buys - and both can be wrong. And that protection was never free: the fund caps your upside to pay for it. An analysis that names the protection but not its cost is selling a free lunch.
+
+So I built a runnable eval for buffer-ETF diligence. It makes the model recompute the marketing from the fund's actual filed option strikes, and auto-fails any memo that claims protection with no cost (the "free-lunch gate").
+
+I ran two real open models through it:
+
+- Extraction was perfect on both. On the headline calc they split: the smaller reasoning model nailed it every run, the bigger non-reasoning one missed it every time.
+
+- Both fell into the same trap reconstructing the payoff - a sign the eval is catching the task's difficulty, not a model quirk (both are same-vendor lineage, so suggestive, not proven).
+
+- One computed a buffer's enlarged cap correctly, then still called a partly-consumed buffer "intact" - right math, wrong read of the actual risk.
+
+So - can it do the job? Today's models are strong extractors and shaky on judgment. That's augmentation with guardrails, not replacement - and the eval shows you exactly which steps need it.
+
+Runnable, MIT-licensed, every number traced to a real SEC filing.
+
+This is the work: define the workflow, build the eval, run the models, find where they break. For finance LLMs.
+
+Full write-up and repo in the first comment.
+
+#AI #LLMevaluation #ETFs #AssetManagement #fintech
+
+
+==================================================================
+FIRST COMMENT (post the links here, not in the body - LinkedIn
+suppresses reach on posts with outbound links in the body):
+
+The eval, the methodology paper, and the full failure taxonomy: github.com/DimaMerc/finance-llm-evals
+Long-form write-up: [paste the LinkedIn article URL here once it's published]
