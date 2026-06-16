@@ -1,0 +1,21 @@
+Here's the AI failure mode that should worry anyone putting a model near a real financial decision.
+
+I gave two AI models a "buffer ETF" caught mid-drawdown and asked for an advisor's read. One of them computed the hard part flawlessly: the remaining cap for a buyer entering today - about 18%, against a stated cap of 17% - with a clean derivation, right to within a rounding error.
+
+Then it labeled a buffer that was already ~44% used up "intact."
+
+Right arithmetic. Wrong read of the risk. The number was perfect; the judgment - is this buffer still protecting the client? - was not.
+
+That is the gap that matters. These models are strong at pulling figures and at single-step calculation. They are shaky at the multi-step reasoning and state-reading that is most of what an analyst actually does: is this still what it claims to be, for this client, today?
+
+A blended "accuracy" score hides this completely - the arithmetic is right, so the memo looks right. You only catch it if you test the judgment calls separately, checkpoint by checkpoint, and let the clean math and the broken read earn different grades.
+
+So I built an eval that does exactly that, and this is one of the failures it is designed to catch. Runnable, open-source, every number traced to a real SEC filing. Link in the comments.
+
+#AI #LLMevaluation #AIinFinance #AssetManagement #fintech
+
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The eval, the methodology paper, and the full failure taxonomy: github.com/DimaMerc/finance-llm-evals
