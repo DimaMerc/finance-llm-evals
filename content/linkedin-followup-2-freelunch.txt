@@ -1,21 +1,19 @@
-Every "buffer ETF" is built on a trade-off the brochure never spells out. Once you see the option math, you can't unsee it.
+Here's the cleanest test of whether an AI is doing an analyst's job - or just rewording the brochure.
 
-These funds promise a defined outcome: a buffer (say, the first 15% of losses absorbed) and a cap (say, around 17% upside). Clean, reassuring, and increasingly popular - the category is now north of $80 billion.
+Every "buffer ETF" promises a defined outcome: a buffer (say, the first 15% of losses absorbed) and a cap (say, around 17% upside). What the marketing never says is that the two are the same transaction. Under the wrapper are four option contracts: the buffer is a put spread, and a put spread costs money. To pay for it, the fund sells away your upside - it writes a call. The cap you get quoted is, almost literally, the strike price of that sold call.
 
-Here's what's actually under the wrapper: four FLEX option contracts. The buffer is a put spread, and a put spread costs money. To pay for it, the fund sells away your upside - it writes a call. And the cap you get quoted? It is, almost literally, the strike price of that sold call.
+So the protection exists because the upside was sold to fund it. There is no version of this where you get the cushion for free.
 
-So the cap and the buffer are not two separate features. They are two sides of one transaction. The protection exists because the upside was sold to fund it. There is no version of this where you get the cushion for free.
+That one fact is the line between an analyst and a brochure. An analyst names the cost - the capped upside, the forgone dividends, the fee. A summary just repeats "downside protected." And an AI you'd actually trust with this work has to land on the analyst's side of that line, not the marketing's.
 
-That is why any analysis - human or AI - that describes the downside protection without naming its cost (the capped upside, the forgone dividends, the fee) is selling a free lunch that does not exist. The cost isn't a footnote. It's the mechanism.
+So I made it the auto-fail at the center of my AI eval: any memo that claims the protection without pricing its cost fails, automatically. I call it the free-lunch gate - because naming the protection but not its cost is selling a free lunch that doesn't exist, and catching that is exactly the judgment that separates analysis from marketing.
 
-(And those stated terms? They only hold if you bought on day one of the outcome period. What a mid-period buyer actually gets is a different number - but that's a thread for another post.)
+That's the whole project: turning "can you trust an AI to do this?" into a test with a real answer. Runnable, open-source, every number traced to a real SEC filing. Repo in the comments.
 
-I build evals that hold AI - and the marketing - accountable to this math. Repo in the comments.
-
-#ETFs #StructuredProducts #AssetManagement #DerivativesMarkets #fintech
+#AIinFinance #LLMevaluation #ETFs #StructuredProducts #AssetManagement
 
 
 ==================================================================
 FIRST COMMENT (links go here, not in the post body):
 
-The runnable eval that recomputes a buffer ETF's real terms from its option strikes: github.com/DimaMerc/finance-llm-evals
+The runnable eval (and the free-lunch gate): github.com/DimaMerc/finance-llm-evals
