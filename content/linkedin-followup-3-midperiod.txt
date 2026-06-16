@@ -1,18 +1,22 @@
-A few days ago I said the terms on a "buffer ETF" brochure only hold if you bought on day one. Here's what a mid-period buyer actually gets - with real numbers.
+A quick test for any AI you'd point at investment research: does it recompute, or does it just quote?
 
-A buffer ETF sets its cap and buffer once, on the first day of a roughly one-year outcome period, as fixed price levels. The "17% cap / 15% buffer" you read applies to someone who bought that day and holds to the end. Almost nobody does that. Most people buy in the middle.
+Here's a case that separates the two. A "buffer ETF" sets its cap and buffer once, on day one of a roughly one-year outcome period. The "17% cap / 15% buffer" on the brochure is true for exactly one person: someone who bought that day and holds to the end. Almost nobody does. Most people buy in the middle - and get a different product.
 
-Take a real fund, eight months into its period, after the underlying had rallied. Stated cap: 17%. What a buyer at that day's price actually had left:
+Take a real fund, eight months in, after the underlying had rallied. Stated cap: 17%. What a buyer at that day's price actually had:
 
-- Remaining upside to the cap: about 6%. Most of the 17% had already been used up by the run-up.
+- Remaining upside to the cap: about 6%. The run-up had already used most of it.
 
-- And before the buffer even starts protecting them: a roughly 9.5% unbuffered gap. The fund has to fall all the way back to its day-one level before the "15% buffer" does anything at all.
+- And a roughly 9.5% gap before the "15% buffer" does anything - the fund has to fall all the way back to its day-one level first.
 
-Same fund, same day, two completely different products - depending only on when you bought. The brochure number describes one buyer. The advisor reading it to a client today is often quoting the wrong one.
+Same fund, same day, two completely different products - depending only on when you bought.
 
-None of this is hidden. It's recomputable from the fund's own NAV and its option strikes. It just takes the work - and most analysis (human or AI) skips it and repeats the brochure. Turning that work into tests is what I do. Repo in the comments.
+Here's why it's a sharp test for AI: that stated 17% is a real number, sitting in a current filing. A model that retrieves and quotes it looks right and is wrong. The only way to be right is to recompute from today's NAV and the fund's option strikes - actual analysis, not retrieval.
 
-#ETFs #WealthManagement #StructuredProducts #AssetManagement #fintech
+So that's one of the things my eval checks: when the honest answer requires computation, does the model do the work or parrot the document? Quoting the brochure to a mid-period buyer is precisely the failure it's built to flag.
+
+That's the project: turning "can you trust the AI here?" into a test with a real answer. Runnable, every number from a real SEC filing. Repo in the comments.
+
+#AIinFinance #LLMevaluation #ETFs #WealthManagement #AssetManagement
 
 
 ==================================================================
