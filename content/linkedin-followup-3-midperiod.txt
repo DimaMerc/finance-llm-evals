@@ -1,0 +1,21 @@
+A few days ago I said the terms on a "buffer ETF" brochure only hold if you bought on day one. Here's what a mid-period buyer actually gets - with real numbers.
+
+A buffer ETF sets its cap and buffer once, on the first day of a roughly one-year outcome period, as fixed price levels. The "17% cap / 15% buffer" you read applies to someone who bought that day and holds to the end. Almost nobody does that. Most people buy in the middle.
+
+Take a real fund, eight months into its period, after the underlying had rallied. Stated cap: 17%. What a buyer at that day's price actually had left:
+
+- Remaining upside to the cap: about 6%. Most of the 17% had already been used up by the run-up.
+
+- And before the buffer even starts protecting them: a roughly 9.5% unbuffered gap. The fund has to fall all the way back to its day-one level before the "15% buffer" does anything at all.
+
+Same fund, same day, two completely different products - depending only on when you bought. The brochure number describes one buyer. The advisor reading it to a client today is often quoting the wrong one.
+
+None of this is hidden. It's recomputable from the fund's own NAV and its option strikes. It just takes the work - and most analysis (human or AI) skips it and repeats the brochure. Turning that work into tests is what I do. Repo in the comments.
+
+#ETFs #WealthManagement #StructuredProducts #AssetManagement #fintech
+
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The runnable eval that recomputes a buffer ETF's real mid-period terms: github.com/DimaMerc/finance-llm-evals
