@@ -219,8 +219,11 @@ def build_messages(case, packet: str):
 
 
 # ---------------- live answer ----------------
-def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, api_key=None, max_tokens=8000,
+def answer(case, *, endpoint=DEFAULT_ENDPOINT, model_id=None, api_key=None, max_tokens=12000,
            deadline=600):
+    # the full DCF JSON (18 checkpoints, the per-year build, the grid, the verdicts, the synthesis)
+    # runs ~5-7k tokens; a verbose model truncates mid-synthesis at 8k -> an empty S2 sensitivity block
+    # spuriously fires GATE.FALSEPRECISION. 12k is the safe floor (raise it for a reasoning model).
     packet = build_packet(case)
     msgs = build_messages(case, packet)
     approx_tok = sum(len(m["content"]) for m in msgs) // 4

@@ -73,7 +73,8 @@ meta:
 tolerances:                         # derived from the figures' own provenance (workflow doc table)
   exact_round:    { type: rel, band: 0.005, or_exact: true }   # base lines & bridge items: exact to the filing's printed precision OR <= 0.5% (eval-#1 `aggregate` convention — admits a model citing the filing's own '$26.9B' against a fine filed integer; the scale fold handles thousands-vs-millions)
   exact_int:      { type: abs, band: 0.001 }     # diluted share count to the filed unit; integer identities
-  exact_2dp_pp:   { type: pp,  band: 0.001 }     # rates stated at 2-dp (effective tax rate, etc.)
+  exact_2dp_pp:   { type: pp,  band: 0.001 }     # figures stated at 2-dp in the filing
+  derived_rate_pp: { type: pp, band: 0.1 }        # a DERIVED rate (effective tax = provision/pretax) -- the model may carry an extra dp (21.42 vs a 21.4 print)
   fcf_rel:        { type: rel, band: 0.005 }      # unlevered FCF per projected year — arithmetic on the oracle assumptions
   wacc_bp:        { type: pp,  band: 0.05 }        # WACC vs the gold build (5 bps = 0.05pp)
   pv_rel:         { type: rel, band: 0.005 }       # discount factors / PV of each explicit FCF (convention-folded)
@@ -352,7 +353,7 @@ criteria:
       - { figure_name: revenue,            tolerance_key: exact_round,  points: 1.5 }
       - { figure_name: ebit,               tolerance_key: exact_round,  points: 2.0 }
       - { figure_name: tax_provision,      tolerance_key: exact_round,  points: 1.5 }
-      - { figure_name: effective_tax_rate, tolerance_key: exact_2dp_pp, points: 1.0 }
+      - { figure_name: effective_tax_rate, tolerance_key: derived_rate_pp, points: 1.0 }
       - { figure_name: dep_amort,          tolerance_key: exact_round,  points: 1.0 }
       - { figure_name: capex,              tolerance_key: exact_round,  points: 1.0 }
   - id: E1.ebit

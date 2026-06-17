@@ -1,0 +1,468 @@
+{
+  "P1": {
+    "ticker": "MCD",
+    "cik": "0000063908",
+    "fiscal_year": 2025,
+    "valuation_date": "2026-06-15",
+    "currency": "USD",
+    "units": "millions",
+    "fcf_basis": "unlevered_FCFF",
+    "discount_rate_for_fcff": "WACC",
+    "output_chain": "FCFF -> WACC -> EV -> bridge -> equity -> per_share",
+    "horizon_years": 5,
+    "terminal_method": "gordon",
+    "consistency": "nominal FCFF discounted at nominal WACC; g<WACC",
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Statement of Income - Total revenues",
+      "verbatim": "Total revenues | 26,885.0"
+    }
+  },
+  "P2": {
+    "units": "millions",
+    "wacc_basis": {
+      "weights": "market",
+      "cost_of_debt": "after_tax",
+      "capm": "rf + beta*ERP"
+    },
+    "discounting_convention": "year_end",
+    "nominal_consistency": "nominal_cashflows_nominal_wacc_nominal_g",
+    "lease_treatment": "operating",
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Statement of Income - Operating income",
+      "verbatim": "Operating income | 12,393.0"
+    }
+  },
+  "P3": {
+    "terminal_method": "gordon",
+    "terminal_param_g": 0.025,
+    "consistency_rules": [
+      "g < WACC strictly",
+      "g <= long-run nominal GDP",
+      "terminal-year FCFF normalized"
+    ],
+    "input_map": {
+      "filed": [
+        "revenue",
+        "ebit",
+        "dep_amort",
+        "capex",
+        "total_debt",
+        "cash",
+        "diluted_shares"
+      ],
+      "oracle": [
+        "revenue_growth",
+        "cash_tax_rate",
+        "wacc_components",
+        "terminal_g",
+        "convention"
+      ]
+    }
+  },
+  "E1": {
+    "figures": {
+      "revenue": {
+        "value": 26885,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Total revenues",
+          "verbatim": "Total revenues | 26,885.0"
+        }
+      },
+      "ebit": {
+        "value": 12393,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Operating income",
+          "verbatim": "Operating income | 12,393.0"
+        }
+      },
+      "tax_provision": {
+        "value": 2334,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Provision for income taxes",
+          "verbatim": "Provision for income taxes | 2,334.0"
+        }
+      },
+      "effective_tax_rate": {
+        "value": 21.42,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Income before provision for income taxes",
+          "verbatim": "Income before provision for income taxes | 10,897.0"
+        }
+      },
+      "dep_amort": {
+        "value": 2199,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Cash Flows - Depreciation and amortization",
+          "verbatim": "Depreciation and amortization | 2,199.0"
+        }
+      },
+      "capex": {
+        "value": 3365,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Cash Flows - Capital expenditures",
+          "verbatim": "Capital expenditures | (3,365.0)"
+        }
+      }
+    }
+  },
+  "E2": {
+    "figures": {
+      "total_debt": {
+        "value": 39973,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet - Long-term debt",
+          "verbatim": "Long-term debt | 39,973.0"
+        }
+      },
+      "cash_and_equiv": {
+        "value": 774,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet - Cash and equivalents",
+          "verbatim": "Cash and equivalents | $ 774.0"
+        }
+      },
+      "net_debt": {
+        "value": 39199
+      },
+      "minority_interest": {
+        "value": 0
+      },
+      "preferred": {
+        "value": 0
+      },
+      "non_op_assets": {
+        "value": 2820,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet - Investments in and advances to affiliates",
+          "verbatim": "Investments in and advances to affiliates | 2,820.0"
+        }
+      },
+      "diluted_shares": {
+        "value": 716.4,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Weighted-average shares outstanding\u2013diluted",
+          "verbatim": "Weighted-average shares outstanding\u2013diluted | 716.4"
+        }
+      }
+    },
+    "lease_exclusion": "operating-lease liabilities excluded from net debt (rent stays in EBIT)",
+    "negative_book_equity_note": "Total shareholders' equity (deficit) is negative (-1,791.0) due to treasury stock; does not affect EV-based DCF."
+  },
+  "E3": {
+    "intake_complete": true,
+    "wacc_components_present": [
+      "risk_free",
+      "beta",
+      "equity_risk_premium",
+      "pre_tax_cost_of_debt",
+      "target_debt_weight"
+    ],
+    "not_filed": "the discount rate and the forecast are oracle inputs, in no filing"
+  },
+  "E4": {
+    "snapshot_echo": {
+      "valuation_date": "2026-06-15",
+      "share_price": 286.12,
+      "diluted_shares_asof": 716.4,
+      "net_debt_asof": 39199.0,
+      "source": "oracle"
+    },
+    "staleness": {
+      "filed_balance_date": "2025-12-31",
+      "staleness_days": 166
+    },
+    "price_not_from_filing": true,
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Balance Sheet - reporting date",
+      "verbatim": "Dec. 31, 2025"
+    }
+  },
+  "E5": {
+    "probe": {
+      "label": "NOT_DISCLOSED",
+      "value": null,
+      "derivation": "No 10-K discloses a WACC; it is not a financial-statement line item. It is constructed from market inputs: CAPM Ke=rf+beta*ERP=4.3+0.7*5.0=7.8%; after-tax Kd=4.8*(1-0.215)=3.768%; market weights 84% equity / 16% debt give WACC=7.155%."
+    },
+    "twins": [
+      {
+        "id": "TW1",
+        "value": 39973,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet - Long-term debt",
+          "verbatim": "Long-term debt | 39,973.0"
+        }
+      },
+      {
+        "id": "TW2",
+        "value": 716.4,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income - Weighted-average shares outstanding\u2013diluted",
+          "verbatim": "Weighted-average shares outstanding\u2013diluted | 716.4"
+        }
+      }
+    ]
+  },
+  "C1": {
+    "tax_rate_used": 21.5,
+    "per_year": [
+      {
+        "t": 1,
+        "revenue": 27960.4,
+        "ebit": 12888.5,
+        "nopat": 10117.5,
+        "da": 2286.9,
+        "capex": 3499.5,
+        "dnwc": 100.0,
+        "fcff": 8804.9
+      },
+      {
+        "t": 2,
+        "revenue": 29078.8,
+        "ebit": 13404.0,
+        "nopat": 10522.1,
+        "da": 2378.4,
+        "capex": 3639.5,
+        "dnwc": 100.0,
+        "fcff": 9161.0
+      },
+      {
+        "t": 3,
+        "revenue": 30241.9,
+        "ebit": 13940.2,
+        "nopat": 10943.1,
+        "da": 2473.5,
+        "capex": 3785.0,
+        "dnwc": 100.0,
+        "fcff": 9531.6
+      },
+      {
+        "t": 4,
+        "revenue": 31451.6,
+        "ebit": 14497.8,
+        "nopat": 11380.8,
+        "da": 2572.5,
+        "capex": 3936.4,
+        "dnwc": 100.0,
+        "fcff": 9916.9
+      },
+      {
+        "t": 5,
+        "revenue": 32709.7,
+        "ebit": 15077.7,
+        "nopat": 11836.0,
+        "da": 2675.4,
+        "capex": 4093.9,
+        "dnwc": 100.0,
+        "fcff": 10317.5
+      }
+    ]
+  },
+  "C2": {
+    "ke": {
+      "value": 7.8
+    },
+    "kd_after": {
+      "value": 3.768
+    },
+    "wacc": {
+      "value": 7.155
+    },
+    "weights": "market weights; after-tax Kd; no rf/ERP double-count"
+  },
+  "C3": {
+    "convention": "year_end",
+    "rate_is_c2_wacc": true,
+    "per_year": [
+      {
+        "t": 1,
+        "discount_factor": 0.93323,
+        "pv_fcff": 8217.6
+      },
+      {
+        "t": 2,
+        "discount_factor": 0.87092,
+        "pv_fcff": 7978.7
+      },
+      {
+        "t": 3,
+        "discount_factor": 0.81278,
+        "pv_fcff": 7747.1
+      },
+      {
+        "t": 4,
+        "discount_factor": 0.75852,
+        "pv_fcff": 7522.4
+      },
+      {
+        "t": 5,
+        "discount_factor": 0.70788,
+        "pv_fcff": 7303.6
+      }
+    ],
+    "sum_pv_explicit": {
+      "value": 38769.4
+    }
+  },
+  "C4": {
+    "tv_undiscounted": {
+      "value": 227183.0
+    },
+    "pv_tv": {
+      "value": 160814.0
+    },
+    "implied_exit_ev_ebit": {
+      "value": 15.07
+    },
+    "terminal_normalized": true
+  },
+  "C5": {
+    "ev": {
+      "value": 199583.0
+    },
+    "consistency": "enterprise (unlevered) value, FCFF discounted at WACC",
+    "tv_share_of_ev": {
+      "value": 80.6
+    }
+  },
+  "C6": {
+    "equity": {
+      "value": 163204.0,
+      "formula": "EV - net_debt - minority - preferred + non_op_assets"
+    },
+    "per_share": {
+      "value": 227.8,
+      "formula": "equity / diluted_shares"
+    }
+  },
+  "C7": {
+    "grid": [
+      {
+        "wacc": 6.655,
+        "g": 0.025,
+        "per_share": 261.5
+      },
+      {
+        "wacc": 7.155,
+        "g": 0.025,
+        "per_share": 227.8
+      },
+      {
+        "wacc": 7.655,
+        "g": 0.025,
+        "per_share": 200.8
+      }
+    ],
+    "tv_share_of_ev": {
+      "value": 80.6
+    },
+    "implied_exit_ev_ebit": {
+      "value": 15.07
+    },
+    "upside_vs_price": {
+      "value": -20.4
+    },
+    "upside_sign": "downside",
+    "verdicts": [
+      {
+        "id": "CL1",
+        "verdict": "ACCURATE",
+        "deciding_figure": "base-case per share",
+        "deciding_value": 227.8,
+        "basis_one_line": "Base-case ~$228 sits in the cited $225-230 band; below $286 implies modest overvaluation."
+      },
+      {
+        "id": "CL2",
+        "verdict": "ACCURATE",
+        "deciding_figure": "upside_vs_price",
+        "deciding_value": -20.4,
+        "basis_one_line": "(227.8-286.12)/286.12 = -20.4%, about a fifth overvalued."
+      },
+      {
+        "id": "CL3",
+        "verdict": "FALSE",
+        "deciding_figure": "tv_share_of_ev",
+        "deciding_value": 80.6,
+        "basis_one_line": "~81% of EV is terminal value, so value is dominated by, not robust to, terminal assumptions."
+      },
+      {
+        "id": "CL4",
+        "verdict": "WRONG_BASIS",
+        "deciding_figure": "per_share",
+        "deciding_value": 227.8,
+        "basis_one_line": "Dividing EV by shares skips the net-debt/non-op bridge; correct equity per share is ~$228, not $279."
+      },
+      {
+        "id": "CL5",
+        "verdict": "NOT_VERIFIABLE",
+        "deciding_figure": "company WACC",
+        "deciding_value": null,
+        "basis_one_line": "No 10-K discloses a WACC; the claim cannot be verified from any filing."
+      },
+      {
+        "id": "CL6",
+        "verdict": "ACCURATE",
+        "deciding_figure": "wacc +/-50bp per share",
+        "deciding_value": 261.5,
+        "basis_one_line": "-50bp gives 261.5 (+14.8%) and +50bp gives 200.8 (-11.8%), both >10% moves."
+      }
+    ]
+  },
+  "S1": {
+    "labels": {
+      "fair_value_per_share": "201-262 (base ~228)",
+      "vs_price": "overvalued",
+      "upside_pct": -20.4,
+      "basis": "equity_value_per_share"
+    },
+    "hold_to_thesis_required": true
+  },
+  "S2": {
+    "sensitivity_block": {
+      "terminal_value_share_of_ev": 80.6,
+      "wacc_sensitivity_per_share": {
+        "down_50bp": 261.5,
+        "base": 227.8,
+        "up_50bp": 200.8
+      },
+      "g_sensitivity_per_share": {
+        "g_low": 210.0,
+        "base": 227.8,
+        "g_high": 249.0
+      },
+      "key_value_driver": "WACC and terminal growth, given ~81% terminal dominance"
+    },
+    "risk_read": [
+      "cyclicality",
+      "discount-rate sensitivity",
+      "terminal dominance"
+    ]
+  },
+  "S3": {
+    "bottom_line_reference": "On the oracle assumption set, MCD's unlevered FCFF discounted at a 7.155% WACC yields an enterprise value near $200B and, after the net-debt and equity-method bridge over 716.4M diluted shares, an equity value around $228 per share. Across the +/-50bp WACC band the range is roughly $201-262. Against the $286 market price this implies the stock is about 20% overvalued. The valuation is highly terminal-dependent (~81% of EV sits in the Gordon terminal value), so the conclusion hinges on the 2.5% growth and 7.155% discount-rate assumptions, not the explicit five-year window. A 50bp shift in WACC moves the per-share value by more than 10%, underscoring discount-rate sensitivity. These figures are model outputs conditioned on oracle assumptions, not filed disclosures. The company's own WACC is not in any 10-K and was constructed from market inputs.",
+    "assumption_conditional": true,
+    "diligence_floor": [
+      "cyclicality",
+      "leverage",
+      "capex normalization",
+      "trading-multiple cross-check"
+    ],
+    "not_determinable_items": [
+      "the company's own WACC (constructed from market inputs, not filed)"
+    ]
+  }
+}

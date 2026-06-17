@@ -1,0 +1,605 @@
+I need to carefully compute the DCF step by step before assembling the JSON.
+
+**BASE FIGURES FROM 10-K (FY2025):**
+- Revenue: 26,885.0
+- EBIT (Operating income): 12,393.0
+- Tax provision: 2,334.0
+- Effective tax rate: 2,334/10,897 = 21.42% (but oracle says use cash_tax_rate=21.5%)
+- D&A (from cash flow statement): 2,199.0
+- Capex: 3,365.0
+- Total debt: Long-term debt 39,973.0 (no current portion of LT debt shown separately; net short-term borrowings = 6 cumulative, but balance sheet shows only long-term debt line)
+- Cash: 774.0
+- Net debt (oracle): 39,199.0
+- Diluted shares: 716.4
+- Investments in affiliates (non-op assets): 2,820.0
+- Minority interest: 0 (not shown)
+- Preferred: 0 (issued none)
+
+**WACC COMPUTATION:**
+- rf = 4.3%, beta = 0.7, ERP = 5.0%
+- Ke = 4.3 + 0.7*5.0 = 4.3 + 3.5 = 7.8%
+- Pre-tax Kd = 4.8%, tax rate = 21.5%, after-tax Kd = 4.8*(1-0.215) = 4.8*0.785 = 3.768%
+- Target debt weight = 16%, equity weight = 84%
+- WACC = 0.84*7.8 + 0.16*3.768 = 6.552 + 0.60288 = 7.155% ≈ 7.155%
+
+**FORECAST (t=1 to t=5), base year revenue = 26,885:**
+- Revenue growth = 4% per year
+- Operating margin = 46.0963%
+- DA% = 8.1793%
+- Capex% = 12.5163%
+- dNWC = 100 per year
+- Cash tax rate = 21.5%
+
+t=1: Rev = 26,885*1.04 = 27,960.4; EBIT = 27,960.4*0.460963 = 12,888.0; NOPAT = 12,888.0*(1-0.215) = 10,117.1; DA = 27,960.4*0.081793 = 2,287.0; Capex = 27,960.4*0.125163 = 3,499.0; FCFF = 10,117.1 + 2,287.0 - 3,499.0 - 100 = 8,805.1
+
+t=2: Rev = 27,960.4*1.04 = 29,078.8; EBIT = 29,078.8*0.460963 = 13,403.5; NOPAT = 10,521.7; DA = 2,378.5; Capex = 3,638.9; FCFF = 10,521.7 + 2,378.5 - 3,638.9 - 100 = 9,161.3
+
+t=3: Rev = 29,078.8*1.04 = 30,241.9; EBIT = 13,939.6; NOPAT = 10,942.6; DA = 2,473.6; Capex = 3,784.5; FCFF = 10,942.6 + 2,473.6 - 3,784.5 - 100 = 9,531.7
+
+t=4: Rev = 30,241.9*1.04 = 31,451.6; EBIT = 14,497.2; NOPAT = 11,380.3; DA = 2,572.5; Capex = 3,935.9; FCFF = 11,380.3 + 2,572.5 - 3,935.9 - 100 = 9,917.0
+
+t=5: Rev = 31,451.6*1.04 = 32,709.7; EBIT = 15,077.1; NOPAT = 11,835.5; DA = 2,675.4; Capex = 4,093.3; FCFF = 11,835.5 + 2,675.4 - 4,093.3 - 100 = 10,317.6
+
+**DISCOUNT FACTORS (year-end):**
+WACC = 7.155%
+t=1: 1/1.07155 = 0.93322
+t=2: 1/1.07155² = 0.87090
+t=3: 1/1.07155³ = 0.81272
+t=4: 1/1.07155⁴ = 0.75843
+t=5: 1/1.07155⁵ = 0.70782
+
+PV FCFFs:
+t=1: 8,805.1 * 0.93322 = 8,217.0
+t=2: 9,161.3 * 0.87090 = 7,977.0
+t=3: 9,531.7 * 0.81272 = 7,748.0
+t=4: 9,917.0 * 0.75843 = 7,522.0
+t=5: 10,317.6 * 0.70782 = 7,303.0
+
+Sum PV explicit = 8,217.0 + 7,977.0 + 7,748.0 + 7,522.0 + 7,303.0 = 38,767.0
+
+**TERMINAL VALUE:**
+TV = FCFF_t5 * (1+g) / (WACC - g) = 10,317.6 * 1.025 / (0.07155 - 0.025) = 10,575.5 / 0.04655 = 227,186.9
+PV_TV = 227,186.9 * 0.70782 = 160,826.0
+
+**EV = 38,767.0 + 160,826.0 = 199,593.0**
+
+TV share of EV = 160,826 / 199,593 = 80.6%
+
+**BRIDGE:**
+Net debt (oracle) = 39,199.0
+Minority = 0
+Preferred = 0
+Non-op assets = Investments in affiliates = 2,820.0
+
+Equity = 199,593.0 - 39,199.0 - 0 - 0 + 2,820.0 = 163,214.0
+Per share = 163,214.0 / 716.4 = 227.84
+
+**WACC SENSITIVITY (±50bp):**
+WACC_low = 6.655%: 
+- Discount factors: t5 = 1/1.06655^5 = 0.72418
+- TV = 10,575.5/(0.06655-0.025) = 10,575.5/0.04155 = 254,645.5; PV_TV = 254,645.5*0.72418 = 184,393
+- PV explicit (recalc): t1=8,805.1/1.06655=8,256.0; t2=9,161.3/1.06655²=8,052.0; t3=9,531.7/1.06655³=7,862.0; t4=9,917.0/1.06655⁴=7,672.0; t5=10,317.6/1.06655⁵=7,469.0; sum=39,311.0
+- EV_low = 39,311.0 + 184,393.0 = 223,704.0
+- Equity_low = 223,704 - 39,199 + 2,820 = 187,325; PS_low = 187,325/716.4 = 261.47
+
+WACC_high = 7.655%:
+- t5 DF = 1/1.07655^5 = 0.69218
+- TV = 10,575.5/(0.07655-0.025) = 10,575.5/0.05155 = 205,148.4; PV_TV = 205,148.4*0.69218 = 142,000
+- PV explicit: t1=8,805.1/1.07655=8,179.0; t2=9,161.3/1.07655²=7,904.0; t3=9,531.7/1.07655³=7,638.0; t4=9,917.0/1.07655⁴=7,381.0; t5=10,317.6/1.07655⁵=7,143.0; sum=38,245.0
+- EV_high = 38,245.0 + 142,000.0 = 180,245.0
+- Equity_high = 180,245 - 39,199 + 2,820 = 143,866; PS_high = 143,866/716.4 = 200.82
+
+**g sensitivity (base g=2.5%):**
+g_low=2.0%: TV=10,575.5/(0.07155-0.02)=10,575.5/0.05155=205,148; PV_TV=205,148*0.70782=145,228; EV=38,767+145,228=183,995; Equity=183,995-39,199+2,820=147,616; PS=206.05
+g_high=3.0%: TV=10,575.5/(0.07155-0.03)=10,575.5/0.04155=254,645; PV_TV=254,645*0.70782=180,237; EV=38,767+180,237=219,004; Equity=219,004-39,199+2,820=182,625; PS=255.00
+
+**Implied exit EV/EBIT:**
+Terminal year EBIT = 15,077.1*(1.025) = 15,454.0 (normalized at terminal)
+Actually TV/terminal EBIT: 227,186.9/15,077.1 = 15.07x (undiscounted TV / t5 EBIT)
+
+**Verdict checks:**
+- CL1: Base case ~$227.84/share. Range ~$201-$261. $225-230 is close to base. "modestly overvalued" - yes stock at $286 > $228. ACCURATE_ON_BASE_CASE_ONLY (range is wider)
+- CL2: Overvalued by ~20%: (286-228)/286 = 20.3%. "about a fifth" ≈ 20%. ACCURATE
+- CL3: TV share = 80.6%, so most value comes from terminal, NOT explicit forecast. FALSE
+- CL4: EV ~$199.6B / 716.4M = $278.6/share ≈ $279. But this divides EV by shares directly (wrong basis - should bridge). The number ~$279 happens to be close to market price but the method is wrong. WRONG_BASIS
+- CL5: No published WACC in 10-K; WACC is constructed from market inputs. NOT_VERIFIABLE
+- CL6: Down 50bp: $261.47 vs base $227.84 = +$33.63 = +14.8%. Up 50bp: $200.82 vs base = -$27.02 = -11.9%. Both >10%. ACCURATE
+
+**Upside vs price:** (227.84 - 286.12)/286.12 = -20.4% (downside)
+
+Now let me be more precise with calculations:
+
+t=1: Rev=26885*1.04=27960.4; EBIT=27960.4*0.460963=12888.05; NOPAT=12888.05*0.785=10117.12; DA=27960.4*0.081793=2287.02; Capex=27960.4*0.125163=3499.06; FCFF=10117.12+2287.02-3499.06-100=8805.08
+
+t=2: Rev=29078.816; EBIT=13403.57; NOPAT=10521.80; DA=2378.50; Capex=3638.94; FCFF=9161.36
+
+t=3: Rev=30241.969; EBIT=13939.72; NOPAT=10942.68; DA=2473.64; Capex=3784.50; FCFF=9531.82
+
+t=4: Rev=31451.647; EBIT=14497.31; NOPAT=11380.39; DA=2572.59; Capex=3935.88; FCFF=9917.10
+
+t=5: Rev=32709.713; EBIT=15077.20; NOPAT=11835.60; DA=2675.49; Capex=4093.32; FCFF=10317.77
+
+WACC=7.155% exactly.
+
+DF:
+t1=1/1.07155=0.933218
+t2=0.933218/1.07155=0.870895
+t3=0.870895/1.07155=0.812726
+t4=0.812726/1.07155=0.758437
+t5=0.758437/1.07155=0.707826
+
+PV:
+t1=8805.08*0.933218=8217.0
+t2=9161.36*0.870895=7977.1
+t3=9531.82*0.812726=7748.1
+t4=9917.10*0.758437=7522.1
+t5=10317.77*0.707826=7303.0
+
+Sum=38767.3
+
+TV=10317.77*1.025/0.04655=10575.71/0.04655=227,186.9 (let me verify: 10575.71/0.04655=227,186.9 ✓)
+PV_TV=227186.9*0.707826=160,826.5
+
+EV=38767.3+160826.5=199,593.8
+
+TV/EV=160826.5/199593.8=80.58%
+
+Equity=199593.8-39199+2820=163,214.8
+PS=163214.8/716.4=227.84
+
+Implied exit multiple: TV_undiscounted/EBIT_t5=227186.9/15077.20=15.07x
+
+Now for the total debt figure: The balance sheet shows Long-term debt = 39,973.0. There's also net short-term borrowings of 6.0 in financing activities. The oracle net_debt = 39,199.0. I'll use oracle net_debt for bridge as instructed. For TW1 (total debt at 12/31/2025), I'll cite long-term debt = 39,973.0 from balance sheet. Note there may be current portion but the balance sheet only shows "Long-term debt" as a separate line = 39,973.0.
+
+```json
+{
+  "P1": {
+    "ticker": "MCD",
+    "cik": "0000063908",
+    "fiscal_year": 2025,
+    "valuation_date": "2026-06-15",
+    "currency": "USD",
+    "units": "millions",
+    "fcf_basis": "unlevered_FCFF",
+    "discount_rate_for_fcff": "WACC",
+    "output_chain": "FCFF -> WACC -> EV -> bridge -> equity -> per_share",
+    "horizon_years": 5,
+    "terminal_method": "gordon",
+    "consistency": "nominal_cashflows_nominal_wacc_nominal_g",
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Statement of Income, Total revenues",
+      "verbatim": "Total revenues | 26,885.0 | 25,920.0 | 25,494.0"
+    }
+  },
+  "P2": {
+    "units": "millions",
+    "wacc_basis": {
+      "weights": "market",
+      "cost_of_debt": "after_tax",
+      "capm": "rf + beta*ERP"
+    },
+    "discounting_convention": "year_end",
+    "nominal_consistency": "nominal_cashflows_nominal_wacc_nominal_g",
+    "lease_treatment": "operating",
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Balance Sheet, Long-term lease liability (noncurrent), net",
+      "verbatim": "Long-term lease liability (noncurrent), net | 14,147.0 | 12,888.0"
+    }
+  },
+  "P3": {
+    "terminal_method": "gordon",
+    "terminal_param_g": 0.025,
+    "consistency_rules": [
+      "g < WACC strictly",
+      "g <= long-run nominal GDP",
+      "terminal-year FCFF normalized"
+    ],
+    "input_map": {
+      "filed": ["revenue", "ebit", "dep_amort", "capex", "total_debt", "cash", "diluted_shares"],
+      "oracle": ["revenue_growth", "cash_tax_rate", "wacc_components", "terminal_g", "convention"]
+    }
+  },
+  "E1": {
+    "figures": {
+      "revenue": {
+        "value": 26885.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Total revenues",
+          "verbatim": "Total revenues | 26,885.0 | 25,920.0 | 25,494.0"
+        }
+      },
+      "ebit": {
+        "value": 12393.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Operating income",
+          "verbatim": "Operating income | 12,393.0 | 11,712.0 | 11,647.0"
+        }
+      },
+      "tax_provision": {
+        "value": 2334.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Provision for income taxes",
+          "verbatim": "Provision for income taxes | 2,334.0 | 2,121.0 | 2,053.0"
+        }
+      },
+      "effective_tax_rate": {
+        "value": 21.42,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Provision for income taxes / Income before provision for income taxes",
+          "verbatim": "Provision for income taxes | 2,334.0 ... Income before provision for income taxes | 10,897.0"
+        }
+      },
+      "dep_amort": {
+        "value": 2199.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Cash Flows, Depreciation and amortization",
+          "verbatim": "Depreciation and amortization | 2,199.0 | 2,097.0 | 1,978.0"
+        }
+      },
+      "capex": {
+        "value": 3365.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Cash Flows, Capital expenditures",
+          "verbatim": "Capital expenditures | (3,365.0) | (2,775.0) | (2,357.0)"
+        }
+      }
+    }
+  },
+  "E2": {
+    "figures": {
+      "total_debt": {
+        "value": 39973.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet, Long-term debt",
+          "verbatim": "Long-term debt | 39,973.0 | 38,424.0"
+        }
+      },
+      "cash_and_equiv": {
+        "value": 774.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet, Cash and equivalents",
+          "verbatim": "Cash and equivalents | $ 774.0 | $ 1,085.0"
+        }
+      },
+      "net_debt": {
+        "value": 39199.0
+      },
+      "minority_interest": {
+        "value": 0
+      },
+      "preferred": {
+        "value": 0
+      },
+      "non_op_assets": {
+        "value": 2820.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet, Investments in and advances to affiliates",
+          "verbatim": "Investments in and advances to affiliates | 2,820.0 | 2,710.0"
+        }
+      },
+      "diluted_shares": {
+        "value": 716.4,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Weighted-average shares outstanding–diluted",
+          "verbatim": "Weighted-average shares outstanding–diluted | 716.4 | 721.9 | 732.3"
+        }
+      }
+    },
+    "lease_exclusion": "operating-lease liabilities excluded from net debt (rent stays in EBIT); lease right-of-use asset 14,606.0 and lease liabilities (current 694.0 + noncurrent 14,147.0) excluded from net debt bridge",
+    "negative_book_equity_note": "McDonald's total shareholders' equity (deficit) is negative at -1,791.0 million as of Dec. 31, 2025, driven by accumulated treasury stock buybacks; this does not affect the DCF which uses market-value weights"
+  },
+  "E3": {
+    "intake_complete": true,
+    "wacc_components_present": ["risk_free", "beta", "equity_risk_premium", "pre_tax_cost_of_debt", "target_debt_weight"],
+    "not_filed": "the discount rate and the forecast are oracle inputs, in no filing"
+  },
+  "E4": {
+    "snapshot_echo": {
+      "valuation_date": "2026-06-15",
+      "share_price": 286.12,
+      "diluted_shares_asof": 716.4,
+      "net_debt_asof": 39199.0,
+      "source": "oracle"
+    },
+    "staleness": {
+      "filed_balance_date": "2025-12-31",
+      "staleness_days": 166
+    },
+    "price_not_from_filing": true,
+    "citation": {
+      "document": "10K",
+      "locator": "Consolidated Balance Sheet, header",
+      "verbatim": "Consolidated Balance Sheet - USD ($) $ in Millions | Dec. 31, 2025 | Dec. 31, 2024"
+    }
+  },
+  "E5": {
+    "probe": {
+      "label": "NOT_DISCLOSED",
+      "value": null,
+      "derivation": "No 10-K discloses a WACC; it is built from market inputs. CAPM: Ke = rf + beta*ERP = 4.3 + 0.7*5.0 = 7.8%. After-tax Kd = 4.8*(1-0.215) = 3.768%. Market weights: debt 16%, equity 84%. WACC = 0.84*7.8 + 0.16*3.768 = 6.552 + 0.603 = 7.155%. All inputs are oracle assumptions, not disclosed in the McDonald's 10-K."
+    },
+    "twins": [
+      {
+        "id": "TW1",
+        "value": 39973.0,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Balance Sheet, Long-term debt",
+          "verbatim": "Long-term debt | 39,973.0 | 38,424.0"
+        }
+      },
+      {
+        "id": "TW2",
+        "value": 716.4,
+        "citation": {
+          "document": "10K",
+          "locator": "Consolidated Statement of Income, Weighted-average shares outstanding–diluted",
+          "verbatim": "Weighted-average shares outstanding–diluted | 716.4 | 721.9 | 732.3"
+        }
+      }
+    ]
+  },
+  "C1": {
+    "tax_rate_used": 21.5,
+    "per_year": [
+      {
+        "t": 1,
+        "revenue": 27960.4,
+        "ebit": 12888.1,
+        "nopat": 10117.1,
+        "da": 2287.0,
+        "capex": 3499.1,
+        "dnwc": 100.0,
+        "fcff": 8805.0
+      },
+      {
+        "t": 2,
+        "revenue": 29078.8,
+        "ebit": 13403.6,
+        "nopat": 10521.8,
+        "da": 2378.5,
+        "capex": 3638.9,
+        "dnwc": 100.0,
+        "fcff": 9161.4
+      },
+      {
+        "t": 3,
+        "revenue": 30241.9,
+        "ebit": 13939.7,
+        "nopat": 10942.7,
+        "da": 2473.6,
+        "capex": 3784.5,
+        "dnwc": 100.0,
+        "fcff": 9531.8
+      },
+      {
+        "t": 4,
+        "revenue": 31451.6,
+        "ebit": 14497.3,
+        "nopat": 11380.4,
+        "da": 2572.6,
+        "capex": 3935.9,
+        "dnwc": 100.0,
+        "fcff": 9917.1
+      },
+      {
+        "t": 5,
+        "revenue": 32709.7,
+        "ebit": 15077.2,
+        "nopat": 11835.6,
+        "da": 2675.5,
+        "capex": 4093.3,
+        "dnwc": 100.0,
+        "fcff": 10317.8
+      }
+    ]
+  },
+  "C2": {
+    "ke": {
+      "value": 7.8
+    },
+    "kd_after": {
+      "value": 3.768
+    },
+    "wacc": {
+      "value": 7.155
+    },
+    "weights": "market weights; equity 84%, debt 16%; after-tax Kd = 4.8*(1-0.215)=3.768%; Ke = 4.3+0.7*5.0=7.8%; WACC = 0.84*7.8+0.16*3.768=7.155%; no rf/ERP double-count"
+  },
+  "C3": {
+    "convention": "year_end",
+    "rate_is_c2_wacc": true,
+    "per_year": [
+      {
+        "t": 1,
+        "discount_factor": 0.93322,
+        "pv_fcff": 8217.0
+      },
+      {
+        "t": 2,
+        "discount_factor": 0.87090,
+        "pv_fcff": 7977.1
+      },
+      {
+        "t": 3,
+        "discount_factor": 0.81273,
+        "pv_fcff": 7748.1
+      },
+      {
+        "t": 4,
+        "discount_factor": 0.75844,
+        "pv_fcff": 7522.1
+      },
+      {
+        "t": 5,
+        "discount_factor": 0.70783,
+        "pv_fcff": 7303.0
+      }
+    ],
+    "sum_pv_explicit": {
+      "value": 38767.3
+    }
+  },
+  "C4": {
+    "tv_undiscounted": {
+      "value": 227186.9
+    },
+    "pv_tv": {
+      "value": 160826.5
+    },
+    "implied_exit_ev_ebit": {
+      "value": 15.07
+    },
+    "terminal_normalized": true
+  },
+  "C5": {
+    "ev": {
+      "value": 199593.8
+    },
+    "consistency": "enterprise (unlevered) value, FCFF discounted at WACC",
+    "tv_share_of_ev": {
+      "value": 80.58
+    }
+  },
+  "C6": {
+    "equity": {
+      "value": 163214.8,
+      "formula": "EV - net_debt - minority - preferred + non_op_assets = 199593.8 - 39199.0 - 0 - 0 + 2820.0"
+    },
+    "per_share": {
+      "value": 227.84,
+      "formula": "equity / diluted_shares = 163214.8 / 716.4"
+    }
+  },
+  "C7": {
+    "grid": [
+      {
+        "wacc": 6.655,
+        "g": 2.5,
+        "per_share": 261.47
+      },
+      {
+        "wacc": 7.155,
+        "g": 2.5,
+        "per_share": 227.84
+      },
+      {
+        "wacc": 7.655,
+        "g": 2.5,
+        "per_share": 200.82
+      }
+    ],
+    "tv_share_of_ev": {
+      "value": 80.58
+    },
+    "implied_exit_ev_ebit": {
+      "value": 15.07
+    },
+    "upside_vs_price": {
+      "value": -20.37
+    },
+    "upside_sign": "downside",
+    "verdicts": [
+      {
+        "id": "CL1",
+        "verdict": "ACCURATE_ON_BASE_CASE_ONLY",
+        "deciding_figure": "per_share_base",
+        "deciding_value": 227.84,
+        "basis_one_line": "Base-case fair value is $227.84, within the $225-230 range cited, and the stock at $286.12 is indeed modestly overvalued; however the full ±50bp WACC range spans $200.82-$261.47, so the claim is accurate only at the base case."
+      },
+      {
+        "id": "CL2",
+        "verdict": "ACCURATE",
+        "deciding_figure": "downside_pct",
+        "deciding_value": -20.37,
+        "basis_one_line": "Market price $286.12 exceeds base-case fair value $227.84 by 25.6% (or fair value is 20.4% below market price), consistent with 'overvalued by about a fifth on cash flows'."
+      },
+      {
+        "id": "CL3",
+        "verdict": "FALSE",
+        "deciding_figure": "tv_share_of_ev",
+        "deciding_value": 80.58,
+        "basis_one_line": "Terminal value accounts for 80.6% of EV; the valuation is dominated by terminal assumptions, not the explicit five-year forecast, making it highly sensitive to terminal assumptions."
+      },
+      {
+        "id": "CL4",
+        "verdict": "WRONG_BASIS",
+        "deciding_figure": "ev_per_share_wrong_method",
+        "deciding_value": 278.6,
+        "basis_one_line": "EV ~$199,594M / 716.4M shares = ~$278.6, arithmetically close to market price, but dividing enterprise value directly by shares is methodologically wrong; the correct bridge (EV minus net debt plus non-op assets, then divide) yields $227.84, not ~$279."
+      },
+      {
+        "id": "CL5",
+        "verdict": "NOT_VERIFIABLE",
+        "deciding_figure": "company_published_wacc",
+        "deciding_value": null,
+        "basis_one_line": "McDonald's does not publish its own WACC in the 10-K; the WACC is constructed entirely from market inputs (oracle), so the claim that a 'company's own published WACC' would lift fair value cannot be verified."
+      },
+      {
+        "id": "CL6",
+        "verdict": "ACCURATE",
+        "deciding_figure": "wacc_sensitivity_range",
+        "deciding_value": 14.8,
+        "basis_one_line": "A 50bp WACC decrease moves per-share value from $227.84 to $261.47 (+14.8%); a 50bp increase moves it to $200.82 (-11.9%); both exceed 10%, confirming the claim."
+      }
+    ]
+  },
+  "S1": {
+    "labels": {
+      "fair_value_per_share": "201 - 261 (base: 228)",
+      "vs_price": "overvalued",
+      "upside_pct": -20.37,
+      "basis": "equity_value_per_share"
+    },
+    "hold_to_thesis_required": true
+  },
+  "S2": {
+    "sensitivity_block": {
+      "terminal_value_share_of_ev": 80.58,
+      "wacc_sensitivity_per_share": {
+        "down_50bp": 261.47,
+        "base": 227.84,
+        "up_50bp": 200.82
+      },
+      "g_sensitivity_per_share": {
+        "g_low": 206.05,
+        "base": 227.84,
+        "g_high": 255.00
+      },
+      "key_value_driver": "Terminal value dominates at 80.6% of EV; WACC and terminal growth rate are the primary value drivers, with a 50bp WACC shift moving per-share value by ~12-15%"
+    },
+    "risk_read": [
+      "cyclicality: McDonald's franchise-heavy model provides relatively stable revenues, but consumer spending downturns and commodity cost pressures can compress company-operated restaurant margins",
+      "discount-rate sensitivity: with TV comprising 80.6% of EV, a 50bp WACC change moves fair value by ~12-15%; the stock's valuation is highly sensitive to the assumed cost of capital",
+      "terminal dominance: over 80% of value resides in the terminal value, meaning small changes in long-run growth or margin assumptions have outsized impact on the fair value estimate"
+    ]
+  },
+  "S3": {
+    "bottom_line_reference": "On oracle assumptions (4% revenue growth, 46.1% operating margin, 7.155% WACC, 2.5% terminal growth), McDonald's DCF fair value is approximately $201-$261 per share with a base case of $228, implying roughly 20% downside to the current $286.12 market price. The valuation is heavily back-loaded, with ~81% of enterprise value residing in the Gordon terminal value, making it acutely sensitive to WACC and long-run growth assumptions. The oracle margin assumption (46.1%) is broadly consistent with the filed FY2025 operating margin of ~46.1% ($12,393/$26,885), lending credibility to the near-term forecast, but sustaining that margin over a five-year horizon amid labor cost inflation and franchisee support investments warrants scrutiny. Investors should cross-check the implied 15x EV/EBIT exit multiple against trading comps and precedent transactions before concluding the stock is overvalued. McDonald's negative book equity (-$1.8B) reflects aggressive capital return rather than financial distress, but the $39.2B net debt load amplifies equity sensitivity to any EBITDA shortfall. The base-case conclusion of modest overvaluation is conditional on the oracle assumptions holding; a 50bp WACC reduction or a 50bp lift in terminal growth would bring fair value close to or above the current market price.",
+    "assumption_conditional": true,
+    "diligence_floor": [
+      "cyclicality: validate revenue growth assumption against same-store sales trends and macro sensitivity",
+      "leverage: $39.2B net debt at ~7x EBITDA warrants stress-testing under rising rate or earnings-compression scenarios",
+      "capex normalization: FY2025 capex of $3,365M (12.5% of revenue) is elevated vs. historical; confirm whether oracle capex% reflects a normalized or peak reinvestment cycle",
+      "trading-multiple cross-check: implied 15x EV/EBIT terminal exit should be benchmarked against current QSR peer multiples and historical MCD trading ranges"
+    ],
+    "not_determinable_items": [
+      "the company's own WACC (constructed from market inputs, not filed)",
+      "normalized capex in a steady-state franchise mix",
+      "long-run same-store sales growth rate independent of oracle revenue growth assumption"
+    ]
+  }
+}
+```

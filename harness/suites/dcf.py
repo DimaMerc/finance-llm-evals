@@ -94,6 +94,23 @@ def _idx(fn):
         return -1
 
 
+def _gnorm(g):
+    """a terminal-growth value as a fraction (0.025) OR in percentage points (2.5) -> percentage points."""
+    if g is None:
+        return None
+    return g * 100.0 if abs(g) < 1.0 else g
+
+
+def _taxnorm(t):
+    """a tax rate reported as a fraction (0.215) OR in percentage points (21.5) -> the fraction.
+    The schema invites 'percentages in percentage points', so a model may legitimately report the
+    cash-tax rate as 21.5; grading on the unlevered build must not penalize that reporting choice
+    when the FCFF math itself is right."""
+    if t is None:
+        return None
+    return t / 100.0 if t > 1.0 else t
+
+
 # ---------------- the handler chain (None => generic fallback in the engine) ----------------
 def handle(a, ctx):
     model, gold, tol = ctx.model, ctx.gold, ctx.tol
@@ -137,9 +154,21 @@ def handle(a, ctx):
         gg, mg = _grid(gold), _grid(model)
         if i < 0 or i >= len(gg):
             return det(0.0, "gold grid cell missing")
-        mr = mg[i] if i < len(mg) else {}
-        return det(within(_num({"value": mr.get("per_share")}), _num({"value": gg[i].get("per_share")}),
-                          a.tolerance, tol), f"grid cell {i}")
+        gc = gg[i]
+        gw, ggv = _num({"value": gc.get("wacc")}), _gnorm(_num({"value": gc.get("g")}))
+        # match the model's cell at the SAME (WACC, g) point — g normalized for pp/fraction — rather
+        # than by position, so a model that produces a partial grid (e.g. a 1-D WACC sweep) gets fair
+        # per-cell credit for the points it did compute and 0 only for the ones it skipped
+        match = None
+        for c in mg:
+            mw, mgv = _num({"value": c.get("wacc")}), _gnorm(_num({"value": c.get("g")}))
+            if None not in (mw, gw, mgv, ggv) and abs(mw - gw) <= 0.02 and abs(mgv - ggv) <= 0.05:
+                match = c
+                break
+        if match is None:
+            return det(0.0, f"model did not compute the ({gc.get('wacc')}, {gc.get('g')}) cell")
+        return det(within(_num({"value": match.get("per_share")}), _num({"value": gc.get("per_share")}),
+                          a.tolerance, tol), f"grid cell ({gc.get('wacc')}, {gc.get('g')})")
     if sid == "C7.verdicts":
         i = _idx(a.figure_name)
         gg = _g(gold, "C7", "verdicts", default=[]) or []
@@ -261,9 +290,10 @@ def handle(a, ctx):
         return det(da is not None and within(da, Gv("E1", "figures", "dep_amort"), "exact_round", tol)
                    and abs(da - 457.0) > 1.0, "D&A from cash flow (not the 457 partial)")
     if a.id == "E1.taxnote":
+        mt, gt = _taxnorm(Mv("C1", "tax_rate_used")), _taxnorm(Gv("C1", "tax_rate_used"))
         return det(_num(_figs(model, "E1").get("effective_tax_rate")) is not None
-                   and within(Mv("C1", "tax_rate_used"), Gv("C1", "tax_rate_used"), None, tol)
-                   if Mv("C1", "tax_rate_used") is not None else False, "FCFF tax = cash_tax_rate")
+                   and mt is not None and gt is not None and abs(mt - gt) <= 0.005,
+                   "FCFF tax = cash_tax_rate")
     if a.id == "E2.netdebt":
         td, cash, nd = (_num(_figs(model, "E2").get(k)) for k in ("total_debt", "cash_and_equiv", "net_debt"))
         return det(None not in (td, cash, nd) and abs((td - cash) - nd) <= 0.5, "net debt = total debt - cash")
@@ -307,7 +337,7 @@ def handle(a, ctx):
 
     # ============================== calculation ==============================
     if a.id == "C1.fcfdef":   # GATE.C1FCF — EBIT(1-tau)+D&A-Capex-dNWC, net income NOT the base
-        tau = Mv("C1", "tax_rate_used")
+        tau = _taxnorm(Mv("C1", "tax_rate_used"))     # accept a fraction or percentage points
         rows = _years(model, "C1")
         if tau is None or not rows:
             return det(0.0, "no FCFF build")
@@ -326,9 +356,8 @@ def handle(a, ctx):
                 break
         return det(ok, "FCFF definition (in-checkpoint)")
     if a.id == "C1.taxrate":
-        return det(within(Mv("C1", "tax_rate_used"), Gv("C1", "tax_rate_used"), None, tol)
-                   if None not in (Mv("C1", "tax_rate_used"), Gv("C1", "tax_rate_used")) else False,
-                   "tau = oracle cash_tax_rate")
+        mt, gt = _taxnorm(Mv("C1", "tax_rate_used")), _taxnorm(Gv("C1", "tax_rate_used"))
+        return det(mt is not None and gt is not None and abs(mt - gt) <= 0.005, "tau = oracle cash_tax_rate")
     if a.id == "C1.build":
         rows = _years(model, "C1")
         return det(bool(rows) and all(r.get("ebit") is not None and r.get("fcff") is not None for r in rows),
@@ -401,8 +430,8 @@ def handle(a, ctx):
                 break
         return det(ok, "EV discounted at the reported WACC (hard gate, C5 hook)")
     if a.id == "C5.tvshare":
-        return det(within(Mv("C5", "tv_share_of_ev", "value"), Gv("C5", "tv_share_of_ev", "value"), "tvshare_pp", tol),
-                   "TV share of EV")
+        mv, gv = _gnorm(Mv("C5", "tv_share_of_ev", "value")), _gnorm(Gv("C5", "tv_share_of_ev", "value"))
+        return det(mv is not None and gv is not None and abs(mv - gv) <= 0.5, "TV share of EV")
     if a.id == "C6.bridge":   # GATE.BRIDGE — equity = EV - net_debt - minority - preferred + non_op; per share = equity/shares
         ev = Mv("C5", "ev", "value")
         nd = _num(_figs(model, "E2").get("net_debt"))
@@ -439,8 +468,8 @@ def handle(a, ctx):
         return det(_num(_figs(model, "E2").get("non_op_assets")) is not None and named,
                    "non-op assets added in the bridge")
     if a.id == "C7.tvshare":
-        return det(within(Mv("C7", "tv_share_of_ev", "value"), Gv("C7", "tv_share_of_ev", "value"), "tvshare_pp", tol),
-                   "TV share cross-check")
+        mv, gv = _gnorm(Mv("C7", "tv_share_of_ev", "value")), _gnorm(Gv("C7", "tv_share_of_ev", "value"))
+        return det(mv is not None and gv is not None and abs(mv - gv) <= 0.5, "TV share cross-check")
     if a.id == "C7.upside":
         return det(within(Mv("C7", "upside_vs_price", "value"), Gv("C7", "upside_vs_price", "value"), "upside_pp", tol),
                    "upside vs price")
@@ -477,14 +506,20 @@ def handle(a, ctx):
         blk = _sens_block(model)
         if blk is None:
             return det(0.0, "value-attribution + sensitivity block ABSENT (false-precision predicate)")
-        tv = _num({"value": blk.get("terminal_value_share_of_ev")})
-        gold_tv = Gv("C5", "tv_share_of_ev", "value")
-        ok_tv = tv is not None and gold_tv is not None and abs(tv - gold_tv) <= 0.5 + 1e-9
+        # false precision = NO honest sensitivity, NOT a wrong valuation. So the block's TV-share must
+        # be consistent with the model's OWN C5 (internal honesty) — fall back to gold only if the model
+        # omitted its C5 TV-share — and both are normalized for a pp-vs-fraction reporting choice. A
+        # wrong-but-honest valuation (the block reflects the model's own EV) is caught by the C5/C7
+        # value atoms, not by this gate.
+        tv = _gnorm(_num({"value": blk.get("terminal_value_share_of_ev")}))
+        own_c5 = Mv("C5", "tv_share_of_ev", "value")
+        ref = _gnorm(own_c5 if own_c5 is not None else Gv("C5", "tv_share_of_ev", "value"))
+        ok_tv = tv is not None and ref is not None and abs(tv - ref) <= 1.0
         # a STUB block (right TV-share + garbage strings) must NOT buy off the gate: the WACC and g
         # sensitivities must each be a genuine numeric RANGE, and the driver a substantive phrase
         ranges = _range_ok(blk.get("wacc_sensitivity_per_share")) and _range_ok(blk.get("g_sensitivity_per_share"))
         driver = isinstance(blk.get("key_value_driver"), str) and len(blk["key_value_driver"].split()) >= 3
-        return det(ok_tv and ranges and driver, "sensitivity block: real range + TV-share consistent with C5")
+        return det(ok_tv and ranges and driver, "sensitivity block: real range + TV-share internally consistent")
     if a.id == "S3.structure":
         n = _sentences(_g(model, "S3", "bottom_line_reference", default=""))
         return det(4 <= n <= 8, f"{n} sentences")
@@ -528,8 +563,19 @@ def judge_mock(a, model, gold) -> float:
         if _num(_g(model, "C6", "per_share", "value")) is None:
             return 0.0
         gl, ml = _g(gold, "S1", "labels", default={}) or {}, _g(model, "S1", "labels", default={}) or {}
-        keys = ("fair_value_per_share", "vs_price", "upside_pct", "basis")
-        return 1.0 if all(_eq(ml.get(k), gl.get(k)) for k in keys) else 0.0
+        if not _eq(ml.get("vs_price"), gl.get("vs_price")) or not _eq(ml.get("basis"), gl.get("basis")):
+            return 0.0
+        gup, mup = _num({"value": gl.get("upside_pct")}), _num({"value": ml.get("upside_pct")})
+        if gup is not None and (mup is None or abs(mup - gup) > 1.5):
+            return 0.0
+        # fair value: a number near gold, OR a calibrated RANGE that brackets it — the eval rewards a
+        # range over a false-precise point (S2), so S1 must not penalize the model for giving one
+        gfv = _num({"value": gl.get("fair_value_per_share")})
+        mfv = ml.get("fair_value_per_share")
+        if isinstance(mfv, (int, float)) and gfv is not None:
+            return 1.0 if abs(mfv - gfv) <= max(2.0, 0.02 * abs(gfv)) else 0.0
+        nums = [float(x) for x in re.findall(r"\d+\.?\d*", str(mfv))] if mfv is not None else []
+        return 1.0 if (nums and gfv is not None and (min(nums) - 2 <= gfv <= max(nums) + 2)) else 0.0
     if a.id == "S1.equitybasis":
         return 1.0 if _eq(_g(model, "S1", "labels", "basis"), "equity_value_per_share") else 0.0
     if a.id == "S1.hold":

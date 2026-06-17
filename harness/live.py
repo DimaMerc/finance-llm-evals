@@ -70,8 +70,9 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
             raise RuntimeError("LM Studio reports no loaded model. Load one and Start Server.")
         model_id = ms[0]
     url = endpoint.rstrip("/") + "/chat/completions"
-    payload = {"model": model_id, "messages": messages, "max_tokens": max_tokens,
-               "temperature": temperature, "stream": stream}
+    payload = {"model": model_id, "messages": messages, "max_tokens": max_tokens, "stream": stream}
+    if temperature is not None:                  # some newer models deprecate `temperature` -> omit it
+        payload["temperature"] = temperature
     try:
         if not stream:
             return _post(url, payload, timeout, api_key=api_key)["choices"][0]["message"]["content"], model_id
@@ -103,11 +104,22 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
             stats["content_chars"] = sum(len(p) for p in parts)
         return "".join(parts), model_id
     except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", "ignore")
+        except Exception:
+            pass
+        if e.code == 400 and temperature is not None and "temperature" in body.lower():
+            # some newer models (e.g. Claude opus-4-8 via the OpenAI-compat endpoint) reject the
+            # `temperature` field outright -> retry without it
+            return chat(messages, endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
+                        temperature=None, stream=stream, timeout=timeout, deadline=deadline,
+                        stats=stats, api_key=api_key, _folded=_folded)
         if e.code == 400 and not _folded and any(m.get("role") == "system" for m in messages):
             return chat(_fold_system(messages), endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
                         temperature=temperature, stream=stream, timeout=timeout, deadline=deadline,
                         stats=stats, api_key=api_key, _folded=True)
-        raise
+        raise urllib.error.HTTPError(e.url, e.code, f"{e.reason}: {body[:300]}", e.headers, None)
 
 
 # ---------------- fetch the press release text ----------------
