@@ -188,3 +188,65 @@ protection asserted with no forgone-upside cost = auto-fail) as the signature.
 - [x] **PAPER.md v2**: the suite framing + eval-#2 design + the two-model findings +
       calibration, fact-checked against the artifacts by a 2-agent verification pass
       (4 blockers fixed pre-commit, incl. a same-lineage honesty fix on the N=2 claim).
+
+---
+
+# Eval #3 — Discounted-cash-flow valuation  *(the most-used model in research/AM/PE; same repo, same machinery)*
+
+The valuation every analyst runs and the one most often quietly wrong: project unlevered
+free cash flow, discount at WACC, capitalize a terminal value, **bridge enterprise value to
+equity**, divide by shares. The output is a closed-form consequence of a handful of inputs,
+so it is perfectly recomputable — and the failure modes are precise. The signature is **the
+DCF that looks right and is wrong**: a clean per-share number built on one corrupting error
+(unlevered FCF discounted at the cost of equity; `g ≥ WACC`; or EV divided by shares with no
+net-debt bridge). The discriminator the eval rewards is **internal consistency + assumption
+discipline**, not arithmetic fluency. The signature gate is **`GATE.FALSEPRECISION`** — a
+deterministic predicate that auto-fails a decimal-precise target on a 70%-terminal model
+with no sensitivity block (the DCF analog of eval #2's free-lunch).
+
+## Phase 1 — Workflow decomposition  → `workflow/dcf-analysis.md`  ✅ done
+- [x] Define the task (inputs: 10-K + oracle assumption set + dated market snapshot +
+      valuation-claim set; the analyst's real steps; the citation-anchored valuation memo).
+- [x] **17 checkpoints** (P1–P3 planning · E1–E5 extraction · C1–C7 calculation ·
+      S1–S3 synthesis), calculation-heavy, each independently scorable and chainable e2e.
+- [x] Grading routed per checkpoint (deterministic DCF math · hybrid value+entailment ·
+      label-det + derivation-judge for the E5 WACC refusal probe · judge for S1–S3).
+- [x] Gate ledger across three tiers: **hard** (`GATE.BASIS` unlevered↔WACC↔EV↔bridge
+      consistency, firing at P1 **and** C5; `GATE.SCALE` units) · **scoped** (`GATE.WACC`
+      → `[C3,C4,C5.ev]`; `GATE.BRIDGE` → `[C6,S1]`; `GATE.FALSEPRECISION` → `[S2,S3]`) ·
+      **in-checkpoint** (`GATE.C1FCF`, `GATE.C4TERM`, `GATE.C7SIGN`) · `GATE.FABRICATION` reused.
+- [x] Tolerance table (exact-rounding base lines · 0.5%-rel FCF/PV/EV · 5-bp WACC ·
+      1.0%-rel per-share with `level_ref`) and a full failure-taxonomy table.
+- [x] Running example: **McDonald's FY2025** (CIK 63908, accession 0000063908-26-000035).
+
+> Adversarially reviewed pre-commit by a 2-agent pass (finance-correctness + eval-design).
+> Formula spine confirmed correct (FCFF/WACC/Gordon-TV/bridge/conventions). Fixes applied:
+> 4 anchor/convention corrections (net debt ~$36B→~$39B filed-derived; diluted shares
+> 718M→716.4M FY2025; **lease treatment pinned to `operating`** — the load-bearing bridge
+> choice for a franchiser; equity-method-investment add-back named); 2 doc-honesty blockers
+> (Phase 4 adds **two** literal `_EXPANSIONS` keys — `per_year_row`/`per_grid_cell` — not
+> "no engine surgery"; `GATE.WACC` targets the `C5.ev` sub-atom, sparing `C5.consistency`/
+> `C5.tvshare`); plus run-mode-dependent E5 credit, a `C3.n_convention` penalty atom, the
+> `deciding_kind` carry-forward at C7, and the signature-case blast-radius note.
+
+## Phase 2 — Rubric  → `rubric/criteria-dcf.yaml` + `rubric/rubric-dcf.md`  ⏳ next
+- [ ] Turn each checkpoint's success criteria into gated, weighted atoms on the existing
+      `criteria.yaml` schema (no schema change); set calculation-heavy weights.
+- [ ] Encode the gate ledger as deterministic predicates; `GATE.FALSEPRECISION` predicated
+      on the structured sensitivity block; tolerances into `tolerances:`.
+- [ ] Document the E5 typed-answer extension + `false_precision_fired` flag in `judge.md`.
+- [ ] `validate.py` linter (invariant assertions) + a reproducible worked example.
+
+## Phase 3 — Gold cases  → `cases/`  ⏳
+- [ ] MCD FY2025 gold: every base line + bridge item cited to the 10-K, the assumption set
+      as the labeled oracle layer, the closed-form DCF math as gold.
+- [ ] The **signature "subtly-wrong DCF"** case — headline variant = the missing net-debt
+      bridge (scoped, looks-right-is-wrong); basis-mix + `g≥WACC` as catastrophic contrast.
+
+## Phase 4 — Harness suite  → `harness/suites/dcf.py`  ⏳
+- [ ] Suite module (projection / WACC / discounting / TV / EV / bridge / sensitivity / claims
+      handlers + the `GATE.FALSEPRECISION` predicate). Two `_EXPANSIONS` keys appended;
+      evals #1–2 byte-invariant (guarded by `selftest`).
+
+## Phase 5 — Graded runs + write-up  → `outputs/` + `PAPER.md`  ⏳
+- [ ] Run frontier + local models through both run modes; grade; extend the taxonomy and PAPER.
