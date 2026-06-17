@@ -95,8 +95,10 @@ The two strong models do textbook DCF correctly — no gate fires, the whole cal
 fair value ~$228 (gold $227.82). The weak model's reported free cash flow **doesn't equal its own
 build** (a +$2B/yr offset); the FCF-definition gate flags exactly that at C1, and the error cascades
 into a wrong $138 valuation — one slip, surfaced and localized. The most consistent behavior across all
-three: they **reflexively refuse the WACC** ("not in the filing") rather than compute it from the
-components they were handed. And — as on both prior evals — the first real models surfaced **five
+three is a subtle one (and the opposite of a capability gap): they **compute the discount rate
+correctly** inside the model (~7.15%) and discount with it, yet, asked "what is the WACC *per the
+10-K*?", answer "not disclosed" without volunteering the figure they just derived — a framing quirk the
+eval isolates. And — as on both prior evals — the first real models surfaced **five
 grader bugs** the synthetic tests were written around; all fixed, all re-graded, the oracle still
 1.000/AllPass. Full matrix, traces, and the calibration log:
 [`outputs/eval3-live/`](outputs/eval3-live/).

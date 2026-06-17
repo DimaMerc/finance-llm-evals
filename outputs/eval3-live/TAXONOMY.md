@@ -25,10 +25,13 @@ built WACC from the components, discounted, capitalized the terminal value, **br
 divided by diluted shares** — landing the fair value at ~$228 (gold $227.82) and the ~20%-overvalued
 read. No gate fires; the entire C1–C6 calculation spine is clean. The residuals are calibration and
 form, not correctness:
-- **Both refused the WACC probe** (`NOT_DISCLOSED`, "no 10-K states a WACC") rather than **computing**
-  it from the components they were handed — a mild over-caution. The mock judge awards 0.75; the
-  run-mode-aware live judge (judge.md §9.1) would score a refusal *below* 0.75 when the components are
-  in context, since the better answer is the derived 7.15%.
+- **Both computed the WACC correctly inside the valuation** (C2: Ke 7.80% + after-tax Kd 3.768% on
+  market weights = **7.15%**, exact) and discounted with it — but on the separate E5 probe ("what is the
+  WACC, *per its 10-K*?") both answered `NOT_DISCLOSED` ("no 10-K states a WACC"), *without volunteering
+  the 7.15% they had just computed*. The disclosure answer is true; not offering the figure is the
+  calibration quirk. The mock awards the grounded refusal 0.75; the run-mode-aware live judge
+  (judge.md §9.1) scores it *below* 0.75 when the components are in context, since the more useful
+  answer pairs the (correct) "not in the filing" with the derived value.
 - **Opus reported a 1-D WACC sweep, not the full 2-D WACC×g grid** (3/9 cells — the base-g column,
   computed correctly: 261.5/227.8/200.8 vs gold 262/228/201).
 - **Opus graded one assumption-contingent claim (CL2, "overvalued by ~a fifth") as flatly `ACCURATE`**,
@@ -43,14 +46,19 @@ cause there — the wrong FCFF then propagates into a wrong EV and a fair value 
 $228**, dragging C3/C4/C5/C6/C7 down (numerical 0.646). One localized arithmetic slip, surfaced and
 localized, is the whole point of the in-checkpoint gate.
 
-## A note on the strong models' refusal
+## A note on the WACC probe (it is NOT a capability gap)
 
-All three models flagged the WACC as "not in the filing" instead of computing it from the supplied
-components. The probe is built to reward the derived answer (the components were provided and the
-question was asked); a reflexive "not disclosed" is the calibrated-refusal *over-correction*. That
-frontier models default to refusal here — rather than do the (provided-component) arithmetic — is the
-single most consistent cross-model behavior in the run, and the one place the calculation-heavy design
-hands the most weight to the live judge's run-mode mapping.
+The most consistent cross-model behavior is easy to misread, so state it precisely: **all three
+*computed* the discount rate correctly inside the model** (C2 WACC ≈ 7.15% from the components) and
+discounted with it — the valuation arithmetic was right. The E5 probe is a *separate* calibrated-refusal
+question — "what is the WACC, **per its 10-K**?" — and all three answered "it is not disclosed," which
+is true (no 10-K states a WACC). What they did *not* do is volunteer the 7.15% they had just computed
+two steps earlier. So this is a **framing/context-dependence quirk** — they do the work but won't claim
+the number when asked about the *document* rather than asked to *use* it — not an inability to compute
+a discount rate. It is also the one place the calculation-heavy design hands real weight to the live
+judge's run-mode mapping (a "not disclosed" that ignores the in-context components should score below a
+grounded refusal). *(Note: the probe's "per its 10-K" phrasing makes `NOT_DISCLOSED` defensible; a
+sharper probe would ask the model to estimate the WACC from the provided inputs — a Phase-6 refinement.)*
 
 ## Grader calibration — 5 contract gaps the live runs surfaced (all fixed + re-graded)
 

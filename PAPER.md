@@ -38,8 +38,10 @@ swapping the mock judge for a real one moves eval-#2 scores by only 2–4.5 poin
 verdicts finds no overturned verdict (28/28, κ = 1.0, with caveats stated). On the DCF eval, three
 frontier models split as the design predicts: two strong models do textbook DCF correctly (no gate
 fires; the calculation spine scores ~0.98), while a weaker one trips the FCF-definition gate on a real
-FCFF-arithmetic error the eval localizes to a single checkpoint — and all three reflexively *refuse*
-the WACC probe rather than compute it from the supplied components.
+FCFF-arithmetic error the eval localizes to a single checkpoint. All three *compute* the discount rate
+correctly inside the valuation (~7.15%) yet, asked "what is the WACC *per the 10-K*?", answer "not
+disclosed" without volunteering the figure they just derived — a framing/calibration quirk the eval
+isolates, not a capability gap.
 
 ## 1. Motivation
 
@@ -260,11 +262,14 @@ judge:
   not equal its own build (a +$2.0B/yr offset); `GATE.C1FCF` flags exactly that internal inconsistency
   at C1, and the wrong FCFF cascades into a $138 fair value (vs the correct $228) — the math-spine
   category drops from 0.98 to 0.65 while a single in-checkpoint gate points at where it broke.
-- **The most consistent cross-model behavior is over-refusal of a computable figure.** All three
-  flagged the WACC as "not in the filing" rather than computing the 7.15% the supplied components imply.
-  The probe rewards the derived answer; the mock awards a grounded refusal 0.75, and the run-mode-aware
-  live judge (§9 of the judge spec) downgrades a refusal *when the components are in context* — the one
-  place the calculation-heavy design hands the judge real weight.
+- **The most consistent cross-model behavior is a framing quirk, not a capability gap — and it is easy
+  to misread.** All three *computed* the discount rate correctly inside the model (C2 WACC ≈ 7.15% from
+  the components) and discounted with it. The *separate* E5 probe asks "what is the WACC, *per its
+  10-K*?"; all three answered "not disclosed" — true, no 10-K states one — but none volunteered the
+  7.15% they had just derived two checkpoints earlier. They do the work; they will not claim the number
+  when asked about the *document* rather than asked to *use* it. The mock awards the grounded refusal
+  0.75; the run-mode-aware live judge (§9 of the judge spec) downgrades a "not disclosed" *when the
+  components are in context* — the one place the calculation-heavy design hands the judge real weight.
 - **Running real models improved the eval, again.** The runs surfaced five grader-contract gaps — a
   tax-rate reported in percentage points vs the expected fraction (a *false* `GATE.C1FCF` on a model
   whose FCFF was exact), a too-tight tolerance on a *derived* rate, a position-matched sensitivity grid

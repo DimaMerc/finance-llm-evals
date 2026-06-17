@@ -12,7 +12,7 @@ What the three models actually did:
 
 - The third quietly broke the cash-flow math. Its reported free cash flow did not equal its own build - off by about $2B a year. The eval's cash-flow-definition gate caught exactly that, localized it to one step, and the error then cascaded into a $138 valuation instead of $228. One slip, surfaced and pinned.
 
-- The most consistent behavior across all three: they refused to compute the discount rate. Handed every input they needed, all three said "the WACC isn't in the filing" rather than do the arithmetic - the over-cautious cousin of a good instinct.
+- A subtler one, consistent across all three. They computed the discount rate correctly inside the model - 7.15%, to the basis point - and discounted with it. But asked point-blank "what is the WACC, per the 10-K?", all three answered "it isn't in the filing" - true, but without volunteering the number they'd just computed two steps earlier. They can do the arithmetic; they just won't claim it when you ask about the document. A calibration quirk worth knowing - not a capability gap.
 
 And, as on both prior evals, the first real models I ran found bugs in my own grader - five of them, the kind a synthetic test can't see because it is written around the grader's own assumptions. Fixed, re-graded, documented. An eval that can't catch its author's mistakes has no business grading anyone else's.
 
