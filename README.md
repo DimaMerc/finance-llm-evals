@@ -12,7 +12,7 @@ Most finance-LLM demos show a polished answer. This shows the **scoring system**
 answer: the workflow broken into checkpoints, a gating-plus-weighted rubric, gold cases cited to
 SEC filings, and a grader that surfaces exactly *where* — and how badly — a model fails.
 
-**Two evals, one scoring engine:**
+**Three evals, one scoring engine:**
 
 - **Eval #1 — Quarterly earnings analysis.** Digest a 10-Q/earnings release, reconcile the figures,
   benchmark versus consensus, flag what moved. 17 checkpoints, 109 criteria, three gold cases
@@ -23,13 +23,26 @@ SEC filings, and a grader that surfaces exactly *where* — and how badly — a 
   **mid-period buyer actually gets**, verify the marketing claims, and price the protection — with
   the **free-lunch gate** (downside protection asserted with no forgone-upside cost = auto-fail) as
   the signature. 18 checkpoints, 110 criteria, three market-snapshot cases on a real buffer ETF.
+- **Eval #3 — Discounted-cash-flow valuation** *(the most-used model in research, and the one most
+  often quietly wrong)*. Project unlevered free cash flow, discount at WACC, capitalize a terminal
+  value, **bridge enterprise value to equity**, divide by shares — every number a closed-form
+  consequence of a handful of inputs, so it is perfectly recomputable. The signature is **the DCF
+  that looks right and is wrong**: on a real McDonald's FY2025 case the correct fair value is
+  ~$228/share (≈20% overvalued vs the market) while the classic **EV÷shares blunder** (skipping the
+  net-debt bridge) lands at ~$279 — only −2.6% from price, so the *wrong* method looks fair. The
+  consistency spine is the **basis gate** (unlevered cash flow must meet WACC must meet the
+  net-debt bridge), and the calibration signature is the **false-precision gate** (a decimal-precise
+  target on a model that is 80% terminal value, where a 50bp discount-rate move shifts it ±15%,
+  auto-fails). 18 checkpoints, 107 criteria, one real-10-K gold case. *(Runnable now — oracle +
+  11 gate-probing variants; live model runs forthcoming.)*
 
 ## Quickstart (no API key, no setup)
 
 ```bash
-python -m harness suite       # score every gold case in both evals
+python -m harness suite       # score every gold case across all three evals
 python -m harness demo        # grade a known-good and a known-broken answer, side by side
 python -m harness selftest    # sanity check — prints PASSED
+python -m harness run --case mcd-fy2025-dcf --model bridge_omit   # the DCF "looks right, is wrong" gate
 ```
 
 The only dependency is `pyyaml`; the demo and the entire deterministic scoring core run offline.
@@ -42,9 +55,9 @@ A real model is one flag/command away — see [`outputs/eval2-live/`](outputs/ev
 
 | Path | Contents |
 |---|---|
-| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18) |
+| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18 · DCF: 18) |
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
-| [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-Q / 8-K / 497K / N-PORT); **no invented numbers** |
+| [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
 | [`outputs/eval2-live/`](outputs/eval2-live/) | The real graded runs, the failure taxonomy, and the judge-vs-expert calibration |
 
@@ -66,6 +79,26 @@ Running real models also surfaced three calibration bugs in the grader itself �
 synthetic self-test can't see because it's written around the grader's own assumptions. They were
 fixed and everything re-graded; the log is in the taxonomy.
 
+## What the gate taxonomy shows (eval #3, DCF)
+
+Live model runs are the next step, but the DCF eval already demonstrates its discrimination offline:
+a perfect ("oracle") answer scores 1.000/AllPass, and eleven deliberately-flawed variants each trip
+**exactly one** gate, with a blast radius that matches the error's severity. The pattern *is* the
+finding — the eval tells a catastrophic foundational error apart from a localized one:
+
+| Flawed answer | Gate | Gated score | What it shows |
+|---|---|---|---|
+| `basis_mix` — unlevered FCF discounted at the cost of equity | **GATE.BASIS** (hard) | **0.35** | a wrong basis commitment poisons the whole valuation |
+| `basis_late` — the same error *executed* (P1 looks clean) | **GATE.BASIS** (C5 hook) | 0.38 | caught by back-solving the discount rate from the model's own PVs |
+| `scale_slip` — projections mislabeled thousands-vs-millions | **GATE.SCALE** (hard) | 0.73 | ungated stays ~0.99 (the math is consistent); the gate is the story |
+| `bridge_omit` — EV÷shares, net-debt bridge skipped | **GATE.BRIDGE** (scoped) | 0.85 | the signature **localized** red — looks right, is wrong |
+| `false_precision` — decimal target, no sensitivity block | **GATE.FALSEPRECISION** | 0.88 + flag | the calibration signature (80% terminal value, ±15% on 50bp) |
+| `g_explode` (0.94) · `c7_sign` (0.93) · `c1_fcf` (0.81) | in-checkpoint | — | each zeroes only its checkpoint; `c1_fcf` also drags the *ungated* score where the bad FCF flows downstream |
+
+Reproduce any row: `python -m harness run --case mcd-fy2025-dcf --model <name>`. The full design and
+the McDonald's FY2025 gold case are in [`workflow/dcf-analysis.md`](workflow/dcf-analysis.md) and
+[`cases/mcd-fy2025-dcf.case.yaml`](cases/mcd-fy2025-dcf.case.yaml).
+
 ## What the demo shows
 
 `python -m harness demo` grades a model that does Snowflake's analysis **correctly** but misreads
@@ -79,7 +112,8 @@ header.*
 Before any firm lets an AI do analyst work, it needs to know *whether — and exactly where — to
 trust it.* A blended accuracy number can't answer that. This suite catches the errors that quietly
 poison a memo (scale, period, fabrication, GAAP-vs-non-GAAP for earnings; wrong fund vintage,
-strike-scale, stated-vs-remaining terms, and the free lunch for buffer ETFs), localizes each to the
+strike-scale, stated-vs-remaining terms, and the free lunch for buffer ETFs; the levered/unlevered
+basis mix, the missing net-debt bridge, and false precision for a DCF), localizes each to the
 checkpoint that owns it, and tells "looks right" apart from "is right." A firm uses it as an
 **acceptance test** (which model is deployable, and where it needs a guardrail) and a **regression
 test** (did a model/prompt change help or hurt, and where).

@@ -4,7 +4,11 @@
 *Methodology note & findings, v2. The artifact is the runnable repository this paper accompanies:
 [github.com/DimaMerc/finance-llm-evals](https://github.com/DimaMerc/finance-llm-evals). v1 covered the
 earnings eval alone; v2 adds the defined-outcome ETF eval, a two-model run matrix, the live failure
-taxonomy, and the judge-vs-expert calibration.*
+taxonomy, and the judge-vs-expert calibration. A third eval — **discounted-cash-flow valuation** (18
+checkpoints, 107 criteria, a real McDonald's FY2025 gold case; the signature is the EV÷shares "looks
+right, is wrong" bridge blunder and a deterministic false-precision gate) — is complete and runnable
+in the repository (oracle + 11 gate-probing variants, design in [`workflow/dcf-analysis.md`]); its live
+model runs and findings will be folded into v3.*
 
 ---
 
