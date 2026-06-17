@@ -63,15 +63,18 @@ suite modules — `graders.py` and `scoring.py` contain **no eval-specific atom 
   offline so the whole pipeline runs with no key and no spend; `--judge llm` is the live swap that
   uses [`../rubric/judge.md`](../rubric/judge.md) (eval #2's §8 documents the `COMPUTED` G-mapping).
 - **The model under test** — the offline variants build the answer from the gold (perfect, or with
-  a specific injected error). `--model live` drives a local LM Studio endpoint for **both suites**:
-  the earnings path ([`live.py`](live.py)) fetches the press release; the defined-outcome path
+  a specific injected error). `--model live` drives an **OpenAI-compatible endpoint** — a local
+  LM Studio server (default, no key) **or a frontier API** (set `OPENAI_API_KEY` / `OPENROUTER_API_KEY`
+  and pass `--endpoint`/`--model-id`) — for **all three suites**: the earnings path
+  ([`live.py`](live.py)) fetches the press release; the defined-outcome path
   ([`live_defined_outcome.py`](live_defined_outcome.py)) builds the two-filing packet (the 497K
   excerpted by section anchors + the N-PORT slimmed to its identity/holdings blocks; EDGAR-fetched
-  with a `.edgar_tmp/` cache fallback), at ~10k prompt tokens in the default oracle-packet mode.
-  `--e2e` adds the sibling-vintage N-PORTs and the mid-period 497K as live distractors (~20k
-  tokens — load the model with a larger context). The live OUTPUT SCHEMA's key paths mirror the
-  case gold exactly, and the selftest **round-trips a schema-perfect answer to 1.000/AllPass** on
-  every defined-outcome case, so the live contract cannot silently drift from the graders.
+  with a `.edgar_tmp/` cache fallback), at ~10k prompt tokens; the DCF path
+  ([`live_dcf.py`](live_dcf.py)) builds the 10-K's three financial statements (income / balance /
+  cash flows, rendered + cleaned, ~2.3k tokens) and feeds the oracle assumption set + the dated
+  snapshot + the claims + the WACC probe. Each live OUTPUT SCHEMA's key paths mirror the case gold
+  exactly, and the selftest **round-trips a schema-perfect answer to 1.000/AllPass** on every
+  defined-outcome and DCF case, so the live contract cannot silently drift from the graders.
 
 ## What the selftest asserts
 

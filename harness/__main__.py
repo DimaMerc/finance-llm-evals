@@ -61,6 +61,10 @@ def cmd_run(a):
                 from . import live_defined_outcome as ldo
                 print(f"[live] building the filings packet{' + distractors (--e2e)' if a.e2e else ''} and calling LM Studio at {a.endpoint} ...")
                 ans = ldo.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens, e2e=a.e2e)
+            elif suite_of(case) == "dcf-valuation":
+                from . import live_dcf
+                print(f"[live] building the 10-K statements packet and calling the model at {a.endpoint} ...")
+                ans = live_dcf.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
             else:
                 from . import live
                 print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
@@ -227,6 +231,16 @@ def _selftest_dcf(p, name):
             and "GATE.FABRICATION" in fab.fired_gates and fab.allpass == 0):
         failures.append(f"{name}: fabricate_probe expected E5->0 (G=0) + GATE.FABRICATION, got "
                         f"E5={fab.checkpoints['E5']['score_gated']} gates={fab.fired_gates}")
+    # live-schema round-trip: a schema-perfect answer (the oracle re-serialized through the live
+    # DCF OUTPUT SCHEMA, JSON-parsed back) must grade 1.000/AllPass — proves the live contract's key
+    # paths stay aligned with the suite handlers (no network involved)
+    import json as _json
+    from . import live_dcf as _ldcf
+    from .live import parse_answer as _parse
+    rt, _ = run_case(p, model_output=_parse(_json.dumps(_ldcf.oracle_to_schema(case))))
+    if not (rt.allpass == 1 and abs(rt.case_gated - 1.0) < 1e-6):
+        failures.append(f"{name}: live-schema round-trip expected 1.0/AllPass, got "
+                        f"gated={rt.case_gated} allpass={rt.allpass} gates={rt.fired_gates}")
     return failures
 
 

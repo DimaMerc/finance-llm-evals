@@ -11,6 +11,7 @@ Uses only the standard library (urllib/json) so there is no extra dependency.
 """
 from __future__ import annotations
 import json
+import os
 import re
 import time
 import urllib.request
@@ -29,21 +30,33 @@ UA = "finance-llm-evals research welt.management.solutions@gmail.com"
 DEFAULT_ENDPOINT = "http://localhost:1234/v1"
 
 
-# ---------------- LM Studio (OpenAI-compatible) client ----------------
-def _post(url, payload, timeout=600):
+# ---------------- OpenAI-compatible client (LM Studio local, or a frontier API) ----------------
+def _headers(api_key=None):
+    """LM Studio needs no auth; a frontier OpenAI-compatible endpoint (OpenAI, OpenRouter, ...) needs a
+    Bearer key. Resolve from the arg or OPENAI_API_KEY/OPENROUTER_API_KEY; omit the header when absent
+    so the local-server path is byte-identical to before."""
+    h = {"Content-Type": "application/json"}
+    key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        h["Authorization"] = "Bearer " + key
+    return h
+
+
+def _post(url, payload, timeout=600, api_key=None):
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=data, headers=_headers(api_key))
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
-def list_models(endpoint=DEFAULT_ENDPOINT):
-    with urllib.request.urlopen(endpoint.rstrip("/") + "/models", timeout=15) as r:
+def list_models(endpoint=DEFAULT_ENDPOINT, api_key=None):
+    req = urllib.request.Request(endpoint.rstrip("/") + "/models", headers=_headers(api_key))
+    with urllib.request.urlopen(req, timeout=15) as r:
         return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", [])]
 
 
 def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000, temperature=0.0,
-         stream=True, timeout=90, deadline=240, stats=None, _folded=False):
+         stream=True, timeout=90, deadline=240, stats=None, api_key=None, _folded=False):
     """Call the OpenAI-compatible chat endpoint. Streaming by default so a long generation trickles
     tokens. `timeout` is the per-read socket timeout; `deadline` is a HARD wall-clock cap on the whole
     call -- the loop breaks past it no matter what, so a stalled/looping server can never hang forever.
@@ -52,7 +65,7 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
     caller can tell 'spent the whole budget thinking' apart from a context overflow.
     On a 400 (some templates, e.g. Gemma, reject a `system` role) we fold system into user and retry."""
     if model_id is None:
-        ms = list_models(endpoint)
+        ms = list_models(endpoint, api_key=api_key)
         if not ms:
             raise RuntimeError("LM Studio reports no loaded model. Load one and Start Server.")
         model_id = ms[0]
@@ -61,9 +74,9 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
                "temperature": temperature, "stream": stream}
     try:
         if not stream:
-            return _post(url, payload, timeout)["choices"][0]["message"]["content"], model_id
+            return _post(url, payload, timeout, api_key=api_key)["choices"][0]["message"]["content"], model_id
         data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=data, headers=_headers(api_key))
         parts, think, t0 = [], 0, time.monotonic()
         with urllib.request.urlopen(req, timeout=timeout) as r:
             for raw in r:                               # SSE: one "data: {...}" line per token chunk
@@ -92,7 +105,8 @@ def chat(messages, *, endpoint=DEFAULT_ENDPOINT, model_id=None, max_tokens=4000,
     except urllib.error.HTTPError as e:
         if e.code == 400 and not _folded and any(m.get("role") == "system" for m in messages):
             return chat(_fold_system(messages), endpoint=endpoint, model_id=model_id, max_tokens=max_tokens,
-                        temperature=temperature, stream=stream, timeout=timeout, deadline=deadline, _folded=True)
+                        temperature=temperature, stream=stream, timeout=timeout, deadline=deadline,
+                        stats=stats, api_key=api_key, _folded=True)
         raise
 
 
