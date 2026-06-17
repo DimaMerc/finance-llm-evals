@@ -1,12 +1,13 @@
 # Harness — Phase 4
 
-A runnable scorer for **both evals in the suite**: it loads each case's rubric
+A runnable scorer for **all three evals in the suite**: it loads each case's rubric
 ([criteria.yaml](../rubric/criteria.yaml) for the earnings eval,
 [criteria-defined-outcome.yaml](../rubric/criteria-defined-outcome.yaml) for the defined-outcome
-ETF eval), grades a model's structured memo against a [gold case](../cases/), and emits the scored
-report the rubric specifies: the **checkpoint vector**, the weighted **CaseScore**, the
-six-category **rollup**, and **gated / ungated / GAP / AllPass** — with the gate tiers applied and
-**headline flags** (eval #2's `free_lunch_fired`) surfaced beside the score.
+ETF eval, [criteria-dcf.yaml](../rubric/criteria-dcf.yaml) for the DCF-valuation eval), grades a
+model's structured memo against a [gold case](../cases/), and emits the scored report the rubric
+specifies: the **checkpoint vector**, the weighted **CaseScore**, the six-category **rollup**, and
+**gated / ungated / GAP / AllPass** — with the gate tiers applied and **headline flags** (eval #2's
+`free_lunch_fired`, eval #3's `false_precision_fired`) surfaced beside the score.
 
 ```bash
 python -m harness list                                   # cases + variants, per suite
@@ -35,7 +36,7 @@ right call, and deliberately so:
 
 So: the deterministic scoring engine is ours and exact; the LLM graders are a pluggable interface.
 
-## Architecture (Phase-4 refactor: one engine, two suites)
+## Architecture (Phase-4 refactor: one engine, three suites)
 
 | Module | Responsibility |
 |---|---|
@@ -44,11 +45,12 @@ So: the deterministic scoring engine is ours and exact; the LLM graders are a pl
 | [`graders.py`](graders.py) | the suite-agnostic grading **engine**: refusal placeholder → suite handlers → penalties → judge/entailment → default, exactly the original flow |
 | [`suites/earnings.py`](suites/earnings.py) | **eval #1**: the original handler chain, penalty detectors, E6 FailSafeQA pass, oracle + flawed variants — behavior-identical to the pre-refactor harness (the selftest asserts it) |
 | [`suites/defined_outcome.py`](suites/defined_outcome.py) | **eval #2**: leg/payoff/recompute/remaining-outcome/claim-verdict handlers, the **E5 `{COMPUTED, value, derivation}` typed refusal** (judge.md §8 G-mapping), the **GATE.FREELUNCH deterministic predicate** on the cost-of-protection block, `deciding_kind`-aware C7 grading, oracle + flawed variants |
+| [`suites/dcf.py`](suites/dcf.py) | **eval #3**: FCFF-projection / WACC / discounting / TV / EV / **EV→equity bridge** / sensitivity-grid / claim-verdict handlers, the **two-hook GATE.BASIS** (the unlevered↔WACC↔EV↔bridge consistency, checked at P1 **and** C5), the **GATE.FALSEPRECISION deterministic predicate** on the value-attribution + sensitivity block (parallel to free-lunch), the **E5 WACC refusal** (undisclosed-but-computable, judge.md §9), `per_year_row`/`per_grid_cell` expansions, oracle + 9 flawed variants |
 | [`scoring.py`](scoring.py) | inner checkpoint score; **data-driven gate firing** (each gate's `fired_by` hooks: positive atoms fire when unmet, penalty atoms when present); blast radius; the refusal `LLMC_β` headline (E6/E5, passed by the suite — never hardcoded); CaseScore, rollup, AllPass, GAP, **headline flags** |
 | [`models.py`](models.py) | routes `make(case, variant)` to the case's suite; `LiveModel` skeleton |
 | [`report.py`](report.py) · [`__main__.py`](__main__.py) | render + CLI (suite-aware list/run/suite/selftest) |
 
-Cases route by their `suite:` field (`defined-outcome-etf`; absent = eval #1). The gate map,
+Cases route by their `suite:` field (`defined-outcome-etf` / `dcf-valuation`; absent = eval #1). The gate map,
 expansion counts, tolerance keys, and the refusal checkpoint all come from the rubric files and the
 suite modules — `graders.py` and `scoring.py` contain **no eval-specific atom ids**.
 
@@ -82,6 +84,19 @@ fires **GATE.FEEBASIS** (scoped, GAP ≈ 0.18); `free_lunch` fires **GATE.FREELU
 `free_lunch_fired` raised, AllPass 0 (GAP ≈ 0.07: the signature finding is a *flag*, not a big
 number); `fabricate_probe` zeroes the E5 headline (G=0) and fires GATE.FABRICATION; `c6_flip`
 fires GATE.C6DIR (in-checkpoint, C6 → 0).
+
+Eval #3 (1 DCF case): oracle 1.000/AllPass with no flags; `basis_mix` fires **GATE.BASIS** (hard,
+GAP ≈ 0.62 — the unlevered/levered commitment *declared* at P1 poisons everything); `basis_late`
+fires **GATE.BASIS** via the C5 hook (the *executed* Ke-discount — caught even though P1 is clean and
+no discount_factor field betrays it, by back-solving the rate from the model's own PV/FCFF);
+`scale_slip` fires **GATE.SCALE**
+(hard, GAP ≈ 0.26, ungated stays ~0.99); `wacc_slip` fires **GATE.WACC** (scoped, GAP ≈ 0.14);
+`bridge_omit` fires **GATE.BRIDGE** — C6 + S1 zero (GAP ≈ 0.035: the EV/share blunder is a *localized*
+red on an otherwise-green valuation, the signature looks-right-is-wrong case); `false_precision`
+fires **GATE.FALSEPRECISION** — S2 + S3 zero, `false_precision_fired` raised, AllPass 0 (GAP ≈ 0.07);
+`g_explode` fires **GATE.C4TERM** (in-checkpoint, C4 → 0); `c7_sign` fires **GATE.C7SIGN** (C7 → 0);
+`c1_fcf` fires **GATE.C1FCF** (C1 → 0); `fabricate_probe` zeroes the E5 headline (G=0) and fires
+GATE.FABRICATION.
 
 ## What the demo shows
 

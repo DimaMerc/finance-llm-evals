@@ -243,16 +243,27 @@ with no sensitivity block (the DCF analog of eval #2's free-lunch).
 - [ ] The **signature "subtly-wrong DCF"** case — headline variant = the missing net-debt
       bridge (scoped, looks-right-is-wrong); basis-mix + `g≥WACC` as catastrophic contrast.
 
-## Phase 4 — Harness suite  → `harness/suites/dcf.py`  ⏳
-- [ ] Suite module (projection / WACC / discounting / TV / EV / bridge / sensitivity / claims
+## Phase 4 — Harness suite  → `harness/suites/dcf.py`  ✅ done
+- [x] Suite module (projection / WACC / discounting / TV / EV / bridge / sensitivity / claims
       handlers + the `GATE.FALSEPRECISION` predicate), exposing `REFUSAL_CP = "E5"` and
-      `LLM_JUDGE_CPS = {S1,S2,S3}` so `run_case` threads `refusal_cp='E5'` into `score()`
-      (required for the E5 F-β substitution + the AllPass E5-exclusion to fire — default is E6).
-- [ ] Register the suite: `'dcf-valuation': 'criteria-dcf.yaml'` in `harness/rubric.py`
-      `SUITE_RUBRICS`, and `for_case` in `harness/suites/__init__.py`.
-- [ ] Add the two `_EXPANSIONS` keys (`per_year_row`, `per_grid_cell`) so C1.fcff / C3.pv /
-      C7.grid split per-row (until then they grade single-lump); evals #1–2 byte-invariant
-      (guarded by `selftest`).
+      `LLM_JUDGE_CPS = {S2,S3}` so `run_case` threads `refusal_cp='E5'` into `score()`.
+- [x] Registered the suite (`'dcf-valuation'` in `SUITE_RUBRICS` + `for_case`); added the two
+      `_EXPANSIONS` keys (`per_year_row`, `per_grid_cell`) — 139 materialized atoms, per-row split.
+- [x] Oracle 1.000/AllPass; 11 variants each fire EXACTLY their gate (basis_mix BASIS-P1-hook /
+      basis_late BASIS-C5-hook / scale_slip SCALE / wacc_slip WACC / bridge_omit BRIDGE /
+      false_precision FALSEPRECISION+flag / g_explode C4TERM / c7_sign C7SIGN / c1_fcf C1FCF /
+      fabricate_probe FABRICATION). Evals #1–2 byte-invariant (selftest: 3+3+1 suites pass).
+
+> Adversarially reviewed by a 2-agent pass (gate-gaming probes + engine parity). Parity confirmed
+> (byte-invariant, no default-present leaks, coverage complete, refusal_cp threading correct). Fixed
+> 2 blockers + 5 gaming soft spots — all re-tested as caught: the two-hook GATE.BASIS was evadable
+> (C5 hook defaulted-pass when discount_factor was omitted; P1 hook disarmed by a stray 'wacc' token)
+> — rewrote C5.consistency to back-solve the discount rate from the model's own PV/FCFF
+> (convention-aware) and P1.consistency to check structured fields; the P3.terminal g-match was a
+> dead `within(...) is not None`; C6.bridge was beatable by zeroing net debt; `_meaty` let stub
+> sensitivity blocks pass GATE.FALSEPRECISION (now require a real numeric range); E5 awarded G=1.0 on
+> a content-free derivation (now require named CAPM inputs); C7.sign/C4.gterm trusted labels (now
+> derive the sign/TV-sign from the model's own numbers); plus brittle-substring oracle-overfit fixes.
 
 ## Phase 5 — Graded runs + write-up  → `outputs/` + `PAPER.md`  ⏳
 - [ ] Run frontier + local models through both run modes; grade; extend the taxonomy and PAPER.

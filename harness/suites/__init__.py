@@ -10,8 +10,12 @@ from ..rubric import suite_of
 
 
 def for_case(case: dict):
-    if suite_of(case) == "defined-outcome-etf":
+    s = suite_of(case)
+    if s == "defined-outcome-etf":
         from . import defined_outcome
         return defined_outcome
+    if s == "dcf-valuation":
+        from . import dcf
+        return dcf
     from . import earnings
     return earnings

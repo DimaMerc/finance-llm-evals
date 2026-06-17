@@ -148,6 +148,7 @@ gold:
     currency: USD
     units: millions
     fcf_basis: unlevered_FCFF
+    discount_rate_for_fcff: WACC                          # the structured basis commitment (GATE.BASIS P1 hook)
     output_chain: "FCFF -> WACC -> EV -> bridge -> equity -> per_share"
     horizon_years: 5
     terminal_method: gordon
@@ -313,7 +314,7 @@ gold:
     no_false_precision: "the fair value is a RANGE (~$201-$262 over a +-50bp WACC band), not a single decimal-precise truth"
     risk_read: [terminal_dominance, discount_rate_sensitivity, mature_low_growth_franchiser, negative_book_equity_is_buybacks]
   S3:
-    bottom_line_reference: "On a conservative base case (4% growth, 7.15% WACC, 2.5% terminal g) MCD's DCF fair value is ~$228, about a fifth below the ~$286 market price — but 80%+ of that value is terminal, so the call hinges on the discount rate: a 50bp lower WACC lifts fair value to ~$262 and narrows the gap to single digits. The market is effectively pricing a lower discount rate and/or faster durable growth than this base case. The verdict is 'modestly overvalued on these assumptions,' explicitly NOT a precise target."
+    bottom_line_reference: "On a conservative base case (4% growth, 7.15% WACC, 2.5% terminal g), MCD's DCF fair value is ~$228 per share, about a fifth below the ~$286 market price. But 80%+ of that value is terminal, so the call hinges on the discount rate: a 50bp lower WACC lifts fair value to ~$262 and narrows the gap to single digits. The market is effectively pricing a lower discount rate and/or faster durable growth than this base case. The verdict is 'modestly overvalued on these assumptions,' explicitly NOT a precise target."
     assumption_conditional: true
     diligence_floor: [cyclicality_of_systemwide_sales, leverage_and_lease_load, capex_normalization, trading_multiple_cross_check]
     not_determinable_items: ["the company's own WACC (no filed discount rate — constructed from market inputs)", "all forecast assumptions are oracle, not filed"]

@@ -10,8 +10,8 @@ harness/__main__.py — CLI.
 
 `--judge mock` (default, offline/no-API) grades the entailment/judge/refusal atoms heuristically;
 `--judge llm` is the (spend-incurring) live swap. The deterministic core + all gating are exact in
-both modes. Cases route to their suite (eval #1 earnings / eval #2 defined-outcome) by the case
-file's `suite:` field; `--model` accepts that suite's variants.
+both modes. Cases route to their suite (eval #1 earnings / eval #2 defined-outcome / eval #3 dcf) by
+the case file's `suite:` field; `--model` accepts that suite's variants.
 """
 from __future__ import annotations
 import argparse
@@ -170,16 +170,77 @@ def _selftest_defined_outcome(p, name):
     return failures
 
 
+_DCF_VERDICT_ENUM = {"ACCURATE", "ACCURATE_ON_BASE_CASE_ONLY", "WRONG_BASIS", "FALSE", "NOT_VERIFIABLE"}
+
+
+def _selftest_dcf(p, name):
+    """eval #3 invariants: oracle perfection + every gate tier + the false-precision headline flag."""
+    failures = []
+    case = load_case(p)
+    bad = [r.get("id") for r in (case.get("gold", {}).get("C7", {}).get("verdicts") or [])
+           if not (isinstance(r.get("verdict"), str) and r["verdict"] in _DCF_VERDICT_ENUM)]
+    if bad:
+        failures.append(f"{name}: C7 gold verdicts not enum strings (YAML boolean?): {bad}")
+    oracle, _ = run_case(p, variant="oracle")
+    if not (oracle.allpass == 1 and abs(oracle.case_gated - 1.0) < 1e-6 and oracle.gap == 0.0
+            and not oracle.flags):
+        failures.append(f"{name}: oracle expected 1.0/AllPass/no-flags, got gated={oracle.case_gated} "
+                        f"allpass={oracle.allpass} gates={oracle.fired_gates} flags={oracle.flags}")
+    bm, _ = run_case(p, variant="basis_mix")
+    if not ("GATE.BASIS" in bm.fired_gates and bm.gap > 0.5 and bm.allpass == 0):
+        failures.append(f"{name}: basis_mix expected GATE.BASIS + GAP>0.5, got gates={bm.fired_gates} gap={bm.gap}")
+    bl, _ = run_case(p, variant="basis_late")   # the EXECUTED Ke-discount, caught at the C5 hook
+    if not ("GATE.BASIS" in bl.fired_gates and bl.allpass == 0):
+        failures.append(f"{name}: basis_late expected GATE.BASIS (C5 hook), got gates={bl.fired_gates}")
+    ss, _ = run_case(p, variant="scale_slip")
+    if not ("GATE.SCALE" in ss.fired_gates and ss.gap > 0.2 and ss.allpass == 0):
+        failures.append(f"{name}: scale_slip expected GATE.SCALE + GAP>0.2, got gates={ss.fired_gates} gap={ss.gap}")
+    ws, _ = run_case(p, variant="wacc_slip")
+    if "GATE.WACC" not in ws.fired_gates:
+        failures.append(f"{name}: wacc_slip expected GATE.WACC (scoped), got {ws.fired_gates}")
+    bo, _ = run_case(p, variant="bridge_omit")
+    if not ("GATE.BRIDGE" in bo.fired_gates and bo.checkpoints["C6"]["score_gated"] == 0.0
+            and bo.checkpoints["S1"]["score_gated"] == 0.0):
+        failures.append(f"{name}: bridge_omit expected GATE.BRIDGE + C6/S1->0, got gates={bo.fired_gates} "
+                        f"C6={bo.checkpoints['C6']['score_gated']} S1={bo.checkpoints['S1']['score_gated']}")
+    fp, _ = run_case(p, variant="false_precision")
+    if not ("GATE.FALSEPRECISION" in fp.fired_gates and "false_precision_fired" in fp.flags
+            and fp.checkpoints["S2"]["score_gated"] == 0.0 and fp.checkpoints["S3"]["score_gated"] == 0.0
+            and fp.allpass == 0):
+        failures.append(f"{name}: false_precision expected GATE.FALSEPRECISION + flag + S2/S3->0, got "
+                        f"gates={fp.fired_gates} flags={fp.flags} S2={fp.checkpoints['S2']['score_gated']} "
+                        f"S3={fp.checkpoints['S3']['score_gated']}")
+    ge, _ = run_case(p, variant="g_explode")
+    if not ("GATE.C4TERM" in ge.fired_gates and ge.checkpoints["C4"]["score_gated"] == 0.0):
+        failures.append(f"{name}: g_explode expected GATE.C4TERM + C4->0, got gates={ge.fired_gates} "
+                        f"C4={ge.checkpoints['C4']['score_gated']}")
+    cs, _ = run_case(p, variant="c7_sign")
+    if not ("GATE.C7SIGN" in cs.fired_gates and cs.checkpoints["C7"]["score_gated"] == 0.0):
+        failures.append(f"{name}: c7_sign expected GATE.C7SIGN + C7->0, got gates={cs.fired_gates} "
+                        f"C7={cs.checkpoints['C7']['score_gated']}")
+    cf, _ = run_case(p, variant="c1_fcf")
+    if not ("GATE.C1FCF" in cf.fired_gates and cf.checkpoints["C1"]["score_gated"] == 0.0):
+        failures.append(f"{name}: c1_fcf expected GATE.C1FCF + C1->0, got gates={cf.fired_gates} "
+                        f"C1={cf.checkpoints['C1']['score_gated']}")
+    fab, _ = run_case(p, variant="fabricate_probe")
+    if not (fab.e6[1] == 0.0 and fab.checkpoints["E5"]["score_gated"] == 0.0
+            and "GATE.FABRICATION" in fab.fired_gates and fab.allpass == 0):
+        failures.append(f"{name}: fabricate_probe expected E5->0 (G=0) + GATE.FABRICATION, got "
+                        f"E5={fab.checkpoints['E5']['score_gated']} gates={fab.fired_gates}")
+    return failures
+
+
 def cmd_selftest(_):
     """Regression guard, per suite: oracle must AllPass at 1.0; the gate tiers must open the
-    expected GAPs; eval #2 adds the free-lunch headline flag and the E5 typed-refusal invariants."""
-    failures, n1 = [], {"earnings-analysis": 0, "defined-outcome-etf": 0}
+    expected GAPs; eval #2 adds the free-lunch headline flag, eval #3 the false-precision flag."""
+    failures, n1 = [], {"earnings-analysis": 0, "defined-outcome-etf": 0, "dcf-valuation": 0}
+    dispatch = {"defined-outcome-etf": _selftest_defined_outcome, "dcf-valuation": _selftest_dcf}
     for p in _cases():
         case = load_case(p)
         name = os.path.basename(p).replace(".case.yaml", "")
         s = suite_of(case)
         n1[s] = n1.get(s, 0) + 1
-        failures += (_selftest_defined_outcome if s == "defined-outcome-etf" else _selftest_earnings)(p, name)
+        failures += dispatch.get(s, _selftest_earnings)(p, name)
     if failures:
         print("SELFTEST FAILED:")
         for f in failures:
@@ -188,7 +249,9 @@ def cmd_selftest(_):
     print(f"SELFTEST PASSED: {n1.get('earnings-analysis', 0)} earnings cases x "
           f"oracle/scale_slip/fabricate_probe/basis_mismatch + {n1.get('defined-outcome-etf', 0)} "
           f"defined-outcome cases x oracle/vintage_slip/refscale_slip/feebasis_mix/free_lunch/"
-          f"fabricate_probe/c6_flip invariants hold.")
+          f"fabricate_probe/c6_flip + {n1.get('dcf-valuation', 0)} dcf cases x oracle/basis_mix/"
+          f"scale_slip/wacc_slip/bridge_omit/false_precision/g_explode/c7_sign/c1_fcf/fabricate_probe "
+          f"invariants hold.")
 
 
 def cmd_demo(_):
@@ -209,7 +272,8 @@ def main():
     sub.add_parser("list").set_defaults(fn=cmd_list)
     r = sub.add_parser("run"); r.add_argument("--case", required=True); r.add_argument("--model", default="oracle",
         help="eval #1: oracle | scale_slip | fabricate_probe | flip_eps_beat | basis_mismatch | live ; "
-             "eval #2: oracle | vintage_slip | refscale_slip | feebasis_mix | free_lunch | fabricate_probe | c6_flip")
+             "eval #2: oracle | vintage_slip | refscale_slip | feebasis_mix | free_lunch | fabricate_probe | c6_flip ; "
+             "eval #3: oracle | basis_mix | basis_late | scale_slip | wacc_slip | bridge_omit | false_precision | g_explode | c7_sign | c1_fcf | fabricate_probe")
     r.add_argument("--all", action="store_true"); r.add_argument("--judge", default="mock", choices=["mock", "llm"])
     r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
     r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")

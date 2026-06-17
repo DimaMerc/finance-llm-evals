@@ -21,6 +21,7 @@ RUBRIC_PATH = os.path.join(REPO, "rubric", "criteria.yaml")
 SUITE_RUBRICS = {
     "earnings-analysis": "criteria.yaml",
     "defined-outcome-etf": "criteria-defined-outcome.yaml",
+    "dcf-valuation": "criteria-dcf.yaml",
 }
 DEFAULT_SUITE = "earnings-analysis"
 
@@ -66,6 +67,9 @@ _EXPANSIONS = {
     "per_leg_row":     ("leg_rows", "row", "leg"),
     "per_grid_row":    ("grid_rows", "row", "grid"),
     "per_claim_row":   ("claim_rows", "row", "claim"),
+    # eval #3 (DCF) additions — additive, byte-invariant for evals #1-2:
+    "per_year_row":    ("year_rows", "year", "year"),    # C1.fcff / C3.pv (one per projected year)
+    "per_grid_cell":   ("grid_cells", "cell", "cell"),   # C7.grid (WACC x g sensitivity cells)
 }
 
 
