@@ -1,14 +1,12 @@
-# A Runnable, Rubric-Graded Evaluation Suite for Finance LLMs: Earnings Analysis and Defined-Outcome ETF Diligence
+# A Runnable, Rubric-Graded Evaluation Suite for Finance LLMs: Earnings Analysis, Defined-Outcome ETF Diligence, and DCF Valuation
 
 **Dmitry Krutous** · MBA, PMP · [linkedin.com/in/dmitrykrutous](https://www.linkedin.com/in/dmitrykrutous/) · welt.management.solutions@gmail.com
-*Methodology note & findings, v2. The artifact is the runnable repository this paper accompanies:
+*Methodology note & findings, v3. The artifact is the runnable repository this paper accompanies:
 [github.com/DimaMerc/finance-llm-evals](https://github.com/DimaMerc/finance-llm-evals). v1 covered the
-earnings eval alone; v2 adds the defined-outcome ETF eval, a two-model run matrix, the live failure
-taxonomy, and the judge-vs-expert calibration. A third eval — **discounted-cash-flow valuation** (18
-checkpoints, 107 criteria, a real McDonald's FY2025 gold case; the signature is the EV÷shares "looks
-right, is wrong" bridge blunder and a deterministic false-precision gate) — is complete and runnable
-in the repository (oracle + 11 gate-probing variants, design in [`workflow/dcf-analysis.md`]); its live
-model runs and findings will be folded into v3.*
+earnings eval; v2 added the defined-outcome ETF eval with a two-model run matrix and a judge-vs-expert
+calibration; **v3 adds the discounted-cash-flow valuation eval** (18 checkpoints, 107 criteria, a real
+McDonald's FY2025 gold case; the signature is the EV÷shares "looks right, is wrong" bridge blunder and
+a deterministic false-precision gate), run live against three frontier models.*
 
 ---
 
@@ -24,15 +22,24 @@ workflow almost nobody publishes evals for: **defined-outcome ("buffer") ETF dil
 prospectus, the fund's actual FLEX-option legs from its N-PORT filing, and a dated market snapshot,
 recompute the marketed cap and buffer *from the strikes*, compute what a **mid-period buyer actually
 gets**, verify marketing claims, and price the protection (a memo asserting downside protection with no
-forgone-upside cost auto-fails: the **free-lunch gate**). Both evals run on one scoring engine;
-everything deterministic is graded deterministically, and the LLM judge is confined to the synthesis
-tier. Live runs of two local models produce the intended diagnostics: a reasoning 27B beats a
-non-reasoning 72B on every defined-outcome case; both subjects — two model generations of one vendor
+forgone-upside cost auto-fails: the **free-lunch gate**). **Eval #3** scores **discounted-cash-flow
+valuation** — project unlevered free cash flow, discount at WACC, capitalize a terminal value, **bridge
+enterprise value to equity**, divide by shares — where the signature error is the EV÷shares blunder
+that skips the net-debt bridge (on the gold case it lands at $279, only 2.6% from the market price,
+while the correct method says ~$228, ~20% overvalued), and a deterministic **false-precision gate**
+auto-fails a decimal-precise target on a model that is 80% terminal value. All three evals run on one
+scoring engine; everything deterministic is graded deterministically, and the LLM judge is confined to
+the synthesis tier. Live runs of two local models produce the intended diagnostics: a reasoning 27B
+beats a non-reasoning 72B on every defined-outcome case; both subjects — two model generations of one vendor
 lineage — walk into the same payoff-table convention trap (suggestive that it is task-level;
 cross-family replication is named future work); the designed mid-period traps catch their targets; and
 swapping the mock judge for a real one moves eval-#2 scores by only 2–4.5 points versus 14.7 on eval #1
 — the calculation-heavy design working as intended. A judge-vs-expert calibration on the free-form
-verdicts finds no overturned verdict (28/28, κ = 1.0, with caveats stated).
+verdicts finds no overturned verdict (28/28, κ = 1.0, with caveats stated). On the DCF eval, three
+frontier models split as the design predicts: two strong models do textbook DCF correctly (no gate
+fires; the calculation spine scores ~0.98), while a weaker one trips the FCF-definition gate on a real
+FCFF-arithmetic error the eval localizes to a single checkpoint — and all three reflexively *refuse*
+the WACC probe rather than compute it from the supplied components.
 
 ## 1. Motivation
 
@@ -230,9 +237,51 @@ were fixed and all runs re-graded, with the calibration log published in the tax
 v1's §3.3 finding on eval #1 — it appears to be a law of eval-building: *the first real model finds the
 grader bugs your self-tests were written around.*
 
+**3.6 Eval #3 (DCF), three frontier models.** The valuation eval scores the same way — checkpoint-
+primary, three gate tiers, the FailSafeQA refusal headline — over a real McDonald's FY2025 case (every
+base line and bridge item cited to the 10-K; the forecast, WACC components, and terminal growth are the
+labeled oracle layer; the math reproduced closed-form). Offline the eleven planted-error variants each
+trip exactly one gate with severity-matched blast radii (`GATE.BASIS` 0.62 catastrophic … `bridge_omit`
+0.035 localized). Live, three Claude models (via the Anthropic OpenAI-compatible endpoint), offline
+judge:
+
+| Model | Gated | Gate fired | Numerical (the DCF math spine) | WACC probe (E5) |
+|---|---:|---|---:|---|
+| claude-opus-4-8 | **0.965** | none | **0.978** | refused (G=0.75) |
+| claude-sonnet-4-6 | **0.955** | none | **0.978** | refused (G=0.75) |
+| claude-haiku-4-5 | **0.692** | `GATE.C1FCF` | **0.646** | refused (G=0.75) |
+
+- **The strong models do textbook DCF correctly.** Opus and Sonnet pin the unlevered basis, extract
+  the base lines and the bridge, project FCFF, build WACC from the components, discount, capitalize the
+  terminal value, **bridge to equity and divide by diluted shares** — fair value ~$228 (gold $227.82),
+  the ~20%-overvalued read, no gate. The residuals are form, not correctness: Opus reported a 1-D WACC
+  sweep instead of the 2-D grid, and graded one assumption-contingent claim as flatly accurate.
+- **The weak model trips one gate, and the eval localizes the root cause.** Haiku's reported FCFF does
+  not equal its own build (a +$2.0B/yr offset); `GATE.C1FCF` flags exactly that internal inconsistency
+  at C1, and the wrong FCFF cascades into a $138 fair value (vs the correct $228) — the math-spine
+  category drops from 0.98 to 0.65 while a single in-checkpoint gate points at where it broke.
+- **The most consistent cross-model behavior is over-refusal of a computable figure.** All three
+  flagged the WACC as "not in the filing" rather than computing the 7.15% the supplied components imply.
+  The probe rewards the derived answer; the mock awards a grounded refusal 0.75, and the run-mode-aware
+  live judge (§9 of the judge spec) downgrades a refusal *when the components are in context* — the one
+  place the calculation-heavy design hands the judge real weight.
+- **Running real models improved the eval, again.** The runs surfaced five grader-contract gaps — a
+  tax-rate reported in percentage points vs the expected fraction (a *false* `GATE.C1FCF` on a model
+  whose FCFF was exact), a too-tight tolerance on a *derived* rate, a position-matched sensitivity grid
+  that zeroed a correct 1-D sweep, an S1 judge that penalized the calibrated *range* the eval rewards
+  elsewhere, and a false-precision predicate that compared the model's sensitivity block to the *gold*
+  rather than the model's *own* valuation (a *false* fire on an honest-but-wrong memo). All five were
+  fixed, all runs re-graded, the oracle still 1.000/AllPass and every variant still gated — the
+  v1/v2 law holds a third time: *the first real model finds the grader bugs your self-tests were written
+  around.* (An operational note, not a grader bug: the verbose DCF JSON truncated one model at an 8k
+  token cap, spuriously firing the false-precision gate on an empty block; the floor was raised.) The
+  full log is in `outputs/eval3-live/TAXONOMY.md`.
+
 ## 4. Limitations & future work
 
-(i) **Two models, one fund family.** The matrix is 2 subjects × 3 cases + one end-to-end probe; the
+(0) **Eval #3 is n = 3, one case, one vendor lineage.** All three DCF subjects are Claude models on a
+single MCD case; a cross-family panel (GPT / Gemini / an open-weight subject) and more gold cases are
+the honest next step — the same caveat eval #2 carries. (i) **Two models, one fund family.** The matrix is 2 subjects × 3 cases + one end-to-end probe; the
 deferred case set (an Ultra/Deep Buffer testing a different reference-recovery rule, a 100%-buffer
 fund, a floor-vs-buffer discrimination probe, an SPX-scale contrast, a designed reconciliation break)
 is specified in the repository plan. (ii) **Judge calibration** is small-sample and author-graded with
@@ -247,15 +296,17 @@ cited. None of these affect the method; they bound the results, which grow as th
 One dependency (`pyyaml`), no API key for everything deterministic:
 
 ```bash
-python -m harness suite                      # score all six gold cases, both evals
+python -m harness suite                      # score all seven gold cases, all three evals
 python -m harness selftest                   # gate tiers + the live-schema round-trip invariants
-python -m harness run --case koct-op2026-anchor --model free_lunch   # watch the signature gate fire
-python rubric/validate.py rubric/criteria-defined-outcome.yaml       # the rubric's 18 invariants
+python -m harness run --case koct-op2026-anchor --model free_lunch   # eval #2's signature gate
+python -m harness run --case mcd-fy2025-dcf  --model bridge_omit     # eval #3's looks-right-is-wrong gate
+python rubric/validate.py rubric/criteria-dcf.yaml                   # a rubric's 18 invariants
 ```
 
-A real model is one flag away (any OpenAI-compatible endpoint):
-`python outputs/run_live_eval2.py koct-op2026-anchor [--e2e] [--model-id …]` — artifacts, the failure
-taxonomy, and the calibration worksheet are committed under `outputs/eval2-live/`.
+A real model is one flag away (any OpenAI-compatible endpoint — a local server, or a frontier API with
+`OPENAI_API_KEY` set): `python outputs/run_live_eval3.py --model-id <model> --endpoint <url>` for the
+DCF eval (or `run_live_eval2.py` for the buffer ETF). Artifacts, the failure taxonomies, and the
+eval-#2 calibration worksheet are committed under `outputs/eval3-live/` and `outputs/eval2-live/`.
 
 ## References
 

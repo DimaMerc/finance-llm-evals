@@ -265,5 +265,15 @@ with no sensitivity block (the DCF analog of eval #2's free-lunch).
 > a content-free derivation (now require named CAPM inputs); C7.sign/C4.gterm trusted labels (now
 > derive the sign/TV-sign from the model's own numbers); plus brittle-substring oracle-overfit fixes.
 
-## Phase 5 — Graded runs + write-up  → `outputs/` + `PAPER.md`  ⏳
-- [ ] Run frontier + local models through both run modes; grade; extend the taxonomy and PAPER.
+## Phase 5 — Graded runs + write-up  → `outputs/` + `PAPER.md`  ✅ done
+- [x] Live path (`harness/live_dcf.py`): the 10-K-statements packet + oracle assumptions + snapshot +
+      claims + WACC probe; OpenAI-compatible client with Bearer auth for a frontier API; the
+      `oracle_to_schema` round-trip selftest (1.000/AllPass).
+- [x] **Three frontier models** (Claude opus-4-8 / sonnet-4-6 / haiku-4-5) via the Anthropic
+      OpenAI-compat endpoint: opus 0.965 (no gate), sonnet 0.955 (no gate), haiku 0.692 (GATE.C1FCF —
+      a real FCFF-arithmetic error cascading to a $138 vs $228 valuation). All three over-refuse the
+      WACC probe. Artifacts + `outputs/eval3-live/TAXONOMY.md`.
+- [x] **5 grader-calibration fixes** the live runs surfaced (tax pp/fraction, derived-rate band, grid
+      (wacc,g)-matching, S1 calibrated-range, false-precision-vs-own-C5) — all fixed, all re-graded,
+      oracle still 1.000/AllPass, every variant still gated.
+- [x] PAPER.md → v3 (title + abstract + §3.6 findings + reproduce); README live-findings section.

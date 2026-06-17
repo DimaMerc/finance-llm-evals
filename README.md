@@ -33,8 +33,9 @@ SEC filings, and a grader that surfaces exactly *where* — and how badly — a 
   consistency spine is the **basis gate** (unlevered cash flow must meet WACC must meet the
   net-debt bridge), and the calibration signature is the **false-precision gate** (a decimal-precise
   target on a model that is 80% terminal value, where a 50bp discount-rate move shifts it ±15%,
-  auto-fails). 18 checkpoints, 107 criteria, one real-10-K gold case. *(Runnable now — oracle +
-  11 gate-probing variants; live model runs forthcoming.)*
+  auto-fails). 18 checkpoints, 107 criteria, one real-10-K gold case, **run live against three
+  frontier models**: the two strong ones do textbook DCF correctly (no gate, ~0.96); the weak one
+  trips the FCF-definition gate on a real arithmetic error the eval localizes to one checkpoint.
 
 ## Quickstart (no API key, no setup)
 
@@ -59,7 +60,7 @@ A real model is one flag/command away — see [`outputs/eval2-live/`](outputs/ev
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
 | [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
-| [`outputs/eval2-live/`](outputs/eval2-live/) | The real graded runs, the failure taxonomy, and the judge-vs-expert calibration |
+| [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration) and [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval) |
 
 ## What the live runs found (eval #2)
 
@@ -79,10 +80,30 @@ Running real models also surfaced three calibration bugs in the grader itself �
 synthetic self-test can't see because it's written around the grader's own assumptions. They were
 fixed and everything re-graded; the log is in the taxonomy.
 
+## What the live runs found (eval #3, DCF)
+
+Three frontier models (Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5, via the Anthropic OpenAI-compatible
+endpoint) on the real McDonald's FY2025 case, deterministic core + offline judge:
+
+| Model | Gated | Gate fired | Math-spine score | WACC probe |
+|---|---:|---|---:|---|
+| **Opus 4.8** | 0.965 | none | 0.978 | refused |
+| **Sonnet 4.6** | 0.955 | none | 0.978 | refused |
+| **Haiku 4.5** | 0.692 | **GATE.C1FCF** | 0.646 | refused |
+
+The two strong models do textbook DCF correctly — no gate fires, the whole calculation spine is clean,
+fair value ~$228 (gold $227.82). The weak model's reported free cash flow **doesn't equal its own
+build** (a +$2B/yr offset); the FCF-definition gate flags exactly that at C1, and the error cascades
+into a wrong $138 valuation — one slip, surfaced and localized. The most consistent behavior across all
+three: they **reflexively refuse the WACC** ("not in the filing") rather than compute it from the
+components they were handed. And — as on both prior evals — the first real models surfaced **five
+grader bugs** the synthetic tests were written around; all fixed, all re-graded, the oracle still
+1.000/AllPass. Full matrix, traces, and the calibration log:
+[`outputs/eval3-live/`](outputs/eval3-live/).
+
 ## What the gate taxonomy shows (eval #3, DCF)
 
-Live model runs are the next step, but the DCF eval already demonstrates its discrimination offline:
-a perfect ("oracle") answer scores 1.000/AllPass, and eleven deliberately-flawed variants each trip
+A perfect ("oracle") answer scores 1.000/AllPass, and eleven deliberately-flawed variants each trip
 **exactly one** gate, with a blast radius that matches the error's severity. The pattern *is* the
 finding — the eval tells a catastrophic foundational error apart from a localized one:
 
