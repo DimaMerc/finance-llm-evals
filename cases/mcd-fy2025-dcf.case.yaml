@@ -1,0 +1,329 @@
+# =============================================================================
+# cases/mcd-fy2025-dcf.case.yaml — GOLD case: McDonald's Corp. FY2025 DCF valuation
+# -----------------------------------------------------------------------------
+# Authored from primary SEC sources per the eval-#3 DCF rubric (criteria-dcf.yaml,
+# rubric_version 1.0.0, suite schema 2.1.0). Workflow spec: workflow/dcf-analysis.md.
+#
+# HARD RULES (carried from evals #1-2 — a wrong number discredits the artifact):
+#   * Every BASE LINE and BRIDGE ITEM is a REAL FY2025 10-K figure (accession
+#     0000063908-26-000035, period 2025-12-31), transcribed at the filing's printed
+#     rounding, each with a {document, locator, verbatim} citation. No invented numbers.
+#       document = 10K   (the only filing in the packet)
+#       locator  = statement + line caption
+#       verbatim = the exact printed string containing the figure (entailment grader)
+#   * The ASSUMPTION SET (forecast + WACC components + terminal) is the ORACLE layer.
+#     A DCF is a MODEL, not a reported number — its assumptions are in NO filing. They
+#     are hand-fed in BOTH run modes (like eval #1's consensus, eval #2's snapshot).
+#     The GOLD is the deterministic math computed ON these inputs (verifiable by
+#     cases/_dcf_gold_mcd.py), never the assumptions themselves.
+#   * The MARKET SNAPSHOT (price, valuation date) is an oracle INPUT. The price is real
+#     (cited, as-of 2026-06-15); it exists in no filing — the price is never "extracted".
+#   * The E5 probe (the company WACC) is genuinely UNDISCLOSED in the 10-K (no filing
+#     states a discount rate) but COMPUTABLE from the supplied WACC components — the
+#     {COMPUTED, value, derivation} typed answer, keyed to C2's WACC band.
+# =============================================================================
+
+case_id: mcd-fy2025-dcf
+suite: dcf-valuation                 # routes the harness to criteria-dcf.yaml (Phase 4)
+rubric_version: "1.0.0"
+authored_from_primary_sources: true  # every base/bridge line verified against the FY2025 10-K (R3/R7/R9)
+
+# ----------------------------------------------------------------------------- MANIFEST
+# Gold side, NOT shown to the model. Drives P1/P2/P3 gold + the gate predicates
+# + the per_year_row / per_grid_cell / per_claim_row expansions.
+manifest:
+  ticker: MCD
+  exchange: NYSE
+  company: McDonald's Corporation
+  cik: "0000063908"
+  fiscal_year: 2025
+  fiscal_year_end: "2025-12-31"
+  currency: USD
+  units: millions                    # the P2 scale lock (income/balance/cash-flow in $M)
+  fcf_basis: unlevered_FCFF          # the P1 consistency commitment
+  output_chain: "FCFF -> WACC -> EV -> bridge -> equity -> per_share"
+  horizon_years: 5                   # explicit FY2026-2030
+  terminal_method: gordon
+  discounting_convention: year_end   # pinned in P2; gold PV factors are (1+WACC)^t
+  lease_treatment: operating         # rent in EBIT; lease liabilities EXCLUDED from net debt
+  snapshot_type: real                # the price is a real market quote, cited
+  expand_counts:                     # rows the harness materializes for split atoms (Phase 4)
+    year_rows: 5                     # C1.fcff / C3.pv (one per explicit year)
+    grid_cells: 9                    # C7.grid (3 WACC x 3 g)
+    claim_rows: 6                    # C7.verdicts
+  upside_sign_rule: "value_per_share < price => DOWNSIDE (overvalued); a value below price reported as upside is the GATE.C7SIGN fail"
+  tv_dominance_note: "TV is 80.6% of EV; with a +-50bp WACC swing moving per-share ~+15%/-12%, a decimal-precise point target is false precision (GATE.FALSEPRECISION)"
+  # The signature 'subtly-wrong DCF' is realized in Phase 4 as flawed-output variants of
+  # this oracle (parallel to eval #2's c6_flip / feebasis_mix). Documented here so the
+  # Phase-4 selftest pins the expected gate + the looks-right value:
+  planted_error_variants:
+    - id: bridge_omit                # THE HEADLINE 'looks-right-is-wrong' case
+      error: "per share = EV / diluted shares, net-debt bridge omitted"
+      value_per_share: 278.60        # 199,585.7 / 716.4 — only -2.6% vs the $286.12 price (looks ~fair!)
+      fires: GATE.BRIDGE             # zeros C6 + S1; C1-C5 stay GREEN (localized red)
+      note: "the correct $227.82 says ~20% overvalued; the blunder $278.60 looks fairly valued — the trap"
+    - id: basis_mix                  # catastrophic-but-obvious contrast
+      error: "unlevered FCFF discounted at the cost of equity (Ke 7.80%) instead of WACC"
+      fires: GATE.BASIS              # hard; zeros C1-C7, S1-S3
+    - id: g_explode                  # catastrophic-but-obvious contrast
+      error: "terminal g (8.0%) >= WACC (7.15%) -> negative/explosive perpetuity"
+      fires: GATE.C4TERM             # in-checkpoint; zeros C4
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenk:                              # the FY2025 10-K — the ONLY filing the base/bridge lines cite
+    accession: "0000063908-26-000035"
+    filed: "2026-02-24"
+    period_of_report: "2025-12-31"
+    primary_doc: mcd-20251231.htm
+    url: "https://www.sec.gov/Archives/edgar/data/63908/000006390826000035/mcd-20251231.htm"
+    statements_used:
+      income: "R3 — Consolidated Statement of Income"
+      balance: "R7 — Consolidated Balance Sheet"
+      cash_flow: "R9 — Consolidated Statement of Cash Flows"
+  market_data:                       # the snapshot price provenance (oracle INPUT, not a filing)
+    source: "public market data (NYSE close)"
+    as_of: "2026-06-15"
+    note: "MCD daily share price is not in any SEC filing; it is the oracle price the valuation is judged against"
+
+# ----------------------------------------------------------------------------- ASSUMPTION SET (oracle INPUT — shown to the model)
+# Illustrative but defensible; a DCF is a model, so these live in NO filing. Fed in
+# BOTH run modes and labeled oracle. The gold math (gold.C1-C7) is computed ON these.
+assumptions:
+  horizon_years: 5
+  revenue_growth: [0.04, 0.04, 0.04, 0.04, 0.04]        # +4%/yr systemwide
+  operating_margin: 0.460963                            # held at the FY2025 level (EBIT0/REV0)
+  cash_tax_rate: 0.215                                  # marginal/operating tax on EBIT (NOT the reported effective rate)
+  da_pct_of_revenue: 0.081793                           # D&A held at the FY2025 ratio
+  capex_pct_of_revenue: 0.125163                        # capex held at the FY2025 ratio
+  delta_nwc_per_year: 100.0                             # modest working-capital USE ($M/yr); franchisor WC is small
+  wacc_components:
+    risk_free: 0.043
+    beta: 0.70
+    equity_risk_premium: 0.050
+    pre_tax_cost_of_debt: 0.048
+    target_debt_weight: 0.16                            # market weights (E/V 0.84, D/V 0.16)
+  terminal:
+    method: gordon
+    g: 0.025                                            # < long-run nominal GDP (~4%), << WACC (7.15%)
+  discounting_convention: year_end
+
+# ----------------------------------------------------------------------------- SNAPSHOT (oracle INPUT — shown to the model)
+snapshot:
+  type: real
+  valuation_date: "2026-06-15"
+  share_price: 286.12                                   # real NYSE close, as-of 2026-06-15 (the price comparison)
+  diluted_shares_asof: 716.4                            # millions — FY2025 diluted weighted-average (no newer annual)
+  net_debt_asof: 39199.0                                # $M — FY2025 filed bridge (39,973 debt - 774 cash); ~166 days stale at the valuation date (E4)
+  source: "share price: public market data 2026-06-15; shares/net-debt: FY2025 10-K (most recent annual)"
+  staleness_note: "the 10-K balance is as of 2025-12-31; ~166 days before the valuation date. A Q1'26 10-Q exists (period 2026-03-31); the gold uses the latest ANNUAL bridge and flags the staleness (E4), rather than a stub."
+
+# ----------------------------------------------------------------------------- CLAIMS (INPUT — shown to the model)
+# 6 valuation-note-register claims; gold verdicts live in gold.C7. Verdict enum:
+# ACCURATE | ACCURATE_ON_BASE_CASE_ONLY | WRONG_BASIS | FALSE | NOT_VERIFIABLE
+claims:
+  - { id: CL1, text: "On the base-case assumptions, the DCF puts fair value near $225-230 per share, so MCD looks modestly overvalued versus the ~$286 market price." }
+  - { id: CL2, text: "MCD is overvalued by about a fifth on cash flows." }
+  - { id: CL3, text: "Most of this valuation comes from the explicit five-year forecast, so the fair value is robust to the terminal assumptions." }
+  - { id: CL4, text: "The model's ~$200B enterprise value divided by 716M shares is about $279 — essentially the market price, so the stock is fairly valued." }
+  - { id: CL5, text: "Using the company's own published WACC would lift the fair value materially." }
+  - { id: CL6, text: "A 50 basis-point change in the discount rate moves the per-share value by more than 10%." }
+
+# ----------------------------------------------------------------------------- PROBE (E5 INPUT — shown to the model)
+probe:
+  question: "What is McDonald's weighted-average cost of capital (WACC), per its 10-K?"
+  answerable_twin:                   # disclosed-but-buried figures (over-refusal symmetric penalty)
+    - { id: TW1, question: "What is McDonald's total debt at 2025-12-31?" }
+    - { id: TW2, question: "What was McDonald's FY2025 diluted weighted-average share count?" }
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+gold:
+
+  # ---- Planning ----
+  P1:
+    ticker: MCD
+    cik: "0000063908"
+    fiscal_year: 2025
+    valuation_date: "2026-06-15"
+    currency: USD
+    units: millions
+    fcf_basis: unlevered_FCFF
+    output_chain: "FCFF -> WACC -> EV -> bridge -> equity -> per_share"
+    horizon_years: 5
+    terminal_method: gordon
+    consistency: "unlevered FCFF discounted at WACC yields ENTERPRISE value, bridged to equity, then divided by shares — no FCFF-at-Ke, no EV-as-equity"
+    citation: { document: 10K, locator: "Cover / Consolidated Statement of Income heading", verbatim: "McDONALD'S CORPORATION ... Year Ended December 31, 2025 ... In millions, except per share data" }
+  P2:
+    units: millions
+    scale_lock: "income statement, balance sheet, and cash flows all in $ millions; the projection stays on this scale"
+    wacc_basis: { weights: market, cost_of_debt: after_tax, capm: "rf + beta*ERP" }
+    discounting_convention: year_end
+    nominal_consistency: nominal_cashflows_nominal_wacc_nominal_g
+    lease_treatment: operating
+    lease_exclusion_note: "operating-lease liabilities (~$12.5B PV) and finance-lease liabilities (~$2.35B) are EXCLUDED from net debt; rent/lease cost stays in EBIT (operating income is after occupancy & operating expense). Capitalizing leases on one side only is the trap."
+    negative_book_equity_note: "MCD stockholders' equity is -$1,791M (buyback history) — irrelevant to a DCF, which uses MARKET weights; it is decisive for committing to market (not book) weights"
+    citation: { document: 10K, locator: "Consolidated Balance Sheet — Long-term debt", verbatim: "Long-term debt 39,973.0" }
+  P3:
+    terminal_method: gordon
+    terminal_param_g: 0.025
+    consistency_rules:
+      - "g (2.5%) < WACC (7.15%) strictly"
+      - "g (2.5%) <= long-run nominal GDP (~4%)"
+      - "terminal-year FCFF normalized (steady-state capex ~ D&A path; mid-cycle margin)"
+    input_map:
+      filed:  [revenue, ebit, tax_provision, dep_amort, capex, total_debt, cash, diluted_shares, equity_method_investments]
+      oracle: [revenue_growth, operating_margin, cash_tax_rate, da_pct, capex_pct, delta_nwc, wacc_components, terminal_g, discounting_convention, share_price]
+
+  # ---- Extraction (REAL FY2025 10-K base lines; values exact at printed rounding, exact_round) ----
+  E1:
+    figures:
+      revenue:            { value: 26885.0, unit: USD_millions, citation: { document: 10K, locator: "Consolidated Statement of Income — Total revenues", verbatim: "Total revenues 26,885.0" } }
+      ebit:               { value: 12393.0, unit: USD_millions, citation: { document: 10K, locator: "Consolidated Statement of Income — Operating income", verbatim: "Operating income 12,393.0" } }
+      tax_provision:      { value: 2334.0,  unit: USD_millions, citation: { document: 10K, locator: "Consolidated Statement of Income — Provision for income taxes", verbatim: "Provision for income taxes 2,334.0" } }
+      effective_tax_rate: { value: 21.4,    unit: pct,          derivation: "2,334.0 / (8,563.0 + 2,334.0) = 2,334.0 / 10,897.0 = 21.42%", citation: { document: 10K, locator: "Consolidated Statement of Income — Net income & Provision for income taxes", verbatim: "Net income $ 8,563.0 ... Provision for income taxes 2,334.0" } }
+      dep_amort:          { value: 2199.0,  unit: USD_millions, citation: { document: 10K, locator: "Consolidated Statement of Cash Flows — Depreciation and amortization", verbatim: "Depreciation and amortization 2,199.0" } }
+      capex:              { value: 3365.0,  unit: USD_millions, citation: { document: 10K, locator: "Consolidated Statement of Cash Flows — Capital expenditures", verbatim: "Capital expenditures (3,365.0)" } }
+    ebit_not_ni_note: "operating income $12,393.0M is EBIT — NOT net income ($8,563.0M), NOT EBITDA ($12,393.0 + $2,199.0 D&A = $14,592.0M)"
+    da_capex_source: "D&A and capex taken from the cash-flow statement (not inferred)"
+    tax_for_fcff: "the FCFF tax-affecting rate is the oracle cash_tax_rate (21.5%); the reported 21.4% effective rate is captured for reconciliation/context only"
+    no_assumption_from_filing: true   # growth/discount rate cited to the 10-K = fabrication (GATE.FABRICATION hook)
+  E2:
+    figures:
+      total_debt:        { value: 39973.0, unit: USD_millions, citation: { document: 10K, locator: "Consolidated Balance Sheet — Long-term debt", verbatim: "Long-term debt 39,973.0" }, note: "the single balance-sheet debt line = the debt footnote's 'Total debt obligations' 39,973; the footnote's 'Current maturities of long term debt' 725 is a SUBSET of this (a memo of the portion due within 12 months), NOT an additive face line — the current-liabilities section carries no debt line (its six captions sum to the printed 4,361.0)" }
+      cash_and_equiv:    { value: 774.0,   unit: USD_millions, citation: { document: 10K, locator: "Consolidated Balance Sheet — Cash and equivalents", verbatim: "Cash and equivalents $ 774.0" } }
+      net_debt:          { value: 39199.0, unit: USD_millions, derivation: "39,973.0 total debt - 774.0 cash" }
+      minority_interest: { value: 0.0,     unit: USD_millions, note: "MCD reports no material noncontrolling interest" }
+      preferred:         { value: 0.0,     unit: USD_millions, note: "no preferred stock outstanding" }
+      non_op_assets:     { value: 2820.0,  unit: USD_millions, citation: { document: 10K, locator: "Consolidated Balance Sheet — Investments in and advances to affiliates", verbatim: "Investments in and advances to affiliates 2,820.0" }, note: "equity-method associates; their earnings are NOT in consolidated EBIT, so ADD in the bridge" }
+      diluted_shares:    { value: 716.4,   unit: millions, citation: { document: 10K, locator: "Consolidated Statement of Income — Weighted-average shares outstanding-diluted", verbatim: "Weighted-average shares outstanding-diluted 716.4" } }
+    lease_exclusion: "operating + finance lease liabilities (~$14.8B total) are NOT counted as debt under the pinned operating treatment (rent stays in EBIT)"
+    negative_book_equity_note: "stockholders' equity -$1,791.0M is not a data error — buyback history; irrelevant to the DCF"
+  E3:
+    intake_complete: true             # every assumption read exactly as supplied, typed oracle
+    wacc_components_present: [risk_free, beta, equity_risk_premium, pre_tax_cost_of_debt, target_debt_weight]
+    terminal_param_present: g
+    not_filed: "the discount rate and the forecast are oracle — attributed to NO filing"
+  E4:
+    snapshot_echo: { valuation_date: "2026-06-15", share_price: 286.12, diluted_shares_asof: 716.4, net_debt_asof: 39199.0, source: oracle }
+    staleness:
+      filed_balance_date: "2025-12-31"
+      valuation_date: "2026-06-15"
+      staleness_days: 166
+      ledger: "TERMS/static: none here (DCF has no option terms); STATE/as-of: net debt + shares are FY2025 (annual), stale by 166 days at the valuation date"
+    price_not_from_filing: true
+    citation: { document: 10K, locator: "Consolidated Balance Sheet — heading date", verbatim: "December 31, 2025" }
+  E5:
+    probe_gold:
+      acceptable:
+        computed:                     # G = 1.0
+          value: 7.15                 # = gold.C2.wacc (KEYED to C2's band, wacc_bp)
+          unit: pct
+          derivation_must_name: [risk_free, beta, equity_risk_premium, after_tax_cost_of_debt, market_weights]
+        not_disclosed:                # G = 0.75 ONLY when the WACC components are NOT in context (run-mode-dependent)
+          reason_must_name: [no_WACC_in_any_10-K, WACC_built_from_market_inputs_beta_ERP_rf]
+          run_mode_caveat: "when the E3 components ARE injected, a bare NOT_DISCLOSED that ignores them maps below 0.75 (the model could compute) — judge.md section 9.1"
+      hard_fail: "a confident 'the filing's WACC is X%' (no 10-K states one) = G=0, E5.n_fabricate; a market-data rate imported as if filed = E5.n_import"
+    twin_gold:
+      - { id: TW1, value: 39973.0, unit: USD_millions, citation: { document: 10K, locator: "Consolidated Balance Sheet — Long-term debt", verbatim: "Long-term debt 39,973.0" } }
+      - { id: TW2, value: 716.4,   unit: millions,      citation: { document: 10K, locator: "Consolidated Statement of Income — Weighted-average shares outstanding-diluted", verbatim: "Weighted-average shares outstanding-diluted 716.4" } }
+
+  # ---- Calculation (computed golds; closed-form on the assumption set — see cases/_dcf_gold_mcd.py) ----
+  C1:
+    tax_rate_used: 0.215              # oracle cash_tax_rate (NOT the 21.4% reported effective)
+    fcff_formula: "FCFF_t = EBIT_t*(1-0.215) + D&A_t - Capex_t - 100.0"
+    per_year:                         # per_year_row expansion (year_rows = 5); FCFF within 0.5% rel (fcf_rel)
+      - { t: 1, revenue: 27960.4, ebit: 12888.7, nopat: 10117.6, da: 2287.0, capex: 3499.6, dnwc: 100.0, fcff: 8805.0 }
+      - { t: 2, revenue: 29078.8, ebit: 13404.3, nopat: 10522.4, da: 2378.4, capex: 3639.6, dnwc: 100.0, fcff: 9161.2 }
+      - { t: 3, revenue: 30242.0, ebit: 13940.4, nopat: 10943.2, da: 2473.6, capex: 3785.2, dnwc: 100.0, fcff: 9531.7 }
+      - { t: 4, revenue: 31451.6, ebit: 14498.1, nopat: 11381.0, da: 2572.5, capex: 3936.6, dnwc: 100.0, fcff: 9916.9 }
+      - { t: 5, revenue: 32709.7, ebit: 15078.0, nopat: 11836.2, da: 2675.4, capex: 4094.0, dnwc: 100.0, fcff: 10317.6 }
+    definition_check: "EBIT tax-affected; D&A added back; capex and the WC increase subtracted; net income NOT used"
+  C2:
+    ke:        { value: 7.80,  unit: pct, formula: "rf 4.3% + beta 0.70 * ERP 5.0%" }
+    kd_after:  { value: 3.768, unit: pct, formula: "pre_tax_kd 4.8% * (1 - 0.215)" }
+    wacc:      { value: 7.1549, unit: pct, formula: "0.84 * 7.80% + 0.16 * 3.768%" }   # wacc_bp band (5bp)
+    weights:   "market weights (E/V 0.84, D/V 0.16); after-tax Kd; no rf/ERP double-count"
+  C3:
+    convention: year_end
+    per_year:                         # per_year_row expansion; PV within 0.5% rel (pv_rel)
+      - { t: 1, discount_factor: 0.93323, pv_fcff: 8217.1 }
+      - { t: 2, discount_factor: 0.87092, pv_fcff: 7978.6 }
+      - { t: 3, discount_factor: 0.81276, pv_fcff: 7747.0 }
+      - { t: 4, discount_factor: 0.75849, pv_fcff: 7521.9 }
+      - { t: 5, discount_factor: 0.70785, pv_fcff: 7303.3 }
+    sum_pv_explicit: { value: 38767.9, unit: USD_millions }
+    rate_is_c2_wacc: true
+  C4:
+    tv_undiscounted: { value: 227192.5, unit: USD_millions, formula: "FCFF_5 10,317.6 * (1+0.025) / (0.071549 - 0.025)" }
+    pv_tv:           { value: 160817.8, unit: USD_millions, formula: "227,192.5 / (1.071549)^5" }
+    g_lt_wacc: true                   # 2.5% < 7.15% strictly (GATE.C4TERM passes)
+    tv_discount_exponent: 5           # year-end convention: TV (end-of-year-5 value) discounted by (1+WACC)^5
+    implied_exit_ev_ebit: { value: 15.07, unit: x, formula: "TV 227,192.5 / terminal EBIT 15,078.0", note: "sane cross-check for a stable franchiser" }
+    terminal_normalized: true
+  C5:
+    ev: { value: 199585.7, unit: USD_millions, formula: "sum PV(FCFF) 38,767.9 + PV(TV) 160,817.8", level_ref: "equals the model's own PV components" }   # ev_rel
+    consistency: "labeled ENTERPRISE (unlevered) — built from FCFF discounted at WACC, not FCFE/Ke; not yet equity"
+    tv_share_of_ev: { value: 80.58, unit: pct, formula: "160,817.8 / 199,585.7" }   # tvshare_pp; feeds the S2 predicate
+  C6:
+    equity:    { value: 163206.7, unit: USD_millions, formula: "EV 199,585.7 - net_debt 39,199.0 - minority 0 - preferred 0 + non_op 2,820.0", level_ref: true }   # pershare_rel
+    per_share: { value: 227.82,   unit: USD,           formula: "equity 163,206.7 / 716.4 diluted shares", level_ref: true }   # pershare_rel; NEVER EV/shares
+    bridge_complete: "net debt subtracted (correct sign), non-op assets added, per share on diluted shares"
+    ev_per_share_blunder: { value: 278.60, unit: USD, note: "EV/shares WITHOUT the net-debt bridge = the classic error; overstates the correct per-share by the net bridge (net_debt - non_op)/shares = (39,199 - 2,820)/716.4 = ~$50.8; lands only -2.6% from the $286 price (looks fair) — caught by GATE.BRIDGE" }
+  C7:
+    grid:                             # per_grid_cell expansion (grid_cells = 9); per-share, each within 0.5% rel (grid_cell_rel)
+      - { wacc: 6.655, g: 2.0, per_share: 233 }
+      - { wacc: 6.655, g: 2.5, per_share: 262 }
+      - { wacc: 6.655, g: 3.0, per_share: 298 }
+      - { wacc: 7.155, g: 2.0, per_share: 205 }
+      - { wacc: 7.155, g: 2.5, per_share: 228 }   # the base case
+      - { wacc: 7.155, g: 3.0, per_share: 256 }
+      - { wacc: 7.655, g: 2.0, per_share: 182 }
+      - { wacc: 7.655, g: 2.5, per_share: 201 }
+      - { wacc: 7.655, g: 3.0, per_share: 223 }
+    tv_share_of_ev: { value: 80.58, unit: pct }
+    implied_exit_ev_ebit: { value: 15.07, unit: x }
+    upside_vs_price: { value: -20.38, unit: pct, formula: "227.82 / 286.12 - 1" }   # upside_pp band; SIGN is GATE.C7SIGN
+    upside_sign: downside             # value below price => DOWNSIDE / overvalued
+    wacc_50bp_swing: { down_50bp_per_share: 262, base: 228, up_50bp_per_share: 201, pct: "+14.8% / -11.9%" }
+    verdicts:                         # per_claim_row expansion (claim_rows = 6); QUOTE the verdict label (YAML-boolean trap)
+      - { id: CL1, verdict: "ACCURATE",                  deciding_kind: recompute, deciding_figure: "C6.per_share / C7.upside", deciding_value: 227.82, basis_one_line: "fair value $227.82 (in the stated $225-230 band), ~20% below the $286 price — modestly overvalued, as stated" }
+      - { id: CL2, verdict: "ACCURATE_ON_BASE_CASE_ONLY", deciding_kind: recompute, deciding_figure: "C7.upside / C7.grid", deciding_value: -20.38, basis_one_line: "~20% downside holds at base WACC/g; a plausible 50bp lower WACC cuts it to ~8% ($262) and WACC 6.66%/g 3.0% ($298) is above price — the call is assumption-contingent" }
+      - { id: CL3, verdict: "FALSE",                     deciding_kind: recompute, deciding_figure: "C5.tv_share_of_ev", deciding_value: 80.58, basis_one_line: "TV is 80.6% of EV — the value is TERMINAL-dominated and highly sensitive to WACC/g, not robust to them" }
+      - { id: CL4, verdict: "WRONG_BASIS",               deciding_kind: recompute, deciding_figure: "C6.per_share vs EV/shares", deciding_value: 227.82, basis_one_line: "$279 is EV/shares; the net-debt bridge is omitted — equity value per share is $227.82 (overstated by the net bridge ~$50.8); the $279 only looks fair by coincidence" }
+      - { id: CL5, verdict: "NOT_VERIFIABLE",            deciding_kind: disclosure, deciding_figure: "E5 probe (no filed WACC)", deciding_value: null, basis_one_line: "no 10-K discloses a company WACC; 'the company's published WACC' does not exist as a filed figure" }
+      - { id: CL6, verdict: "ACCURATE",                  deciding_kind: recompute, deciding_figure: "C7.wacc_50bp_swing", deciding_value: 14.8, basis_one_line: "+-50bp WACC moves per-share +14.8% / -11.9% — more than 10%, as stated" }
+    both_directions_note: "CL1/CL6 ACCURATE; CL3 over-claims robustness (FALSE); CL4 is the bridge blunder dressed as a tie to market (WRONG_BASIS); CL5 is the undisclosed-WACC scope boundary (NOT_VERIFIABLE)"
+
+  # ---- Synthesis (reference golds for the LLM judge) ----
+  S1:
+    labels:
+      fair_value_per_share: 227.82
+      vs_price: overvalued
+      upside_pct: -20.38
+      basis: equity_value_per_share   # NOT EV/share
+    direction_matches_c7: true
+    hold_to_thesis_required: true     # the value is a point on the assumption set
+    contingent_on_C6: true
+  S2:
+    sensitivity_block_gold:           # the GATE.FALSEPRECISION predicate object
+      terminal_value_share_of_ev: 80.58
+      wacc_sensitivity_per_share: { down_50bp: 262, base: 228, up_50bp: 201 }
+      g_sensitivity_per_share: { g_2pct: 205, g_2_5pct: 228, g_3pct: 256 }   # at base WACC
+      key_value_driver: "the discount rate (WACC) and the terminal growth — 80.6% of value is terminal"
+    no_false_precision: "the fair value is a RANGE (~$201-$262 over a +-50bp WACC band), not a single decimal-precise truth"
+    risk_read: [terminal_dominance, discount_rate_sensitivity, mature_low_growth_franchiser, negative_book_equity_is_buybacks]
+  S3:
+    bottom_line_reference: "On a conservative base case (4% growth, 7.15% WACC, 2.5% terminal g) MCD's DCF fair value is ~$228, about a fifth below the ~$286 market price — but 80%+ of that value is terminal, so the call hinges on the discount rate: a 50bp lower WACC lifts fair value to ~$262 and narrows the gap to single digits. The market is effectively pricing a lower discount rate and/or faster durable growth than this base case. The verdict is 'modestly overvalued on these assumptions,' explicitly NOT a precise target."
+    assumption_conditional: true
+    diligence_floor: [cyclicality_of_systemwide_sales, leverage_and_lease_load, capex_normalization, trading_multiple_cross_check]
+    not_determinable_items: ["the company's own WACC (no filed discount rate — constructed from market inputs)", "all forecast assumptions are oracle, not filed"]
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: "primary-source extraction (EDGAR XBRL companyfacts + rendered R3/R7/R9) + closed-form recompute (cases/_dcf_gold_mcd.py); independently re-verified by a 3-agent adversarial pass (EDGAR re-extraction + from-scratch DCF recompute + rubric-atom coverage)"
+  verified_on: "2026-06-17"
+  base_lines_source: "FY2025 10-K accession 0000063908-26-000035 (period 2025-12-31)"
+  figures_checked: 14
+  figures_confirmed: 14
+  unconfirmed: []                     # MUST be empty to ship the case
+  notes: "All base/bridge lines reconcile to the filed XBRL and the rendered statements (revenue 26,885.0 / EBIT 12,393.0 / tax 2,334.0 / NI 8,563.0 / D&A 2,199.0 cash-flow [NOT the 457.0 income-statement partial] / capex 3,365.0 / cash 774.0 / total debt 39,973.0 / equity-method 2,820.0 / diluted shares 716.4 / diluted EPS 11.95 / book equity -1,791.0). DEBT CORRECTION (caught by the verify pass): total debt is the single balance-sheet 'Long-term debt' 39,973.0 (= footnote 'Total debt obligations'); the footnote 'Current maturities of long term debt' 725 is a SUBSET memo, NOT additive (the current-liabilities section has no debt line — its six captions sum to 4,361.0). Net debt = 39,973.0 - 774.0 = 39,199.0; per share = 227.82. DCF math reproduced by _dcf_gold_mcd.py and confirmed exact by an independent from-scratch recompute (all bands met); all 6 claim verdicts independently re-judged correct; 84 positive rubric atoms all have gold anchors. Forecast + WACC + terminal are the labeled oracle layer; price 286.12 is a real 2026-06-15 quote (oracle input)."

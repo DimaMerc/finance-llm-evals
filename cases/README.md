@@ -58,6 +58,41 @@ and cited (issuer page + market data). The two variants are **constructed hypoth
 labeled** with construction notes; the gold is the deterministic math computed *on* the snapshot,
 never the snapshot itself.
 
+## Eval #3 — Discounted-cash-flow valuation
+
+Workflow: [dcf-analysis](../workflow/dcf-analysis.md) · rubric:
+[criteria-dcf.yaml](../rubric/criteria-dcf.yaml) · contract:
+[`_TEMPLATE-dcf.case.yaml`](_TEMPLATE-dcf.case.yaml) · gold recompute:
+[`_dcf_gold_mcd.py`](_dcf_gold_mcd.py).
+
+**One real company, one labeled oracle model.** A DCF's base lines are filed facts; its
+assumptions are not. So the case splits cleanly: the income/balance/cash-flow lines are the
+**real FY2025 10-K** (cited to the cent at printed rounding), and the forecast + WACC components +
+terminal are the **oracle layer** (labeled, fed in both run modes). The gold is the closed-form
+math computed *on* those inputs — reproduced by `_dcf_gold_mcd.py`, no hand arithmetic.
+
+| Case | Issuer | Base period | Headline gold |
+|---|---|---|---|
+| [`mcd-fy2025-dcf`](mcd-fy2025-dcf.case.yaml) | **McDonald's Corp.** (stable, heavily-franchised cash-flow business — DCF is genuinely the right method) | FY2025 (accession 0000063908-26-000035) | fair value **$227.82/share** on a conservative base case (4% growth, **WACC 7.15%**, g 2.5%) → **~20% overvalued** vs the real $286.12 price — but **TV is 80.6% of EV** and a ±50bp WACC swing moves per-share **+14.8%/−11.9%**, so the call hinges on the discount rate (false-precision territory) |
+
+The case exercises the full gate ledger: the unlevered-FCFF↔WACC↔EV↔bridge **consistency spine**
+(`GATE.BASIS`), the **net-debt bridge** (`GATE.BRIDGE` — the EV/share blunder lands at **$278.60**,
+only −2.6% from the market price, so the *wrong* method looks fair while the right one says
+overvalued), the false-precision predicate (`GATE.FALSEPRECISION`, 80.6% terminal value), the
+units lock (`GATE.SCALE`), and the WACC-basis gate (`GATE.WACC`). The **E5 probe** is the company
+WACC — undisclosed in any 10-K but computable from the supplied components (the typed
+`{COMPUTED, value, derivation}` answer, keyed to C2's band), with total debt + diluted shares as
+the answerable twin. The **6-claim** verdict table spans all five labels (ACCURATE×2,
+ACCURATE_ON_BASE_CASE_ONLY×1, FALSE×1, WRONG_BASIS×1 — the bridge blunder — NOT_VERIFIABLE×1 — the
+undisclosed WACC). The `manifest.planted_error_variants` block pins the three Phase-4 "subtly-wrong
+DCF" perturbations (the bridge omission as the headline looks-right-is-wrong case; basis-mix and
+`g ≥ WACC` as the catastrophic-but-obvious contrast).
+
+**Assumption policy.** A DCF is a model: the discount rate and forecast live in no filing, so they
+are oracle inputs in both run modes (like eval #1's consensus, eval #2's snapshot). The base lines
+are real and cited; the market price is a real 2026-06-15 quote (oracle input — daily price is in no
+filing); the gold is the math computed *on* these, never the assumptions themselves.
+
 ## Verification
 
 Each case carries a `verification:` block. **BLK** and **MSFT** were authored and then

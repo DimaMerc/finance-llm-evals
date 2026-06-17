@@ -1,0 +1,215 @@
+# =============================================================================
+# cases/_TEMPLATE-dcf.case.yaml — the eval-#3 gold-case contract (Phase 3)
+# -----------------------------------------------------------------------------
+# One file per case, for the DISCOUNTED-CASH-FLOW VALUATION eval. Supplies the GOLD
+# the Phase-4 harness scores a model against, for every checkpoint/atom in
+# ../rubric/criteria-dcf.yaml (eval-#3 rubric_version 1.0.0, suite schema 2.1.0).
+# Workflow spec: ../workflow/dcf-analysis.md. Worked example: mcd-fy2025-dcf.case.yaml.
+#
+# HARD RULES (carried from evals #1-2 — a wrong number discredits the artifact):
+#   * Every BASE LINE and BRIDGE ITEM is a REAL 10-K figure, transcribed at the
+#     filing's printed rounding, each with a {document, locator, verbatim} citation.
+#       document = 10K  (and 10Q if a stub is used)
+#       locator  = statement + line caption
+#       verbatim = the exact printed string containing the figure (entailment grader)
+#   * The ASSUMPTION SET (forecast + WACC components + terminal) is the ORACLE layer
+#     — a DCF is a MODEL, not a reported number; its assumptions are in NO filing.
+#     Fed in BOTH run modes, labeled oracle. The GOLD is the deterministic math
+#     computed ON these inputs (write a _dcf_gold_<ticker>.py so it is reproducible).
+#   * The MARKET SNAPSHOT (price, valuation date) is an oracle INPUT. The price is
+#     either real+cited (as-of date) or constructed+labeled. It exists in no filing.
+#   * The E5 probe (the company WACC) is genuinely UNDISCLOSED in the 10-K but
+#     COMPUTABLE from the supplied WACC components — the {COMPUTED, value, derivation}
+#     typed answer, keyed to C2's WACC band. Twin = two disclosed-but-buried figures.
+#   * QUOTE every C7 verdict label ("FALSE", not bare FALSE — a YAML boolean).
+# =============================================================================
+
+case_id: TICKER-fyYYYY-dcf
+suite: dcf-valuation                 # routes the harness to criteria-dcf.yaml
+rubric_version: "1.0.0"
+authored_from_primary_sources: true  # set true only after the verify pass confirms every cite
+
+# ----------------------------------------------------------------------------- MANIFEST (gold side; not shown)
+manifest:
+  ticker: ""
+  exchange: ""
+  company: ""
+  cik: ""                            # 10-digit, zero-padded
+  fiscal_year: 0
+  fiscal_year_end: ""                # YYYY-MM-DD
+  currency: USD
+  units: ""                          # millions | thousands — the P2 scale lock
+  fcf_basis: unlevered_FCFF          # the P1 consistency commitment
+  output_chain: "FCFF -> WACC -> EV -> bridge -> equity -> per_share"
+  horizon_years: 0
+  terminal_method: ""                # gordon | exit_multiple
+  discounting_convention: ""         # year_end | mid_year (pinned BEFORE any PV)
+  lease_treatment: operating         # rent in EBIT; lease liabilities EXCLUDED from net debt
+  snapshot_type: ""                  # real | constructed_hypothetical
+  expand_counts:                     # rows the harness materializes for split atoms
+    year_rows: 0                     # C1.fcff / C3.pv (one per explicit year)
+    grid_cells: 0                    # C7.grid (WACC x g)
+    claim_rows: 0                    # C7.verdicts
+  upside_sign_rule: "value_per_share < price => DOWNSIDE; a value below price reported as upside is the GATE.C7SIGN fail"
+  tv_dominance_note: ""              # the false-precision setup (TV share of EV + the WACC swing)
+  planted_error_variants:            # the Phase-4 'subtly-wrong DCF' perturbations of this oracle
+    - { id: bridge_omit, error: "per share = EV / shares, net-debt bridge omitted", value_per_share: null, fires: GATE.BRIDGE, note: "headline looks-right-is-wrong case" }
+    - { id: basis_mix,   error: "unlevered FCFF discounted at the cost of equity",  fires: GATE.BASIS }
+    - { id: g_explode,   error: "terminal g >= WACC",                                fires: GATE.C4TERM }
+
+# ----------------------------------------------------------------------------- SOURCES
+sources:
+  tenk:
+    accession: ""
+    filed: ""                        # YYYY-MM-DD
+    period_of_report: ""             # YYYY-MM-DD
+    primary_doc: ""
+    url: ""
+    statements_used: { income: "", balance: "", cash_flow: "" }   # R-file refs
+  market_data:                       # the snapshot price provenance (oracle INPUT, not a filing)
+    source: ""
+    as_of: ""
+    note: "daily share price is not in any SEC filing"
+
+# ----------------------------------------------------------------------------- ASSUMPTION SET (oracle INPUT — shown)
+assumptions:
+  horizon_years: 0
+  revenue_growth: []                 # per explicit year
+  operating_margin: null             # or an explicit EBIT path
+  cash_tax_rate: null                # marginal/operating rate on EBIT (NOT the reported effective rate)
+  da_pct_of_revenue: null
+  capex_pct_of_revenue: null
+  delta_nwc_per_year: null
+  wacc_components:
+    risk_free: null
+    beta: null
+    equity_risk_premium: null
+    pre_tax_cost_of_debt: null
+    target_debt_weight: null         # market weights
+  terminal: { method: "", g: null }  # or { method: exit_multiple, exit_ev_ebitda: null }
+  discounting_convention: ""
+
+# ----------------------------------------------------------------------------- SNAPSHOT (oracle INPUT — shown)
+snapshot:
+  type: ""                           # real | constructed_hypothetical
+  valuation_date: ""
+  share_price: null                  # the price the valuation is judged against
+  diluted_shares_asof: null
+  net_debt_asof: null
+  source: ""                         # real: cited public source + as-of; constructed: "constructed" + note
+  staleness_note: ""                 # filing balance date vs valuation date (the E4 asymmetry)
+
+# ----------------------------------------------------------------------------- CLAIMS (INPUT — shown)
+# 3-6 valuation-note-register claims; at least one ACCURATE_ON_BASE_CASE_ONLY, one
+# WRONG_BASIS (e.g. EV/share), one FALSE, one NOT_VERIFIABLE. Gold verdicts in gold.C7.
+claims:
+  - { id: CL1, text: "" }
+  - { id: CL2, text: "" }
+
+# ----------------------------------------------------------------------------- PROBE (E5 INPUT — shown)
+probe:
+  question: ""                       # the company WACC, posed against the filings alone
+  answerable_twin:                   # disclosed-but-buried (over-refusal symmetric penalty)
+    - { id: TW1, question: "" }
+    - { id: TW2, question: "" }
+
+# ----------------------------------------------------------------------------- GOLD (per checkpoint)
+# Numeric golds: { value, unit, citation } for extracted figures; { value, derivation }
+# for computed figures (harness re-checks the math to the atom's tolerance key).
+gold:
+  P1: { ticker: "", cik: "", fiscal_year: 0, valuation_date: "", currency: USD, units: "", fcf_basis: unlevered_FCFF, output_chain: "", horizon_years: 0, terminal_method: "", consistency: "", citation: {} }
+  P2: { units: "", scale_lock: "", wacc_basis: {weights: market, cost_of_debt: after_tax, capm: "rf + beta*ERP"}, discounting_convention: "", nominal_consistency: "", lease_treatment: operating, lease_exclusion_note: "", citation: {} }
+  P3: { terminal_method: "", terminal_param_g: null, consistency_rules: [], input_map: {filed: [], oracle: []} }
+  E1:
+    figures:
+      revenue:            { value: null, unit: USD_millions, citation: {} }
+      ebit:               { value: null, unit: USD_millions, citation: {} }
+      tax_provision:      { value: null, unit: USD_millions, citation: {} }
+      effective_tax_rate: { value: null, unit: pct, derivation: "", citation: {} }
+      dep_amort:          { value: null, unit: USD_millions, citation: {} }
+      capex:              { value: null, unit: USD_millions, citation: {} }
+    ebit_not_ni_note: ""
+    tax_for_fcff: "FCFF tax rate is the oracle cash_tax_rate; reported effective rate is for reconciliation only"
+    no_assumption_from_filing: true
+  E2:
+    figures:
+      total_debt:        { value: null, unit: USD_millions, derivation: "", citation: {} }
+      cash_and_equiv:    { value: null, unit: USD_millions, citation: {} }
+      net_debt:          { value: null, unit: USD_millions, derivation: "total_debt - cash" }
+      minority_interest: { value: null, unit: USD_millions, note: "" }
+      preferred:         { value: null, unit: USD_millions, note: "" }
+      non_op_assets:     { value: null, unit: USD_millions, citation: {}, note: "equity-method investments — ADD in bridge" }
+      diluted_shares:    { value: null, unit: millions, citation: {} }
+    lease_exclusion: ""
+  E3: { intake_complete: true, wacc_components_present: [], terminal_param_present: "", not_filed: "" }
+  E4:
+    snapshot_echo: { valuation_date: "", share_price: null, diluted_shares_asof: null, net_debt_asof: null, source: oracle }
+    staleness: { filed_balance_date: "", valuation_date: "", staleness_days: null, ledger: "" }
+    price_not_from_filing: true
+    citation: {}
+  E5:
+    probe_gold:
+      acceptable:
+        computed:      { value: null, unit: pct, derivation_must_name: [risk_free, beta, equity_risk_premium, after_tax_cost_of_debt, market_weights] }   # = gold.C2.wacc
+        not_disclosed: { reason_must_name: [no_WACC_in_any_10-K, WACC_built_from_market_inputs], run_mode_caveat: "below 0.75 when E3 components are injected (judge.md s9.1)" }
+      hard_fail: "a confident 'the filing's WACC is X%' = G=0 (E5.n_fabricate); a market-data rate imported as filed = E5.n_import"
+    twin_gold:
+      - { id: TW1, value: null, unit: USD_millions, citation: {} }
+      - { id: TW2, value: null, unit: millions, citation: {} }
+  C1:
+    tax_rate_used: null              # oracle cash_tax_rate
+    fcff_formula: "FCFF_t = EBIT_t*(1-tau) + D&A_t - Capex_t - dNWC_t"
+    per_year: []                     # [{t, revenue, ebit, nopat, da, capex, dnwc, fcff}]  (year_rows; fcf_rel)
+    definition_check: "EBIT tax-affected; D&A added back; capex + WC increase subtracted; net income NOT used"
+  C2:
+    ke:       { value: null, unit: pct, formula: "rf + beta*ERP" }
+    kd_after: { value: null, unit: pct, formula: "pre_tax_kd*(1-tau)" }
+    wacc:     { value: null, unit: pct, formula: "(E/V)*Ke + (D/V)*Kd_after" }   # wacc_bp band
+    weights:  "market weights; after-tax Kd; no rf/ERP double-count"
+  C3:
+    convention: ""
+    per_year: []                     # [{t, discount_factor, pv_fcff}]  (year_rows; pv_rel)
+    sum_pv_explicit: { value: null, unit: USD_millions }
+    rate_is_c2_wacc: true
+  C4:
+    tv_undiscounted: { value: null, unit: USD_millions, formula: "FCFF_N*(1+g)/(WACC-g)" }
+    pv_tv:           { value: null, unit: USD_millions, formula: "TV / (1+WACC)^N" }
+    g_lt_wacc: true
+    tv_discount_exponent: null       # N (year-end) or N-0.5/N (mid-year — state which)
+    implied_exit_ev_ebit: { value: null, unit: x, formula: "TV / terminal EBIT" }
+    terminal_normalized: true
+  C5:
+    ev: { value: null, unit: USD_millions, formula: "sum PV(FCFF) + PV(TV)", level_ref: true }   # ev_rel
+    consistency: "labeled ENTERPRISE (unlevered); built from FCFF@WACC, not FCFE/Ke; not yet equity"
+    tv_share_of_ev: { value: null, unit: pct }   # tvshare_pp; feeds S2
+  C6:
+    equity:    { value: null, unit: USD_millions, formula: "EV - net_debt - minority - preferred + non_op", level_ref: true }   # pershare_rel
+    per_share: { value: null, unit: USD, formula: "equity / diluted_shares", level_ref: true }   # NEVER EV/shares
+    ev_per_share_blunder: { value: null, unit: USD, note: "EV/shares WITHOUT the bridge — the GATE.BRIDGE catch" }
+  C7:
+    grid: []                         # [{wacc, g, per_share}]  (grid_cells; grid_cell_rel)
+    tv_share_of_ev: { value: null, unit: pct }
+    implied_exit_ev_ebit: { value: null, unit: x }
+    upside_vs_price: { value: null, unit: pct, formula: "per_share/price - 1" }   # upside_pp
+    upside_sign: ""                  # upside | downside (value below price => downside; GATE.C7SIGN)
+    verdicts: []                     # [{id, verdict: "QUOTED", deciding_kind: recompute|disclosure|scope, deciding_figure, deciding_value, basis_one_line}]
+  S1: { labels: {fair_value_per_share: null, vs_price: "", upside_pct: null, basis: equity_value_per_share}, hold_to_thesis_required: true, contingent_on_C6: true }
+  S2:
+    sensitivity_block_gold: { terminal_value_share_of_ev: null, wacc_sensitivity_per_share: {}, g_sensitivity_per_share: {}, key_value_driver: "" }
+    no_false_precision: "the fair value is a RANGE over a +-50bp WACC band, not a single decimal-precise truth"
+    risk_read: []
+  S3:
+    bottom_line_reference: ""        # a calibrated reference read (4-8 sentences)
+    assumption_conditional: true
+    diligence_floor: [cyclicality, leverage, capex_normalization, trading_multiple_cross_check]
+    not_determinable_items: []       # carried from E5 (the constructed discount rate; the oracle assumptions)
+
+# ----------------------------------------------------------------------------- VERIFICATION LOG
+verification:
+  verified_by: ""
+  verified_on: ""
+  base_lines_source: ""
+  figures_checked: 0
+  figures_confirmed: 0
+  unconfirmed: []                    # MUST be empty to ship the case
+  notes: ""
