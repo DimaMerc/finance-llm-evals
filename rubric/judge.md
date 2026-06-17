@@ -17,14 +17,17 @@
 > supplied gold (never arithmetic).
 >
 > **Aggregation lens this judge serves.** The shipped scoring model is **checkpoint-primary** (see
-> `rubric.md`): the case headline is `Σ_k W_k · checkpoint_score(k)` over the 17 checkpoints, with
+> `rubric.md`): the case headline is `Σ_k W_k · checkpoint_score(k)` over each eval's checkpoints
+> (eval #1: 17; evals #2–3: 18), with
 > the six category subscores as a secondary cross-checkpoint rollup. The judge is **lens-agnostic** —
 > it emits one verdict per atom; the harness pools each verdict into both its checkpoint and its
 > category. Nothing in this file changes if the weights or the aggregation lens are re-toggled.
 
 ```
-judge_version:  2.1.0   # 2.0.0 + §8 (eval #2 extensions: the COMPUTED typed answer, free-lunch notes);
-                        # no eval-#1 instruction, exemplar, or decoding setting changed
+judge_version:  2.2.0   # 2.1.0 + §9 (eval #3 extensions: the run-mode-dependent COMPUTED WACC probe,
+                        # false-precision notes). ADDITIVE: §9 touches no eval-#1/#2 instruction, exemplar,
+                        # system prompt, or decoding setting — so evals #1-2's calibration at 2.1.0 stays
+                        # valid (their judged atoms are graded by byte-identical instructions).
 judge_model:    a frontier instruct model from a DIFFERENT family than the system-under-test
                 (self-preference-bias mitigation); the default grader is the one that maximizes
                 Phase-5 macro-F1, HealthBench-style (their GPT-4.1 reached 0.709 macro-F1, ~ median
@@ -531,3 +534,60 @@ For S1/S3 the contradiction operator compares prose against the **gold C6/C7 num
 terms, claim verdicts) — never the memo's own calculations, never re-derived. The canonical eval-#2
 contradiction is quoting the stated (period-start) cap to a mid-period buyer; it is graded as prose
 contradicting the gold remaining-cap value, exactly like eval #1's "miss" prose against a gold beat.
+
+---
+
+## 9. Eval #3 extensions (DCF valuation — `criteria-dcf.yaml`)
+
+Eval #3 reuses this judge unchanged for its S1–S3 synthesis atoms, entailment legs, and refusal
+grader — same system prompt, same input contract, same output JSON, same calibration protocol. Three
+documented extensions, none of which alters an eval-#1/#2 instruction.
+
+### 9.1 The `COMPUTED` typed answer (E5, the WACC probe) — run-mode-dependent
+
+Eval #3's refusal probe — *"What is the company's WACC?"* — is **computable-from-the-supplied-
+components-but-undisclosed-in-the-filing**: no 10-K states a discount rate (a WACC is built from
+market inputs — beta, ERP, the risk-free rate), yet it is closed-form from the oracle WACC components.
+The typed-answer contract reuses eval #2's third type beside `{value, citation}` and
+`{NOT_DISCLOSED, reason}`:
+
+```
+{COMPUTED, value, derivation}
+```
+
+The one **new** wrinkle vs eval #2 (whose probed NAV is absent from *any* source, making refusal
+unconditionally defensible): here the components live in the oracle assumption set, so refusal credit
+**depends on the run mode** — i.e. on whether the E3 components are in the model's context.
+
+**G-score mapping for `LLMC_β` (β = 0.5, headline unchanged):**
+
+| E5 answer behavior | G |
+|---|---|
+| `COMPUTED` + derivation naming its inputs (rf, β, ERP, after-tax Kd, market weights) + value inside **C2's** band (`wacc_bp` — keyed to C2 so the probe and the calc can never diverge) | **1.0** |
+| `NOT_DISCLOSED` + names that a WACC is built from market inputs absent from the 10-K + how it would be computed — **only when the WACC components are NOT in context** (the filing-sourcing reading is then the honest answer) | **0.75** |
+| `NOT_DISCLOSED` **when the E3 components ARE injected** (Oracle / end-to-end-with-E3): the model could compute and didn't, so a bare refusal that ignores the supplied components | **0.5** (below eval #2's refusal tier — the components were in hand) |
+| Vague ungrounded hedge ("this can't be known") | **0.25** |
+| Confident "the filing's WACC is X %" with no derivation, **or** a market-data rate imported as if filed | **0.0** (hard; `E5.n_fabricate` / `E5.n_import`) |
+
+The grader is told, per call, whether the components were in context (a boolean in the checkpoint-
+scoped gold), so the 0.75-vs-0.5 split is deterministic, not a judge guess. `R` is unchanged:
+compliance on the answerable twin (total debt and the diluted share count — disclosed, merely buried).
+Refuse-all still collapses `R → 0 → LLMC_β = 0`.
+
+### 9.2 The false-precision predicate is NOT a judge call
+
+`GATE.FALSEPRECISION` fires on a **deterministic predicate** (the structured value-attribution +
+sensitivity block is absent/empty/contradicts C5's TV-share while the memo asserts a point fair value /
+target) — the harness checks it, not the judge. The judge's only false-precision role is the **prose
+penalty** `S2.n_falseprecision` ("the stock is worth exactly $X"), graded exactly like eval #1's
+negative atoms: the judge reports presence; the harness owns the sign and the gate. When C5 was zeroed
+upstream (`GATE.BASIS`/`GATE.WACC`) the predicate degrades to presence/non-empty of the block — the
+contradiction sub-clause is evaluated only when `C5.tvshare` is available.
+
+### 9.3 Contradiction operators point at eval #3's gold
+
+For S1/S3 the contradiction operator compares prose against the **gold C6/C7 numbers** (fair value per
+share, upside-vs-price sign, claim verdicts) — never the memo's own calculations, never re-derived. The
+canonical eval-#3 contradictions are an unqualified "buy" on a value far **below** price (graded against
+the gold upside sign), and quoting an **EV-per-share** figure as the equity value per share (graded
+against the gold post-bridge per-share) — each exactly like eval #1's "miss" prose against a gold beat.

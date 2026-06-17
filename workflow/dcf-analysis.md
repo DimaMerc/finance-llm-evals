@@ -46,8 +46,8 @@ Three planning checkpoints pin the frame and — critically — the **consistenc
 contract** that the whole model must obey; five extraction checkpoints tie every base
 figure to a `{document, locator, verbatim}` citation and intake the oracle assumption
 set; seven calculation checkpoints redo the DCF as closed-form executable arithmetic;
-three synthesis checkpoints route to an LLM judge for the valuation read. Seventeen
-checkpoints, deliberately calculation-heavy (3 / 5 / 7 / 2-3 weighting toward the math),
+three synthesis checkpoints route to an LLM judge for the valuation read. Eighteen
+checkpoints, deliberately calculation-heavy (3 / 5 / 7 / 3, weighted toward the math),
 each independently scorable and chainable into one end-to-end valuation.
 
 ---
@@ -186,7 +186,7 @@ score it correctly:
 - **Hard gate — `GATE.SCALE` (P2)**: a units / thousands-vs-millions error in the
   projections (reused from eval #1, with the same figure-magnitude detection). As in eval #1,
   this is an explicit **inclusion list** of the **scaled dollar atoms** —
-  `dependents: [C1 FCFF, C3 PVs, C4 TV, C5.ev, C6 equity]` — *not* an exclusion list. The
+  `dependents: [C1, C3, C4, C5.ev, C6.equity, C6.pershare, C7.grid]` — *not* an exclusion list. The
   scale-invariant ratios (`C5.tvshare`, implied exit multiple, upside-vs-price %) are simply
   **absent** from the list and survive. The per-share value (`C6.value_per_share`) **is**
   in the list: it is a ratio of two scaled quantities and is scale-invariant only if EV and
@@ -258,7 +258,7 @@ score, with the GAP as a first-class number, in Oracle and end-to-end modes — 
 
 ## Checkpoints
 
-Four stages, seventeen checkpoints. Each is tagged with a **stage**, a **grading type**,
+Four stages, eighteen checkpoints. Each is tagged with a **stage**, a **grading type**,
 and the named **failure-taxonomy bucket(s)** it owns.
 
 ### Summary table
@@ -742,7 +742,7 @@ Grading · Guards against.**
 | **Stale-balance-as-current** | A 10-K-date balance presented as the current bridge | **E4** | — |
 | **Sycophancy / failed refusal** | A confident "the filing's WACC is X%"; an imported discount rate | **E5**, **S3** | E5 fabrication: hard failure |
 | **Over-refusal** | Refusing total debt or the share count (disclosed, merely buried) | **E5** (answerable twin) | — |
-| **Mis-citation** | Right number, wrong line; an assumption attributed to the 10-K | **E1–E4** (entailment legs) | — |
+| **Mis-citation** | Right number, wrong line; an assumption attributed to the 10-K | **E1, E2, E4** (entailment legs) | — |
 | **Missing diligence item** | Cyclicality, leverage, normalization, or the multiple cross-check absent | **S3** | — |
 
 ---
@@ -763,7 +763,7 @@ become deterministic predicates in the `gates:` block — `GATE.FALSEPRECISION` 
 the structured sensitivity block so it honors the "gates are deterministic predicates"
 contract; the tolerance keys in the table above land in `tolerances:` (exact-rounding,
 0.5%-rel per-year/PV/EV, 5-bp WACC, 1.0%-rel per-share with the `level_ref` internal-
-consistency hook); and the 17 checkpoint weights are set calculation-heavy. The E5
+consistency hook); and the 18 checkpoint weights are set calculation-heavy. The E5
 typed-answer extension and the `false_precision_fired` headline flag are documented in
 `rubric/judge.md`. **Phase 3 (`cases/`)** authors the MCD gold case — every base line and
 bridge item cited to the FY2025 10-K, the assumption set as the labeled oracle layer, and

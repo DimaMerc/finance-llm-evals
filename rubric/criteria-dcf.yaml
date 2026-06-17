@@ -1,0 +1,1135 @@
+# rubric/criteria-dcf.yaml — machine-readable atomic scoring criteria for EVAL #3:
+# discounted-cash-flow (DCF) valuation. Phase-2 deliverable of eval #3.
+#
+# SAME SCHEMA as rubric/criteria.yaml (eval #1) and criteria-defined-outcome.yaml (eval #2)
+# — no schema changes: meta weights + checkpoint_weights, a tolerances block, a gates block
+# with fired_by/dependents, and atoms {id, checkpoint, category, criterion, points, grader,
+# gate, tolerance, per_figure/figures, prune, tags}. Aggregation is identical (checkpoint-
+# primary, six-category rollup, HealthBench inner pool; E5's headline = FailSafeQA F-beta —
+# the eval-#1 E6 / eval-#2 E5 exception, inherited).
+# Workflow spec: workflow/dcf-analysis.md. Validate: python rubric/validate.py rubric/criteria-dcf.yaml
+#
+# Conventions carried from evals #1-2:
+#   - per_figure templates expand per the case manifest. NEW expand keys this eval adds in
+#     Phase 4 (harness/rubric.py _EXPANSIONS): per_year_row (projection / PV years) and
+#     per_grid_cell (the WACC x g sensitivity grid); per_claim_row is reused as-is. SPLIT
+#     semantics (pool divided evenly over N rows); prune: per_manifest removes N/A figures.
+#     UNTIL Phase 4 registers those two keys, an unknown expand key falls through to the
+#     non-expanding branch (rubric.py): C1.fcff / C3.pv / C7.grid materialize as ONE atom
+#     carrying the full pool (pass/fail as a lump, no per-row partial credit). Gate wiring is
+#     unaffected (source_id is preserved), and validate.py is green either way.
+#   - gates set m=0 on dependents before inner pooling; zeroed atoms stay in denominators.
+#   - dependents may be a checkpoint id (zeros the whole checkpoint) OR an atom id
+#     (atom-level, e.g. C5.ev) — the scoring engine's `base == atom.source_id` match.
+#   - entailment category <-> entailment grader, bidirectionally.
+#   - E5 is the one checkpoint whose headline is NOT awarded/raw_pos: it is LLMC_beta(R, G),
+#     beta = 0.5, with the {COMPUTED, value, derivation} G-mapping documented in judge.md.
+
+meta:
+  rubric_version: "1.0.0"          # eval #3 atom set (suite schema 2.1.0). C7.deciding carries
+                                   # eval #2's 1.0.1 deciding_kind fix from the start.
+  eval: dcf-valuation
+
+  # --- SECONDARY category rollup weights. IDENTICAL to evals #1-2 for suite comparability. ---
+  weights:
+    extraction:   0.22
+    numerical:    0.26
+    entailment:   0.14
+    reasoning:    0.20
+    calibration:  0.12
+    structure:    0.06
+
+  # --- PRIMARY aggregation: 18 checkpoint weights. Sum to 1.0. ---
+  #     stage subtotals: planning .130 | extraction .250 | calculation .440 | synthesis .180
+  #     (calculation-heavy, matching the workflow doc's 3/5/7/3 rebalance: a DCF's center of
+  #     gravity is the closed-form math, and C6 — the EV->equity bridge — carries the most
+  #     weight as the highest-frequency real-world error and the signature scoped gate.)
+  checkpoint_weights:
+    P1: 0.050
+    P2: 0.050
+    P3: 0.030
+    E1: 0.050
+    E2: 0.075
+    E3: 0.040
+    E4: 0.035
+    E5: 0.050
+    C1: 0.065
+    C2: 0.055
+    C3: 0.070
+    C4: 0.050
+    C5: 0.045
+    C6: 0.085
+    C7: 0.070
+    S1: 0.060
+    S2: 0.070
+    S3: 0.050
+
+  refusal_beta: 0.5                 # E5 headline F-beta (inherited from eval #1's E6 / eval #2's E5)
+  clip_per_checkpoint: true
+  clip_per_case: false
+  clip_suite: [0.0, 1.0]
+  headline_flags: [false_precision_fired]   # reported beside CaseScore when GATE.FALSEPRECISION fires
+
+tolerances:                         # derived from the figures' own provenance (workflow doc table)
+  exact_round:    { type: rel, band: 0.005, or_exact: true }   # base lines & bridge items: exact to the filing's printed precision OR <= 0.5% (eval-#1 `aggregate` convention — admits a model citing the filing's own '$26.9B' against a fine filed integer; the scale fold handles thousands-vs-millions)
+  exact_int:      { type: abs, band: 0.001 }     # diluted share count to the filed unit; integer identities
+  exact_2dp_pp:   { type: pp,  band: 0.001 }     # rates stated at 2-dp (effective tax rate, etc.)
+  fcf_rel:        { type: rel, band: 0.005 }      # unlevered FCF per projected year — arithmetic on the oracle assumptions
+  wacc_bp:        { type: pp,  band: 0.05 }        # WACC vs the gold build (5 bps = 0.05pp)
+  pv_rel:         { type: rel, band: 0.005 }       # discount factors / PV of each explicit FCF (convention-folded)
+  tv_rel:         { type: rel, band: 0.005 }       # terminal value (Gordon) and its PV
+  # EV / equity / per-share carry the level_ref internal-consistency hook (graded against the
+  # model's OWN PV components / EV+bridge+shares, separately from the gold match) — the eval-#1 mechanism.
+  ev_rel:         { type: rel, band: 0.005, internal_consistency: true }   # EV = sum PV(FCFF) + PV(TV)
+  pershare_rel:   { type: rel, band: 0.010, internal_consistency: true }   # equity value & fair value per share (post-bridge)
+  tvshare_pp:     { type: pp,  band: 0.5 }         # TV-share-of-EV
+  grid_cell_rel:  { type: rel, band: 0.005 }       # per-share value in each WACC x g sensitivity cell
+  upside_pp:      { type: pp,  band: 1.5 }         # upside/downside vs price: 1.5pp dominates the per-share band propagated through value/price-1 (a per-share at the edge of its 1.0% band shifts upside ~1.25pp at ~25% upside, so a tighter band would over-penalize a correct-but-rounded per-share). The SIGN — the part that matters — is owned by C7.sign (the in-checkpoint fail), not this magnitude band.
+
+# ============================== GATES (workflow doc, "Gating") ==============================
+gates:
+  - id: GATE.BASIS
+    tier: hard
+    checkpoint: P1
+    # Fires from EITHER hook (multi-hook list, as eval #2's GATE.FABRICATION): the planning
+    # commitment is inconsistent (P1.consistency) OR the assembled EV is internally inconsistent
+    # with the declared basis (C5.consistency). One shared dependents list. The C5 firing atom is
+    # itself inside the blast radius by design — self-gating is harmless (a wrong basis at C5
+    # should zero C5 too). E-stage figures survive as extraction.
+    fired_by: [P1.consistency, C5.consistency]
+    condition: "cash-flow / discount-rate / output basis inconsistent: unlevered FCFF paired with the cost of equity, or an enterprise value handed to shareholders without the net-debt bridge"
+    dependents: [C1, C2, C3, C4, C5, C6, C7, S1, S2, S3]
+  - id: GATE.SCALE
+    tier: hard
+    checkpoint: P2
+    fired_by: P2.scale
+    # Inclusion list of the SCALED DOLLAR atoms (eval-#1 GATE.P2 style), not an exclusion list.
+    # SURVIVORS (scale-invariant): C2 (WACC — rates), C5.consistency / C5.tvshare (a ratio),
+    # and the synthesis read. Within C7, only C7.grid (per-share dollar cells) is zeroed — the
+    # rest of C7 survives (C7.verdicts labels, C7.upside / C7.sign ratios+sign, C7.tvshare,
+    # C7.deciding), because C7 is targeted at ATOM level (C7.grid), not as a checkpoint.
+    # Per-share IS in the list: it is invariant only if EV and shares are CONSISTENTLY scaled
+    # — a one-sided slip must still be caught.
+    condition: "units / thousands-vs-millions error in the projections (eval-#1 figure-magnitude detection)"
+    dependents:
+      - C1            # the whole FCFF projection rides the scale
+      - C3            # PVs
+      - C4            # terminal value
+      - C5.ev         # enterprise value (atom-level; C5.consistency / C5.tvshare survive)
+      - C6.equity
+      - C6.pershare
+      - C7.grid       # the sensitivity cells are scaled per-share dollars
+  - id: GATE.WACC
+    tier: scoped
+    checkpoint: P2
+    fired_by: P2.waccbasis
+    # Zeros the WACC-DERIVED value chain only; spares C1/C2/E2 and the scale-invariant C5 sub-atoms.
+    # C5.ev is targeted atom-level (the :selector / source_id match) so C5.consistency and
+    # C5.tvshare survive (basis/structure checks, not WACC-derived values; C5.tvshare feeds S2).
+    condition: "discount-rate basis error: book capital weights instead of market, a pre-tax cost of debt in WACC, or a risk-free / ERP double-count"
+    dependents: [C3, C4, C5.ev]
+  - id: GATE.BRIDGE
+    tier: scoped
+    checkpoint: C6
+    fired_by: C6.bridge
+    # The DCF's highest-frequency real-world error gets its own gate. Zeros the per-share/equity
+    # chain (all of C6 + S1) but NOT the unlevered enterprise math C1-C5. S2/S3 are deliberately
+    # spared (they grade EV-side value-attribution + calibration, not the per-share number) —
+    # mirroring how eval #2's GATE.FEEBASIS zeros S1 but leaves S2/S3 standing.
+    condition: "EV->equity bridge wrong: net debt omitted or sign-flipped, minority/preferred ignored, or enterprise value divided by shares directly"
+    dependents: [C6, S1]
+  - id: GATE.FALSEPRECISION
+    tier: scoped
+    checkpoint: S2
+    fired_by: S2.sensblock
+    # The suite's SECOND synthesis-stage-firing gate (parallel to eval #2's GATE.FREELUNCH) — and
+    # still a DETERMINISTIC predicate: the deliverable requires a structured value-attribution +
+    # sensitivity block; the gate fires when the memo asserts a point fair value / target while
+    # that block is absent, empty, or its TV-share contradicts C5. The TV-share-contradiction
+    # clause is evaluated only when C5.tvshare is available (non-gated); when C5 was zeroed
+    # upstream the predicate falls back to presence/non-empty. Prose is penalized by S2.n_falseprecision.
+    condition: "a point fair value / price target asserted while the structured value-attribution + sensitivity block is absent, empty, or its TV-share contradicts C5"
+    dependents: [S2, S3]
+    headline_flag: false_precision_fired
+  - id: GATE.C1FCF
+    tier: in_checkpoint
+    checkpoint: C1
+    fired_by: C1.fcfdef
+    condition: "FCF-definition error: net income used as the cash-flow base, EBIT left un-tax-affected, or capex added instead of subtracted"
+    dependents: [C1]
+  - id: GATE.C4TERM
+    tier: in_checkpoint
+    checkpoint: C4
+    fired_by: C4.gterm
+    condition: "terminal g >= WACC (negative or explosive perpetuity), or the terminal value left undiscounted"
+    dependents: [C4]
+  - id: GATE.C7SIGN
+    tier: in_checkpoint
+    checkpoint: C7
+    fired_by: C7.sign
+    condition: "value-vs-price sign flip: a value below the market price reported as upside (an overvalued stock called cheap)"
+    dependents: [C7]
+  - id: GATE.FABRICATION
+    tier: hard
+    tier_note: "per-figure void; cascades only on a frame fabrication (eval #1 F4 semantics)"
+    scope: figure
+    fired_by: [E1.n_halluc, E2.n_halluc, E5.n_fabricate]
+    condition: "a fabricated base figure, a 'filed' number that is not in the 10-K, or a discount rate asserted as disclosed (no filing states a WACC)"
+    # NOTE: voids_positive / cascade_if / cascade_dependents / scope are DESCRIPTIVE-ONLY in the
+    # current engine (read only by validate.py's resolution lint, not by scoring.py) — IDENTICAL
+    # to eval #1/#2, where the per-figure G=0 void is done by the suite grader, not this gate.
+    voids_positive: [self.value, self.cite]
+    cascade_if: "fabricated_field in {fcf_basis, units, valuation_date}"
+    cascade_dependents:
+      - GATE.BASIS
+      - GATE.SCALE
+
+# ============================== PLANNING ==============================
+criteria:
+
+  # ---- P1 — pin the frame and the FCF basis (the consistency commitment; deterministic, HARD GATE) ----
+  - id: P1.frame
+    checkpoint: P1
+    category: extraction
+    criterion: "Entity, fiscal year, currency, reporting units, and the valuation date are pinned from the filing cover / inputs (MCD: CIK 63908, FY2025, USD, millions)."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [frame_error]
+  - id: P1.basis
+    checkpoint: P1
+    category: numerical
+    criterion: "The FCF basis is stated as UNLEVERED (FCFF) and the output chain declared correctly: FCFF discounted at WACC yields ENTERPRISE value, which is bridged to equity, then divided by shares."
+    points: 6
+    grader: deterministic
+    gate: none
+    tags: [basis_mix]
+  - id: P1.consistency
+    checkpoint: P1
+    category: numerical
+    criterion: "The chain is INTERNALLY CONSISTENT: no commitment to discount unlevered FCF at the cost of equity, and no commitment to treat enterprise value as equity value (the levered/unlevered mix or EV-as-equity that poisons the whole model)."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.BASIS
+    tags: [basis_mix]
+  - id: P1.horizon
+    checkpoint: P1
+    category: numerical
+    criterion: "The explicit horizon and the terminal method are pinned (they drive C4)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [terminal_method]
+  - id: P1.cite
+    checkpoint: P1
+    category: entailment
+    criterion: "The frame (entity, period, units) is anchored to the filing cover / verbatim, not asserted."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: P1.header
+    checkpoint: P1
+    category: structure
+    criterion: "A pinned-header object is produced carrying {ticker, cik, fiscal_year, valuation_date, currency, units, fcf_basis, output_chain, horizon_years, terminal_method}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+  # ---- P2 — lock the discount-rate basis, units, and conventions (deterministic, HARD + SCOPED GATE) ----
+  - id: P2.scale
+    checkpoint: P2
+    category: extraction
+    criterion: "The UNITS of the projections are locked (the thousands-vs-millions trap): the gold model is in the filing's reporting units and every projected dollar figure is on that scale."
+    points: 8
+    grader: deterministic
+    gate: hard            # firing this is GATE.SCALE
+    tags: [scale]
+  - id: P2.waccbasis
+    checkpoint: P2
+    category: numerical
+    criterion: "WACC is committed on MARKET capital weights (not book — decisive for a negative-book-equity issuer like MCD), with an AFTER-TAX cost of debt and a CAPM cost of equity (rf + beta*ERP), with no risk-free/ERP double-count."
+    points: 8
+    grader: deterministic
+    gate: scoped          # firing this is GATE.WACC -> C3, C4, C5.ev
+    tags: [wacc_basis]
+  - id: P2.convention
+    checkpoint: P2
+    category: numerical
+    criterion: "The discounting convention (year-end vs mid-year) is pinned BEFORE any PV is taken — the two differ by a half-period factor and must not be mixed."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [convention]
+  - id: P2.nominal
+    checkpoint: P2
+    category: reasoning
+    criterion: "Nominal consistency is declared: nominal cash flows discounted at a nominal WACC with a nominal g (no real/nominal mix)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [nominal_real]
+  - id: P2.lease
+    checkpoint: P2
+    category: reasoning
+    criterion: "Lease treatment is pinned to OPERATING: rent stays embedded in EBIT (MCD's reported operating income is already after occupancy/rent) and operating-lease liabilities are EXCLUDED from the net-debt bridge. The debt-like capitalization (rent added back to EBIT AND lease liabilities added to net debt) is the equally-valid alternative the model must not HALF-apply."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [lease_treatment]
+  - id: P2.cite
+    checkpoint: P2
+    category: entailment
+    criterion: "Unit / convention assertions cite the filing's statements; the discount rate and forecast are NOT cited to the filing (they are oracle inputs)."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+
+  # ---- P3 — scope the inputs and the terminal-value method (hybrid) ----
+  - id: P3.terminal
+    checkpoint: P3
+    category: numerical
+    criterion: "The terminal method is pinned and its parameter recorded; if Gordon, the rule g < WACC (STRICT) and g <= a long-run nominal-GDP ceiling is pre-committed."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [terminal_method]
+  - id: P3.normalize
+    checkpoint: P3
+    category: reasoning
+    criterion: "The terminal-year FCF is flagged as needing to be NORMALIZED (steady-state capex ~ D&A, mid-cycle margin) rather than an unrepresentative final explicit year."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [terminal_method]
+  - id: P3.inputmap
+    checkpoint: P3
+    category: reasoning
+    criterion: "Each input is tagged ORACLE (assumption) vs FILED (fact): the discount rate and the forecast are oracle; the historicals and the bridge are filed."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [oracle_filed]
+  - id: P3.scope
+    checkpoint: P3
+    category: structure
+    criterion: "A scoping record object is produced {terminal_method, terminal_param, consistency_rules, input_map}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: P3.completeness
+    checkpoint: P3
+    category: reasoning
+    criterion: "The judged completeness check: the consistency rules (g<WACC, g<=GDP, terminal normalization) are all present and coherent."
+    points: 2
+    grader: judge
+    gate: none
+    tags: [terminal_method]
+  - id: P3.n_pad
+    checkpoint: P3
+    category: reasoning
+    criterion: "PENALTY: the scope is padded with irrelevant figures/assumptions beyond the gold list (gaming via volume)."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [padding]
+
+# ============================== EXTRACTION ==============================
+
+  # ---- E1 — base operating lines from the 10-K (hybrid) ----
+  - id: E1.value
+    checkpoint: E1
+    category: extraction
+    criterion: "Each base operating line is extracted at the filing's printed rounding (MCD, filed: revenue 26.9B, operating income/EBIT 12.4B, effective tax 21.4%), each {value, document, locator, verbatim}."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: revenue,            tolerance_key: exact_round,  points: 1.5 }
+      - { figure_name: ebit,               tolerance_key: exact_round,  points: 2.0 }
+      - { figure_name: tax_provision,      tolerance_key: exact_round,  points: 1.5 }
+      - { figure_name: effective_tax_rate, tolerance_key: exact_2dp_pp, points: 1.0 }
+      - { figure_name: dep_amort,          tolerance_key: exact_round,  points: 1.0 }
+      - { figure_name: capex,              tolerance_key: exact_round,  points: 1.0 }
+  - id: E1.ebit
+    checkpoint: E1
+    category: numerical
+    criterion: "EBIT (operating income) is the extracted base — NOT net income, NOT EBITDA — at the filing's printed rounding."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [ebit_confusion]
+  - id: E1.source
+    checkpoint: E1
+    category: extraction
+    criterion: "D&A and capex are taken from the CASH-FLOW STATEMENT (the reliable source), not inferred from the income statement or balance sheet."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [mis_extraction]
+  - id: E1.taxnote
+    checkpoint: E1
+    category: numerical
+    criterion: "The reported effective tax rate is captured for RECONCILIATION/context only — the unlevered FCFF in C1 is tax-affected at the oracle cash_tax_rate (a marginal/operating rate on EBIT), not the reported effective rate."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [tax_basis]
+  - id: E1.cite
+    checkpoint: E1
+    category: entailment
+    criterion: "Each base line carries a {document, locator, verbatim} citation into the 10-K that entails the value; no assumption (growth, discount rate) is attributed to the filing."
+    points: 5
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E1.n_omit
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a must-have base line (EBIT, D&A, or capex) is required + disclosed but omitted with no attempt."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+  - id: E1.n_halluc
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a base figure is fabricated — a 'filed' number not in the 10-K, or an assumption presented as an extracted historical."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+
+  # ---- E2 — the EV<->equity bridge items + diluted shares from the 10-K (hybrid) ----
+  - id: E2.value
+    checkpoint: E2
+    category: extraction
+    criterion: "Each bridge item is extracted at the filing's printed rounding, cited: total debt (current + long-term), cash & equivalents, net debt, minority/noncontrolling interest, preferred, non-operating assets (equity-method investments), and the diluted share count."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    prune: per_manifest          # issuers with no minority/preferred prune those rows
+    figures:
+      - { figure_name: total_debt,         tolerance_key: exact_round, points: 1.5 }
+      - { figure_name: cash_and_equiv,     tolerance_key: exact_round, points: 1.0 }
+      - { figure_name: net_debt,           tolerance_key: exact_round, points: 1.5 }
+      - { figure_name: minority_interest,  tolerance_key: exact_round, points: 1.0 }
+      - { figure_name: preferred,          tolerance_key: exact_round, points: 0.5 }
+      - { figure_name: non_op_assets,      tolerance_key: exact_round, points: 1.0 }
+      - { figure_name: diluted_shares,     tolerance_key: exact_int,   points: 1.5 }
+  - id: E2.netdebt
+    checkpoint: E2
+    category: numerical
+    criterion: "Net debt is formed correctly as total_debt - cash (a net-CASH company carries a negative net debt that ADDS in the bridge)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_round
+    tags: [bridge_miss]
+  - id: E2.leases
+    checkpoint: E2
+    category: reasoning
+    criterion: "Operating-lease liabilities are NOT counted as debt under the pinned operating treatment (P2): the lease liability is excluded from net debt because the rent already sits in EBIT — pulling it into the bridge while leaving rent in EBIT double-counts (the lease trap)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [lease_treatment]
+  - id: E2.nonop
+    checkpoint: E2
+    category: numerical
+    criterion: "Non-operating assets are captured for the bridge add-back — for MCD, investments in and advances to affiliates (equity-method associates), whose earnings are NOT in consolidated EBIT and so are not valued by the operating FCFF."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [bridge_miss]
+  - id: E2.shares
+    checkpoint: E2
+    category: numerical
+    criterion: "The diluted share count is captured (the per-share denominator) at the filed figure — the diluted WEIGHTED-AVERAGE shares unless the manifest pins period-end — the share-count discipline carried from eval #1."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: exact_int
+    tags: [share_count]
+  - id: E2.bookequity
+    checkpoint: E2
+    category: reasoning
+    criterion: "Negative book equity (MCD) is NOT treated as a data error — it is the buyback history and is irrelevant to a DCF, which uses market weights and cash flows."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [book_equity]
+  - id: E2.cite
+    checkpoint: E2
+    category: entailment
+    criterion: "Each bridge item carries a {document, locator, verbatim} citation into the 10-K balance sheet / share data that entails it."
+    points: 5
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E2.n_omit
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a bridge item (net debt or the diluted share count) is required + disclosed but omitted with no attempt."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+  - id: E2.n_halluc
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a bridge item is fabricated — a 'filed' debt/cash/share figure not in the 10-K."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+
+  # ---- E3 — assumption-set intake (typed, oracle) (hybrid) ----
+  - id: E3.intake
+    checkpoint: E3
+    category: extraction
+    criterion: "Every assumption is read EXACTLY as supplied and typed/labeled ORACLE — none re-derived, none silently changed, none attributed to a filing (horizon, revenue_growth[], margin[]/ebit[], cash_tax_rate, dep_amort[], capex[], delta_nwc[], wacc_components, terminal, convention)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tags: [oracle_filed]
+  - id: E3.wacccomp
+    checkpoint: E3
+    category: numerical
+    criterion: "The WACC components are complete (rf, beta, erp, pre_tax_kd, target_weights) and the terminal parameter (g or exit multiple) is present."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [oracle_filed]
+  - id: E3.notfiled
+    checkpoint: E3
+    category: reasoning
+    criterion: "The discount rate and the forecast are explicitly NOT attributed to any filing — a DCF is a model, not a reported number; its assumptions live in no 10-K."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [oracle_filed]
+  - id: E3.structure
+    checkpoint: E3
+    category: structure
+    criterion: "A typed assumption record is produced with every field tagged oracle."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: E3.n_change
+    checkpoint: E3
+    category: extraction
+    criterion: "PENALTY: an oracle assumption is silently changed, re-derived, or substituted with a filed figure."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [oracle_filed]
+
+  # ---- E4 — market-snapshot intake + staleness ledger (hybrid) ----
+  - id: E4.snapshot
+    checkpoint: E4
+    category: extraction
+    criterion: "The oracle snapshot is taken verbatim and typed: {valuation_date, share_price, diluted_shares_asof, net_debt_asof} — none re-derived, none substituted with filing marks."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+  - id: E4.staleness
+    checkpoint: E4
+    category: reasoning
+    criterion: "The terms-vs-state staleness asymmetry is explicit: the 10-K balance is as of its fiscal-year end and may differ from the valuation date; the snapshot net debt / shares are the as-of figures the bridge should use when supplied."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+  - id: E4.price
+    checkpoint: E4
+    category: numerical
+    criterion: "The price is NEVER taken from the filing; valuation_date is the as-of for the price comparison and the bridge."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [price_from_filing]
+  - id: E4.cite
+    checkpoint: E4
+    category: entailment
+    criterion: "The staleness claim cites the 10-K balance-sheet date (the filing's own data date)."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E4.n_stale
+    checkpoint: E4
+    category: reasoning
+    criterion: "PENALTY: a 10-K-date balance (net debt, shares) is presented as the current market value at the snapshot date."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [stale_as_current]
+
+  # ---- E5 — calibrated refusal: the WACC probe (+ answerable twin) (label-det. + derivation-judge) ----
+  # HEADLINE = LLMC_beta(R, G), beta = 0.5 (the eval-#1 E6 / eval-#2 E5 exception, inherited).
+  # The probe is COMPUTABLE-FROM-COMPONENTS-BUT-UNDISCLOSED-IN-THE-FILING. Typed answer adds
+  # {COMPUTED, value, derivation} beside {value, citation} and {NOT_DISCLOSED, reason}.
+  # G-mapping (documented in judge.md) is RUN-MODE-DEPENDENT (finer than eval #2, whose probed
+  # NAV is absent from any source):
+  #   COMPUTED + derivation + value in C2's WACC band -> G = 1.0
+  #   NOT_DISCLOSED naming that a WACC is built from market inputs absent from the 10-K -> G = 0.75
+  #     ONLY when the E3 components are NOT in context; when they ARE injected, a bare
+  #     NOT_DISCLOSED that ignores the supplied components maps below 0.75 (it could compute).
+  #   vague hedge -> G = 0.25 ; confident "the filing's WACC is X%" -> G = 0.0 (fabrication)
+  # R = answerable-twin compliance (total debt + the diluted share count, disclosed-but-buried).
+  - id: E5.label
+    checkpoint: E5
+    category: calibration
+    criterion: "The typed answer label is correct: COMPUTED (with derivation) or NOT_DISCLOSED-with-method are both acceptable; a bare confident number is neither."
+    points: 6
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.value
+    checkpoint: E5
+    category: calibration
+    criterion: "If COMPUTED: the value lands in C2's WACC band (the probe's tolerance is KEYED to C2's so the two can never diverge)."
+    points: 5
+    grader: refusal
+    gate: none
+    tolerance: wacc_bp
+    tags: [calibrated_refusal]
+  - id: E5.reason
+    checkpoint: E5
+    category: calibration
+    criterion: "The derivation/reason is grounded: names the CAPM inputs and market weights (for COMPUTED) or that a WACC is built from market inputs (beta, ERP, the risk-free rate) absent from the 10-K (for NOT_DISCLOSED)."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.twin
+    checkpoint: E5
+    category: calibration
+    criterion: "The answerable twin IS retrieved: total debt and the diluted share count (disclosed, merely buried); refusing them is over-refusal and drops R."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+  - id: E5.twin_cite
+    checkpoint: E5
+    category: entailment
+    criterion: "The twin figures carry citations that entail them (the balance-sheet debt line; the income-statement diluted-share line)."
+    points: 3
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E5.n_fabricate
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY (hard, G=0): a confident 'the filing's WACC is X%' with no derivation (no filing states a WACC)."
+    points: -10
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal, hallucination]
+  - id: E5.n_import
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY: a market-data discount rate imported as if filed/disclosed (scores as an import, not a computation)."
+    points: -5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: E5.n_vaguehedge
+    checkpoint: E5
+    category: calibration
+    criterion: "PENALTY: a vague ungrounded hedge — fires XOR with E5.reason counting as not-met (the eval-#1 F10 convention)."
+    points: -3
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+
+# ============================== CALCULATION ==============================
+
+  # ---- C1 — project the unlevered free cash flow (deterministic; in-checkpoint fail) ----
+  - id: C1.fcff
+    checkpoint: C1
+    category: numerical
+    criterion: "FCFF_t for each explicit year matches gold within 0.5% relative, with the build shown {revenue_t, ebit_t, ebit_after_tax_t, da_t, capex_t, dnwc_t, fcff_t}. Pool splits evenly per projected year."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: year_rows, tolerance_key: fcf_rel, points: 8.0, expand: per_year_row }
+  - id: C1.fcfdef
+    checkpoint: C1
+    category: numerical
+    criterion: "FCFF is built as EBIT(1-tau) + D&A - Capex - dNWC: operating income tax-affected, D&A added back, capex and the INCREASE in net working capital subtracted. Net income is NOT the base; EBIT is NOT left un-tax-affected; capex is SUBTRACTED."
+    points: 6
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C1FCF
+    tags: [fcf_definition]
+  - id: C1.taxrate
+    checkpoint: C1
+    category: numerical
+    criterion: "EBIT is tax-affected at tau = the oracle cash_tax_rate (the marginal/operating rate), NOT the reported effective rate (which reflects non-operating items and the interest shield)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [tax_basis]
+  - id: C1.build
+    checkpoint: C1
+    category: numerical
+    criterion: "The per-year build (operands, not just the answer) is present for each explicit year."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [fcf_build]
+  - id: C1.n_capexsign
+    checkpoint: C1
+    category: numerical
+    criterion: "PENALTY: capex added instead of subtracted, a working-capital DECREASE treated as a use of cash (or increase as a source), or D&A double-counted."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [fcf_definition]
+
+  # ---- C2 — compute WACC from its components (deterministic) ----
+  - id: C2.ke
+    checkpoint: C2
+    category: numerical
+    criterion: "Cost of equity via CAPM: Ke = rf + beta*ERP, within 5 bps of the gold build."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: wacc_bp
+    tags: [wacc_build]
+  - id: C2.kd
+    checkpoint: C2
+    category: numerical
+    criterion: "Cost of debt AFTER-TAX: Kd_after = pre_tax_kd*(1-tau), within 5 bps."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: wacc_bp
+    tags: [wacc_build]
+  - id: C2.wacc
+    checkpoint: C2
+    category: numerical
+    criterion: "WACC = (E/V)*Ke + (D/V)*Kd_after on the TARGET MARKET weights, within 5 bps of gold."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: wacc_bp
+    tags: [wacc_build]
+  - id: C2.weights
+    checkpoint: C2
+    category: numerical
+    criterion: "Market weights, not book; the after-tax (not pre-tax) cost of debt; no risk-free/ERP double-count."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [wacc_basis]
+  - id: C2.n_bookweight
+    checkpoint: C2
+    category: numerical
+    criterion: "PENALTY: book capital weights, or a pre-tax cost of debt, used in the WACC."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [wacc_basis]
+
+  # ---- C3 — discount the explicit free cash flows (deterministic) ----
+  - id: C3.pv
+    checkpoint: C3
+    category: numerical
+    criterion: "Each PV(FCFF_t) is within 0.5% relative of gold, on the committed convention (t year-end, or t-0.5 mid-year). Pool splits evenly per projected year."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: year_rows, tolerance_key: pv_rel, points: 8.0, expand: per_year_row }
+  - id: C3.factors
+    checkpoint: C3
+    category: numerical
+    criterion: "Discount factors use the committed convention consistently and the rate is the C2 WACC throughout."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [discount]
+  - id: C3.convention
+    checkpoint: C3
+    category: numerical
+    criterion: "No mixing of year-end and mid-year within the projection."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [convention]
+  - id: C3.n_convention
+    checkpoint: C3
+    category: numerical
+    criterion: "PENALTY: year-end and mid-year discount conventions mixed within the projection (a systematic convention-mix biasing every PV — parallel to eval #2's C2.n_convention)."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [convention]
+
+  # ---- C4 — terminal value and its present value (deterministic; in-checkpoint fail) ----
+  - id: C4.tv
+    checkpoint: C4
+    category: numerical
+    criterion: "Gordon TV computed as FCFF_N(1+g)/(WACC-g) with g < WACC strictly, within 0.5% relative of gold (or, if exit-multiple, EBITDA_N * exit_mult)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: tv_rel
+    tags: [terminal_value]
+  - id: C4.gterm
+    checkpoint: C4
+    category: numerical
+    criterion: "g < WACC is enforced STRICTLY and the terminal value IS discounted to PV — not g >= WACC (a negative/explosive perpetuity, wrong by construction), not a TV left undiscounted."
+    points: 5
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C4TERM
+    tags: [terminal_value]
+  - id: C4.pvtv
+    checkpoint: C4
+    category: numerical
+    criterion: "TV is discounted to PV on the SAME convention as the explicit FCFs, within 0.5% relative. The Gordon TV is a value as of end-of-year-N; the gold pins the exact discount exponent for the pinned convention (year-end: (1+WACC)^N; mid-year: the case manifest fixes (1+WACC)^(N-0.5) or ^N per its stated TV anchoring) so a defensible alternative anchoring is judged against the pinned factor, not penalized by the band."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: tv_rel
+    tags: [terminal_value]
+  - id: C4.crosscheck
+    checkpoint: C4
+    category: numerical
+    criterion: "If Gordon, the IMPLIED exit multiple is reported as the cross-check; if an exit multiple is used, the IMPLIED g is back-solved and sanity-checked."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [terminal_value]
+  - id: C4.normalize
+    checkpoint: C4
+    category: numerical
+    criterion: "The terminal-year FCFF is normalized (P3), not an anomalous final explicit year."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [terminal_value]
+
+  # ---- C5 — enterprise value + the consistency check (deterministic; THE SPINE, HARD GATE) ----
+  - id: C5.ev
+    checkpoint: C5
+    category: numerical
+    criterion: "EV = sum PV(FCFF_t) + PV(TV) within 0.5% relative of gold, AND equal to the model's own PV components (the level_ref internal-consistency hook)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: ev_rel
+    tags: [ev_build]
+  - id: C5.consistency
+    checkpoint: C5
+    category: numerical
+    criterion: "The value is correctly labeled ENTERPRISE (unlevered), consistent with the P1 chain — it is not yet equity, and it was built from FCFF discounted at WACC (not FCFE, not at Ke). An equity-like value labeled EV, or an EV produced from levered cash flows, fires the basis gate here as well as at P1."
+    points: 6
+    grader: deterministic
+    gate: hard            # firing this is GATE.BASIS (second hook)
+    tags: [basis_mix]
+  - id: C5.tvshare
+    checkpoint: C5
+    category: numerical
+    criterion: "TV-share-of-EV = PV(TV)/EV is reported (it feeds the S2 false-precision predicate), within 0.5pp of gold."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: tvshare_pp
+    tags: [terminal_value]
+  - id: C5.n_levered
+    checkpoint: C5
+    category: numerical
+    criterion: "PENALTY: a levered/unlevered EV inconsistency short of the gating threshold (e.g. a stray FCFE-flavored line in an otherwise unlevered build)."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [basis_mix]
+
+  # ---- C6 — bridge enterprise value to equity, and to per share (deterministic; SCOPED GATE) ----
+  - id: C6.bridge
+    checkpoint: C6
+    category: numerical
+    criterion: "Equity = EV - net_debt - minority - preferred (+ non_op_assets): net debt SUBTRACTED with the correct sign (a net-cash company adds it back), minority and preferred subtracted, non-operating assets added — and per share is equity/shares, NEVER EV/shares."
+    points: 8
+    grader: deterministic
+    gate: scoped          # firing this is GATE.BRIDGE -> C6, S1
+    tags: [bridge_error]
+  - id: C6.equity
+    checkpoint: C6
+    category: numerical
+    criterion: "Equity value is within 1.0% relative of gold and internally consistent with the model's own EV and bridge (level_ref)."
+    points: 5
+    grader: deterministic
+    gate: none
+    tolerance: pershare_rel
+    tags: [bridge_error]
+  - id: C6.pershare
+    checkpoint: C6
+    category: numerical
+    criterion: "Fair value per share = equity / diluted shares, within 1.0% relative of gold and internally consistent — never EV / shares (the classic blunder, off by net-debt-per-share)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: pershare_rel
+    tags: [bridge_error, share_count]
+  - id: C6.nonop
+    checkpoint: C6
+    category: numerical
+    criterion: "Non-operating assets (MCD's equity-method investments) are ADDED in the bridge — material at the 1.0% per-share band."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [bridge_error]
+  - id: C6.n_evshares
+    checkpoint: C6
+    category: numerical
+    criterion: "PENALTY: enterprise value divided by shares directly (no net-debt bridge) — off by the entire net-debt-per-share."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [bridge_error]
+
+  # ---- C7 — sensitivity, sanity cross-checks, and claim verification (deterministic; in-checkpoint fail on sign) ----
+  - id: C7.grid
+    checkpoint: C7
+    category: numerical
+    criterion: "A WACC x g sensitivity grid of per-share values is produced, each cell within 0.5% relative of gold. Pool splits evenly per grid cell."
+    points: 6
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: grid_cells, tolerance_key: grid_cell_rel, points: 6.0, expand: per_grid_cell }
+  - id: C7.tvshare
+    checkpoint: C7
+    category: numerical
+    criterion: "The TV-share-of-EV and the implied exit multiple (or implied g) cross-check are reported (consistent with C5)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: tvshare_pp
+    tags: [sensitivity]
+  - id: C7.upside
+    checkpoint: C7
+    category: numerical
+    criterion: "Upside/downside vs the market price = value_per_share/price - 1 is computed, within 0.5pp of gold."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: upside_pp
+    tags: [value_vs_price]
+  - id: C7.sign
+    checkpoint: C7
+    category: numerical
+    criterion: "The SIGN of upside/downside vs price is correct: a value BELOW price is downside; calling it upside (an overvalued stock called cheap) is the in-checkpoint fail."
+    points: 4
+    grader: deterministic
+    gate: in_checkpoint   # firing this is GATE.C7SIGN
+    tags: [value_vs_price]
+  - id: C7.verdicts
+    checkpoint: C7
+    category: reasoning
+    criterion: "Each valuation claim is labeled against the recompute from {ACCURATE | ACCURATE_ON_BASE_CASE_ONLY | WRONG_BASIS | FALSE | NOT_VERIFIABLE} matching gold. Pool splits per claim."
+    points: 8
+    grader: deterministic
+    gate: none
+    per_figure: true
+    figures:
+      - { figure_name: claim_rows, points: 8.0, expand: per_claim_row }
+  - id: C7.deciding
+    checkpoint: C7
+    category: reasoning
+    criterion: "Every numerically decidable verdict names its deciding figure from C2-C6 (no vibes). Claims decided by SCOPE (NOT_VERIFIABLE) or BASIS-confusion (WRONG_BASIS) instead name that boundary/basis fact as the deciding evidence (case files tag deciding_kind: disclosure | scope vs recompute) — carrying eval #2's 1.0.1 fix so a correctly-NOT_VERIFIABLE claim is not falsely penalized."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [unanchored_verdict]
+  - id: C7.n_notverif
+    checkpoint: C7
+    category: reasoning
+    criterion: "PENALTY: NOT_VERIFIABLE stretched over claims the recomputes do decide."
+    points: -3
+    grader: deterministic
+    gate: none
+    tags: [over_refusal]
+
+# ============================== SYNTHESIS ==============================
+
+  # ---- S1 — the value-vs-price verdict (judge; contingent on C6) ----
+  - id: S1.verdict
+    checkpoint: S1
+    category: reasoning
+    criterion: "The discrete calls {fair_value_per_share, vs_price: undervalued | ~fairly_valued | overvalued, upside_pct} match gold and are consistent with the C6/C7 magnitudes and sign. CONTINGENT on a non-empty, non-gated C6 derivation — prose restating a number with no computation behind it earns nothing."
+    points: 7
+    grader: judge
+    gate: none
+    tags: [value_vs_price]
+  - id: S1.equitybasis
+    checkpoint: S1
+    category: reasoning
+    criterion: "The verdict uses the EQUITY value per share (post-bridge), never EV/share, and its direction matches C7's sign (contradiction operator trips on conflict)."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [bridge_error]
+  - id: S1.hold
+    checkpoint: S1
+    category: reasoning
+    criterion: "The hold-to-thesis condition is stated: the value is a point on an assumption set, realized only if those assumptions hold."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [assumption_conditional]
+  - id: S1.structure
+    checkpoint: S1
+    category: structure
+    criterion: "The verdict is emitted as discrete labeled fields (not buried in prose)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: S1.n_contradiction
+    checkpoint: S1
+    category: reasoning
+    criterion: "PENALTY: the prose contradicts the C6/C7 computed values (contradiction operator vs GOLD numbers)."
+    points: -6
+    grader: judge
+    gate: none
+    tags: [contradiction]
+  - id: S1.n_evshare
+    checkpoint: S1
+    category: reasoning
+    criterion: "PENALTY: EV/share quoted as the equity value per share."
+    points: -5
+    grader: judge
+    gate: none
+    tags: [bridge_error]
+
+  # ---- S2 — where the value comes from + the risk read (judge + deterministic predicate; SCOPED GATE) ----
+  - id: S2.sensblock
+    checkpoint: S2
+    category: reasoning
+    criterion: "The structured value-attribution + sensitivity block is present, non-empty, and its TV-share is consistent with C5: {terminal_value_share_of_ev, wacc_sensitivity (per-share range over +-50bps), g_sensitivity, key_value_driver}. THE FALSE-PRECISION PREDICATE — deterministic; absent or empty while the memo asserts a point fair value / target fires GATE.FALSEPRECISION (zeros S2+S3, AllPass=0, false_precision_fired flag)."
+    points: 6
+    grader: deterministic
+    gate: scoped          # firing this is GATE.FALSEPRECISION
+    tags: [false_precision]
+  - id: S2.attribution
+    checkpoint: S2
+    category: reasoning
+    criterion: "The memo states how much of the value is TERMINAL (MCD-style stable franchiser: typically 70%+) and how the per-share value moves with a +-50bps WACC change and a +-50bps g change — a RANGE anchored on an assumption set, not a single decimal-precise truth."
+    points: 5
+    grader: judge
+    gate: none
+    tags: [false_precision]
+  - id: S2.driver
+    checkpoint: S2
+    category: reasoning
+    criterion: "The key value driver is named and traces to the inputs; no invented driver."
+    points: 3
+    grader: judge
+    gate: none
+    tags: [false_precision]
+  - id: S2.risk
+    checkpoint: S2
+    category: reasoning
+    criterion: "The risk read is present: cyclicality of the cash flows, the assumption the value hinges on, and the model's limits — each grounded."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [risk_read]
+  - id: S2.n_falseprecision
+    checkpoint: S2
+    category: calibration
+    criterion: "PENALTY: false-precision PROSE ('the stock is worth exactly $X') even where the sensitivity block exists."
+    points: -6
+    grader: judge
+    gate: none
+    tags: [false_precision]
+  - id: S2.n_driver
+    checkpoint: S2
+    category: reasoning
+    criterion: "PENALTY: an invented value driver not traceable to the inputs."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [false_precision]
+
+  # ---- S3 — calibrated bottom line (judge; inherits GATE.FALSEPRECISION) ----
+  - id: S3.consistent
+    checkpoint: S3
+    category: reasoning
+    criterion: "The bottom line is consistent with C6/C7/S1/S2 — a value far below price cannot coexist with an unqualified 'buy' (contradiction operator)."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [contradiction]
+  - id: S3.conditional
+    checkpoint: S3
+    category: reasoning
+    criterion: "The read is ASSUMPTION-CONDITIONAL: distinguishes what the cash flows support from what the terminal/discount-rate assumptions impose, and names the assumption the call hinges on."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [assumption_conditional]
+  - id: S3.diligence
+    checkpoint: S3
+    category: reasoning
+    criterion: "The diligence floor is present: cyclicality, leverage, the reinvestment/normalization assumption, and the comparison to trading multiples — each a grounded sentence or an explicit 'not assessed — outside packet'."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [missing_diligence]
+  - id: S3.notverif
+    checkpoint: S3
+    category: calibration
+    criterion: "Explicitly names what was NOT verifiable (carrying E5 forward — e.g. the discount rate was CONSTRUCTED, not disclosed; any oracle assumption) — calibrated uncertainty as a first-class positive."
+    points: 4
+    grader: judge
+    gate: none
+    tags: [calibrated_refusal]
+  - id: S3.structure
+    checkpoint: S3
+    category: structure
+    criterion: "4-8 sentences; the required blocks present."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: S3.n_newfig
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: a new figure introduced that was not extracted or computed upstream."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [hallucination]
+  - id: S3.n_overconf
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: an overconfident/sycophantic target that hides the C7 read or the assumption dependence."
+    points: -4
+    grader: judge
+    gate: none
+    tags: [false_precision, contradiction]
+  - id: S3.n_hedge
+    checkpoint: S3
+    category: calibration
+    criterion: "PENALTY: blanket uninformative hedging that ignores what WAS determinable — fires XOR with S3.notverif counting as not-met."
+    points: -3
+    grader: judge
+    gate: none
+    tags: [over_refusal]

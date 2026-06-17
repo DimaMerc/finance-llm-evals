@@ -207,7 +207,7 @@ with no sensitivity block (the DCF analog of eval #2's free-lunch).
 ## Phase 1 — Workflow decomposition  → `workflow/dcf-analysis.md`  ✅ done
 - [x] Define the task (inputs: 10-K + oracle assumption set + dated market snapshot +
       valuation-claim set; the analyst's real steps; the citation-anchored valuation memo).
-- [x] **17 checkpoints** (P1–P3 planning · E1–E5 extraction · C1–C7 calculation ·
+- [x] **18 checkpoints** (P1–P3 planning · E1–E5 extraction · C1–C7 calculation ·
       S1–S3 synthesis), calculation-heavy, each independently scorable and chainable e2e.
 - [x] Grading routed per checkpoint (deterministic DCF math · hybrid value+entailment ·
       label-det + derivation-judge for the E5 WACC refusal probe · judge for S1–S3).
@@ -245,8 +245,14 @@ with no sensitivity block (the DCF analog of eval #2's free-lunch).
 
 ## Phase 4 — Harness suite  → `harness/suites/dcf.py`  ⏳
 - [ ] Suite module (projection / WACC / discounting / TV / EV / bridge / sensitivity / claims
-      handlers + the `GATE.FALSEPRECISION` predicate). Two `_EXPANSIONS` keys appended;
-      evals #1–2 byte-invariant (guarded by `selftest`).
+      handlers + the `GATE.FALSEPRECISION` predicate), exposing `REFUSAL_CP = "E5"` and
+      `LLM_JUDGE_CPS = {S1,S2,S3}` so `run_case` threads `refusal_cp='E5'` into `score()`
+      (required for the E5 F-β substitution + the AllPass E5-exclusion to fire — default is E6).
+- [ ] Register the suite: `'dcf-valuation': 'criteria-dcf.yaml'` in `harness/rubric.py`
+      `SUITE_RUBRICS`, and `for_case` in `harness/suites/__init__.py`.
+- [ ] Add the two `_EXPANSIONS` keys (`per_year_row`, `per_grid_cell`) so C1.fcff / C3.pv /
+      C7.grid split per-row (until then they grade single-lump); evals #1–2 byte-invariant
+      (guarded by `selftest`).
 
 ## Phase 5 — Graded runs + write-up  → `outputs/` + `PAPER.md`  ⏳
 - [ ] Run frontier + local models through both run modes; grade; extend the taxonomy and PAPER.
