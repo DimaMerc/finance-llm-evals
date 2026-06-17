@@ -1,0 +1,71 @@
+Can an AI value a company? I put three frontier models through a real DCF - and measured exactly where they break
+
+Third in a series on building runnable evaluations for finance LLMs. This one grades the most-used model in all of finance - a discounted-cash-flow valuation - on a real McDonald's 10-K, then runs three frontier models through it to show, step by step, where they hold up and where they don't.
+
+
+"Can an AI replace a financial analyst?" is the question every firm is asking, and the wrong one to lead with. A model can produce a flawless-looking valuation and be confidently, invisibly wrong on the one step that flips the answer. So the useful question is sharper: where, exactly, can you trust it - and how would you even know?
+
+Everyone asks the first question. Almost no one measures the second. That is the work I do: runnable evaluations that put an AI through a real analyst workflow and grade every figure against the source filing, with auto-fail "gates" for the errors that quietly poison a memo, and credit for saying "I can't verify that" instead of guessing.
+
+My first eval graded quarterly earnings - a workflow most people understand, so anyone could check my work. My second graded buffer-ETF diligence - the workflow almost no generalist can author. This third one is, on purpose, the most universal of the three: the discounted-cash-flow model. Everyone in finance has built one. That is exactly why it is a good test - and a good place to show what "where can you trust the AI" actually looks like.
+
+
+THE MODEL EVERYONE USES, AND QUIETLY GETS WRONG
+
+A DCF is simple to state and easy to get subtly wrong. You project a company's free cash flow for a few years, discount it back at a rate that reflects its risk, add a "terminal value" for everything after, sum it to an enterprise value, subtract net debt to get to equity, and divide by shares to get a price. Every one of those numbers is a closed-form consequence of a handful of inputs. That makes the whole thing perfectly recomputable - and it makes the failure modes precise.
+
+Here is the one that matters most, and that a careless reviewer sails right past. Take McDonald's enterprise value from a clean, professional-looking model - call it about $200 billion - divide by its roughly 716 million shares, and you get about $279 a share. McDonald's actually trades near $286. Looks right. Ship it.
+
+It is wrong. You skipped the bridge. McDonald's carries about $40 billion of net debt, and that debt belongs to lenders, not shareholders. Subtract it first, then divide by shares, and the answer is about $228 - roughly 20% below the market price. The same model, with one omitted step, swings from "fairly valued" to "overvalued." That is not a rounding error. It is the single most common blunder in junior DCFs, and it is invisible because $279 looks plausible.
+
+In my prior life running the change-management side of an institutional ETF servicing platform - creation and redemption, derivatives processing - a number that did not reconcile to its own components was not a footnote. It was a break. A DCF is the same discipline: the answer has to tie to its own inputs, or it is not an answer.
+
+So: can an AI run a DCF correctly - pin the basis, build the discount rate, do the cash-flow arithmetic, and bridge to equity without dropping the debt? I built a test that grades exactly that.
+
+
+HOW THE TEST WORKS (WITHOUT THE JARGON)
+
+The base numbers - revenue, operating income, depreciation, capital spending, debt, cash, share count - are facts, and they live in the 10-K. So the model has to extract them from the real filing and cite each one. The forecast and the discount rate are not facts - a DCF is a model, not a reported number - so those are handed to the AI as a labeled set of assumptions, the same way a senior analyst would hand them to a junior. The test then checks the model's math against the closed-form gold answer, to the dollar.
+
+On top of that, it has auto-fail gates for the handful of errors that do not just lose points - they flip the call:
+
+- The basis mix. Discount the company's whole cash flow at the cost of equity alone, or hand an enterprise value straight to shareholders - and the entire valuation is built on sand. Hard gate.
+
+- The missing bridge. The $279-instead-of-$228 error above. The model divides enterprise value by shares without subtracting net debt. The eval flags it and zeroes the per-share conclusion, while leaving the (correct) enterprise math standing - so you see precisely where it broke.
+
+- An impossible terminal value. Assume the company grows forever faster than you discount it, and the math explodes. Caught at the step that owns it.
+
+And the one I care about most, because it is the AI-specific failure: false precision. A DCF's fair value is mostly terminal value - for a stable business like McDonald's, around 80% of it - and it swings 15% on a 50 basis-point change in the discount rate. So a memo that announces "fair value: $227.82" as if it were a measured fact is selling a precision that does not exist. The eval requires the honest version - a range, with the sensitivity shown - and deterministically fails a decimal-perfect point target that has no range behind it. It is the same instinct as the "free-lunch gate" in my buffer-ETF eval: name the thing the marketing leaves out.
+
+
+WHAT THREE REAL MODELS ACTUALLY DID
+
+I ran three frontier models through it on the McDonald's case. The pattern is, I think, genuinely useful to anyone deciding whether to trust one of these models with valuation work.
+
+- Two strong models did textbook DCF correctly. They pinned the unlevered basis, extracted the base lines and the debt-and-shares bridge from the 10-K, projected the cash flows, built the discount rate from its components, discounted, added the terminal value, subtracted net debt, and divided by shares - landing the fair value within a rounding error of my gold answer (about $228), and reading the stock as roughly 20% overvalued. No gate fired. On a clean, textbook valuation, they are genuinely capable.
+
+- The weaker model quietly broke the cash-flow math - and the eval localized it to one step. Its reported free cash flow did not equal its own build: the components it wrote down summed to one number, and it reported another, about $2 billion a year too high. The cash-flow-definition gate caught exactly that internal inconsistency at the cash-flow step, and the error then cascaded into a $138 fair value instead of $228. The valuation was wrong, but the eval did the useful thing: it pinned the root cause to a single checkpoint instead of just flashing a low score.
+
+- The most consistent behavior across all three was over-refusal. The test asks for the company's discount rate - which no 10-K actually states, but which is trivially computable from the components the model was handed. The best answer is to compute it. All three instead said, in effect, "that's not disclosed in the filing" - technically true, and exactly the over-cautious cousin of a good instinct. A model that refuses a number it cannot know is calibrated; a model that refuses a number it was just given the inputs for is being timid. That distinction is the kind of thing this work exists to surface.
+
+So - can an AI run a DCF yet? On a clean textbook case, the strong models can, end to end. The value of the eval is not that verdict - it is that it tells you the exact step where a weaker model breaks (the cash-flow definition), and the calibration habit even the strong ones share (refusing a computable number), on this specific kind of task. That is the difference between an opinion and an acceptance test.
+
+
+THE PART THAT EARNS TRUST: IT CAUGHT MY OWN MISTAKES
+
+The strongest evidence the rig is real is the same as on my last two evals: running live models found bugs in my own grader - five of them this time, the kind my synthetic tests structurally could not catch, because I had written the tests around my own assumptions. The strongest model reported a tax rate as "21.5" where my code expected "0.215," and my grader briefly accused a model whose cash-flow math was flawless of a definition error. Another model gave its fair value as a range - exactly the calibrated, non-false-precise answer the eval is supposed to reward - and a too-strict check marked it wrong. I had a gate fire on an honest-but-wrong valuation when it should only fire on a dishonest one. I fixed all five, re-graded every run, and published the calibration log alongside the results. This is becoming a law of the genre: the first real model you run finds the grader bugs your self-tests were written around.
+
+The whole thing is held to the same standard as the analysis it grades. Every gold number is traced to the real SEC filing - no invented data. The perfect-answer baseline scores 100% and every planted error trips exactly one gate, with a blast radius that matches the severity - a catastrophic basis error zeroes everything; the missing-bridge error stays a localized red on an otherwise-green page. And the deterministic core - all the math, all the gates - does not touch the AI judge at all, so the headline does not ride on the squishy part.
+
+
+WHY A DCF, AS THE THIRD EVAL
+
+The earnings eval proved the method. The buffer-ETF eval proved the moat - the workflow a generalist cannot author. This one proves the reach: the most common model in finance, the one your whole team has built, evaluated with the same rigor and the same honesty about where the AI helps and where it quietly fails. The bridge error and the false-precision target are not exotic - they are the everyday ways a confident-sounding valuation goes wrong, and they are exactly the failures you want a machine - or a checklist - to catch before the number reaches a client.
+
+The repo is runnable, MIT-licensed, and reproduces in two commands with no API key; one more command runs a live model against any OpenAI-compatible endpoint. If your team is figuring out whether - and exactly where - to trust an LLM with real valuation work, it is a working answer.
+
+Defining the workflow, building the eval, running the models, and finding where they break is the job. It is the one I want to be doing.
+
+Repo: github.com/DimaMerc/finance-llm-evals  (the methodology paper, PAPER.md, is in the repo.)
+
+Dmitry Krutous - I build evals for finance LLMs. ETF / derivatives domain expert - I ran the change-management side of an institutional ETF servicing platform (creation/redemption, derivatives processing). MBA, PMP. Greater Boston.

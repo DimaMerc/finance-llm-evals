@@ -1,0 +1,33 @@
+Can an AI value a company? I stopped guessing and measured it - three frontier models, one real DCF.
+
+A discounted-cash-flow model is the most-used valuation in finance, and the one most often quietly wrong: project the cash flows, discount them, add a terminal value, subtract net debt, divide by shares. Every number is a closed-form consequence of a few inputs - which makes it perfectly measurable, and makes the failures precise.
+
+So, third in my series of runnable evaluations for finance LLMs, I built one for DCF valuation - on a real McDonald's 10-K - and ran three frontier models through it.
+
+The signature error it hunts is the DCF that looks right and is wrong. Take the enterprise value, divide by shares, and forget to subtract net debt: you get about $279 a share, roughly 3% from McDonald's actual price. Looks fair. Do it correctly - subtract the ~$40B of net debt - and the answer is about $228, some 20% overvalued. Same model, opposite call. The eval auto-flags that bridge error - and false precision: a decimal-perfect target on a value that is 80% terminal and swings 15% on a 50bp move in the discount rate.
+
+What the three models actually did:
+
+- Two strong models did textbook DCF correctly. They extracted the filing, built the discount rate from its components, discounted the cash flows, bridged enterprise value to equity, and divided by shares - landing within a rounding error of my gold answer. No gate fired.
+
+- The third quietly broke the cash-flow math. Its reported free cash flow did not equal its own build - off by about $2B a year. The eval's cash-flow-definition gate caught exactly that, localized it to one step, and the error then cascaded into a $138 valuation instead of $228. One slip, surfaced and pinned.
+
+- The most consistent behavior across all three: they refused to compute the discount rate. Handed every input they needed, all three said "the WACC isn't in the filing" rather than do the arithmetic - the over-cautious cousin of a good instinct.
+
+And, as on both prior evals, the first real models I ran found bugs in my own grader - five of them, the kind a synthetic test can't see because it is written around the grader's own assumptions. Fixed, re-graded, documented. An eval that can't catch its author's mistakes has no business grading anyone else's.
+
+So - can an AI run a DCF? The strong ones, yes, on a clean textbook case. And the eval shows you the exact step where a weaker one breaks, and the calibration habit even the strong ones share. That is not a hot take. It is an acceptance test.
+
+Runnable, MIT-licensed, every number traced to a real SEC filing. Three evals now: earnings, buffer ETFs, and DCF.
+
+Full write-up and repo in the first comment.
+
+#AIinFinance #LLMevaluation #Valuation #DCF #AssetManagement
+
+
+==================================================================
+FIRST COMMENT (post the links here, not in the body - LinkedIn
+suppresses reach on posts with outbound links in the body):
+
+The eval, the methodology paper, and the full three-model failure taxonomy: github.com/DimaMerc/finance-llm-evals
+Long-form write-up: [paste the LinkedIn article URL here once it's published]
