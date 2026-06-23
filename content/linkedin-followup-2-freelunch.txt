@@ -1,14 +1,16 @@
-Here's the cleanest test of whether an AI is doing an analyst's job - or just rewording the brochure.
+I keep circling the same question here - whether AI can really replace the analyst, or only sound like it. The honest test, I've found, is quieter than the headline.
 
-Every "buffer ETF" promises a defined outcome: a buffer (say, the first 15% of losses absorbed) and a cap (say, around 17% upside). What the marketing never says is that the two are the same transaction. Under the wrapper are four option contracts: the buffer is a put spread, and a put spread costs money. To pay for it, the fund sells away your upside - it writes a call. The cap you get quoted is, almost literally, the strike price of that sold call.
+It isn't whether a model can summarize a fund. It's whether it can notice what the fund doesn't say.
 
-So the protection exists because the upside was sold to fund it. There is no version of this where you get the cushion for free.
+Take a buffer ETF. The brochure makes a gentle promise: a cushion against the first stretch of losses, and a ceiling on the gains. It reads like a gift. But the two halves are the same breath. Under the wrapper sit four option contracts, and the cushion - a put spread - has to be paid for. So the fund quietly sells your upside to cover it. That ceiling you were quoted is, almost to the dollar, the price at which your gains were sold away.
 
-That one fact is the line between an analyst and a brochure. An analyst names the cost - the capped upside, the forgone dividends, the fee. A summary just repeats "downside protected." And an AI you'd actually trust with this work has to land on the analyst's side of that line, not the marketing's.
+Nothing was given. The protection exists because the view was sold to buy it. There is no version of this where the cushion is free.
 
-So I made it the auto-fail at the center of my AI eval: any memo that claims the protection without pricing its cost fails, automatically. I call it the free-lunch gate - because naming the protection but not its cost is selling a free lunch that doesn't exist, and catching that is exactly the judgment that separates analysis from marketing.
+And that, to me, is the whole line between an analyst and a brochure. The brochure says "downside protected" and stops. The analyst names the cost - the capped upside, the dividends left on the table, the fee - because the cost is the truth of the thing. An AI you'd actually trust with this work has to stand on the analyst's side of that line.
 
-That's the whole project: turning "can you trust an AI to do this?" into a test with a real answer. Runnable, open-source, every number traced to a real SEC filing. Repo in the comments.
+So I made it the auto-fail at the heart of my eval: any memo that claims the protection without pricing what was given up to get it fails, automatically. I call it the free-lunch gate - because a protection with no named cost is a free lunch, and a free lunch is the one thing markets never serve.
+
+That's the project, really: turning "can you trust an AI to do this?" into a question with a real answer. Runnable, open-source, every number traced back to a real SEC filing. Repo in the comments.
 
 #AIinFinance #LLMevaluation #ETFs #StructuredProducts #AssetManagement
 
