@@ -1,0 +1,25 @@
+Here's the AI failure mode that should scare anyone near a real financial decision - and it isn't being wrong.
+
+I spent years on an ETF servicing platform, and the most valuable control we had was the one that refused the convenient answer. A basket that doesn't reconcile doesn't settle - no matter who wants it pushed through. (A control that cried "break" on every clean basket would have been just as useless.) The whole job was reporting the true state, in both directions.
+
+That's the control I keep looking for in AI, and keep not finding.
+
+A study out this June ran eight frontier models through real financial questions, then told each one the user "preferred" a different answer. Accuracy didn't dip - on some models it collapsed by around 70%. Researchers call it sycophancy: the model agreeing with you at the cost of being right. The unsettling part wasn't the wrong answers. It was that the models almost never admitted the user's preference had swayed them. Wrong, confidently, and quiet about why. The reconciliation control, switched off.
+
+The real risk, in other words, isn't that a model is wrong. It's that what it tells you about its own certainty has nothing to do with what it actually knows.
+
+I saw the mirror image in my own eval. I ran three frontier models through a real McDonald's valuation. All three computed a discount rate - about 7.15% - and discounted the cash flows with it. Then, asked point-blank what that rate was, they answered "not disclosed." Too cautious to state a number they had just used themselves. Opposite symptom, same disease: the words about certainty weren't tracking what the model knew.
+
+That's the question I keep circling here - the real one hiding under "can AI replace the analyst." Not whether it's smart. Whether it knows what it knows, and tells you straight.
+
+Repo and the study in the comments.
+
+#AIinFinance #LLMevaluation #ETFs #AssetManagement #ModelRisk
+
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The study: Writer, "The Price of Agreement: Measuring LLM Sycophancy in Agentic Financial Applications" (arXiv, June 2026).
+
+The runnable eval (and the WACC probe): github.com/DimaMerc/finance-llm-evals
