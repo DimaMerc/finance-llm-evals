@@ -308,5 +308,13 @@ prices, fictional fund (GRIN), illustrative order/break.
       closed; tight SCALE band that fires on evidence not absence; CIL struck-price validation; paraphrase-robust
       D2 refusal grader.
 
-## Phase 5 — Live run + write-up  ⏳ optional/next
-- [ ] Live runner + a frontier-model pass + taxonomy (mirrors evals #2–3); PAPER/README live section.
+## Phase 5 — Live run + write-up  ✅ done
+- [x] `harness/live_creation_redemption.py` (order/PCF/delivery packet + OUTPUT SCHEMA mirroring gold
+      key paths + `oracle_to_schema` round-trip selftest 1.000/AllPass); `--model live` routes the suite;
+      `outputs/run_live_eval4.py` driver.
+- [x] **Three frontier models × both cases** (Anthropic OpenAI-compat): Opus 0.983 / Sonnet 0.943
+      reconcile to the dollar (no gate); **Haiku 0.496 GATE.SCALE** — overstates in-kind MV by exactly
+      $200k → flips the residual to +$186,680 (thinks over-delivered; actually short $13,320), still
+      refuses to settle, error pinned to the valuation. Clean-settle case: all three correctly SETTLE
+      (no false break). **Honest negative: GATE.RECON never fired — no model approved the break.**
+      `outputs/eval4-live/TAXONOMY.md`; README live-findings section. n=1/case, single family (cross-family next).

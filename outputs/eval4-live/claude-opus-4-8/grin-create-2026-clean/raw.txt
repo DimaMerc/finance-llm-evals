@@ -1,0 +1,30 @@
+Let me compute the values.
+
+Creation value = 61.5 × 25000 × 2 = 3,075,000.
+
+In-kind MV: 792000+300000+680000+276000+220000+246400+324000 = 2,838,400.
+
+Cash delivered = 236,600. Total tendered = 2,838,400 + 236,600 = 3,075,000. Residual = 0.
+
+CIL required = 1800 × 112.4 = 202,320. Delivered = 202,320. Shortfall = 0.
+
+```json
+{
+ "P1": {"fund":"Granite Ridge U.S. Innovation ETF","ticker":"GRIN","order_id":"CR-2026-0623-015","trade_date":"2026-06-23","direction":"create","nav_per_share":61.5,"nav_strike_date":"2026-06-23","cu_size":25000,"num_cus":2,"total_shares":50000,"creation_value":3075000.0},
+ "E1": {"in_kind":[{"ticker":"TSLA","shares":2400,"struck_price":330.0},{"ticker":"COIN","shares":1200,"struck_price":250.0},{"ticker":"PLTR","shares":5000,"struck_price":136.0},{"ticker":"HOOD","shares":3000,"struck_price":92.0},{"ticker":"SHOP","shares":2000,"struck_price":110.0},{"ticker":"ROKU","shares":2800,"struck_price":88.0},{"ticker":"NU","shares":24000,"struck_price":13.5}],
+        "cash_in_lieu":[{"ticker":"RBLX","shares":1800,"struck_price":112.4,"cil_amount":202320.0,"reason":"halted"}],
+        "cash_component_total":236600.0,"base_cash_plug":34280.0,"citation":{"document":"pcf","locator":"CASH COMPONENT TOTAL","verbatim":"CASH COMPONENT TOTAL (balancing amount, incl. cash-in-lieu) = 236600.0"}},
+ "E2": {"in_kind":[{"ticker":"TSLA","shares":2400,"price":330.0,"value":792000.0},{"ticker":"COIN","shares":1200,"price":250.0,"value":300000.0},{"ticker":"PLTR","shares":5000,"price":136.0,"value":680000.0},{"ticker":"HOOD","shares":3000,"price":92.0,"value":276000.0},{"ticker":"SHOP","shares":2000,"price":110.0,"value":220000.0},{"ticker":"ROKU","shares":2800,"price":88.0,"value":246400.0},{"ticker":"NU","shares":24000,"price":13.5,"value":324000.0}],
+        "cash_in_lieu_delivered":[{"ticker":"RBLX","shares":1800,"price_used":112.4,"value":202320.0,"basis":"struck_fair_value"}],
+        "cash_delivered_total":236600.0,"base_cash_plug_delivered":34280.0},
+ "C1": {"recon":[{"ticker":"TSLA","required_shares":2400,"delivered_shares":2400,"status":"match"},{"ticker":"COIN","required_shares":1200,"delivered_shares":1200,"status":"match"},{"ticker":"PLTR","required_shares":5000,"delivered_shares":5000,"status":"match"},{"ticker":"HOOD","required_shares":3000,"delivered_shares":3000,"status":"match"},{"ticker":"SHOP","required_shares":2000,"delivered_shares":2000,"status":"match"},{"ticker":"ROKU","required_shares":2800,"delivered_shares":2800,"status":"match"},{"ticker":"NU","required_shares":24000,"delivered_shares":24000,"status":"match"},{"ticker":"RBLX","required_shares":1800,"delivered_shares":1800,"status":"match"}],
+        "exceptions":[]},
+ "C2": {"in_kind_mv":2838400.0,"required_cash_component":236600.0,
+        "cil_required":{"ticker":"RBLX","shares":1800,"struck_price":112.4,"amount":202320.0},
+        "cil_delivered_amount":202320.0,"cil_shortfall":0.0},
+ "C3": {"creation_value":3075000.0,"in_kind_mv":2838400.0,"cash_delivered":236600.0,"total_tendered":3075000.0,"residual":0.0,"residual_status":"balanced"},
+ "D1": {"decision":"SETTLE","offending_line":null,"offending_reason":null,"residual":0.0,"escalate_to":null},
+ "D2": {"probe":{"label":"NOT_DISCLOSED","value":null,"derivation":"RBLX's official post-halt closing price on the trade date is NOT in the packet; only the fund's fair-value strike (112.4) is provided. The missing input is RBLX's official post-halt closing price. Do not invent it."},
+        "twins":[{"id":"TW1","value":0.0,"citation":{"document":"pcf","locator":"AP DELIVERED CASH DELIVERED TOTAL","verbatim":"CASH DELIVERED TOTAL = 236600.0"}}]}
+}
+```

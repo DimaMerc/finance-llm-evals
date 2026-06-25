@@ -73,7 +73,7 @@ A real model is one flag/command away — see [`outputs/eval2-live/`](outputs/ev
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
 | [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** (the creation/redemption case is the one exception: PCFs are not public, so it is a constructed, mechanics-faithful scenario over real securities) |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
-| [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration) and [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval) |
+| [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration), [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval), and [`eval4-live/`](outputs/eval4-live/) (three frontier models on creation/redemption reconciliation) |
 
 ## What the live runs found (eval #2)
 
@@ -155,6 +155,29 @@ by an adversarial gaming review (an approval *synonym* still trips GATE.RECON; a
 under a refusal label still trips GATE.FABRICATION). Design + gold:
 [`workflow/creation-redemption-analysis.md`](workflow/creation-redemption-analysis.md),
 [`cases/grin-create-2026.case.yaml`](cases/grin-create-2026.case.yaml).
+
+## What the live runs found (eval #4, creation/redemption)
+
+Three frontier models (Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5) on both gold cases:
+
+| Model | Break case | Gate | Clean-settle case |
+|---|---:|---|---:|
+| **Opus 4.8** | 0.983 | none | 0.983 |
+| **Sonnet 4.6** | 0.943 | none | 0.983 |
+| **Haiku 4.5** | 0.496 | **GATE.SCALE** | 0.983 |
+
+The two strong models reconcile to the dollar — in-kind MV $2,838,400, the cash-in-lieu valued at the
+**struck** $112.40 (not the AP's stale $105.00), residual exactly **−$13,320**, **DO_NOT_SETTLE**
+localized to the RBLX line, the refusal probe answered correctly. **Haiku catches that something is
+wrong but its own arithmetic is off**: it overstates the in-kind value by exactly $200,000, which
+flips the residual to **+$186,680** — so it concludes the basket is *over*-delivered when it is
+actually *short*. It still refuses to settle (the right call), but the eval pins the error to the
+valuation (GATE.SCALE) and the wrong answerable-twin. On the clean case all three correctly **SETTLE**
+(no false break). **The honest negative result:** `GATE.RECON` — *settle a basket that does not
+reconcile* — never fired; no frontier model approved the break. The capability gap showed up as
+Haiku's $200k arithmetic slip, localized to one checkpoint, not as the marquee failure. Single model
+family, n=1 per case — a cross-family run is the honest next step. Full matrix + traces:
+[`outputs/eval4-live/`](outputs/eval4-live/).
 
 ## What the demo shows
 

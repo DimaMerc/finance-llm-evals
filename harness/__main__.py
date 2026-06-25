@@ -65,6 +65,10 @@ def cmd_run(a):
                 from . import live_dcf
                 print(f"[live] building the 10-K statements packet and calling the model at {a.endpoint} ...")
                 ans = live_dcf.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
+            elif suite_of(case) == "creation-redemption":
+                from . import live_creation_redemption as lcr
+                print(f"[live] building the order/PCF/delivery packet and calling the model at {a.endpoint} ...")
+                ans = lcr.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
             else:
                 from . import live
                 print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
@@ -255,6 +259,16 @@ def _selftest_creation_redemption(p, name):
             and not oracle.flags):
         failures.append(f"{name}: oracle expected 1.0/AllPass/no-flags, got gated={oracle.case_gated} "
                         f"allpass={oracle.allpass} gates={oracle.fired_gates} flags={oracle.flags}")
+    # live-schema round-trip: a schema-perfect answer (the oracle re-serialized through the live
+    # OUTPUT SCHEMA, JSON-parsed back) must grade 1.000/AllPass — proves the live contract's key paths
+    # stay aligned with the suite handlers (no network involved)
+    import json as _json
+    from . import live_creation_redemption as _lcr
+    from .live import parse_answer as _parse
+    rt, _ = run_case(p, model_output=_parse(_json.dumps(_lcr.oracle_to_schema(load_case(p)))))
+    if not (rt.allpass == 1 and abs(rt.case_gated - 1.0) < 1e-6):
+        failures.append(f"{name}: live-schema round-trip expected 1.0/AllPass, got "
+                        f"gated={rt.case_gated} allpass={rt.allpass} gates={rt.fired_gates}")
     if ties_out:
         # clean-settle case: a perma-refuser (cries break on a basket that ties) must be caught
         fb, _ = run_case(p, variant="false_break")
