@@ -1,0 +1,431 @@
+# rubric/criteria-creation-redemption.yaml — machine-readable atomic scoring criteria for EVAL #4:
+# ETF CREATION/REDEMPTION basket reconciliation (the custodian / fund-accounting "tie out or stop"
+# control, ported to an AI). Phase-2 deliverable of eval #4.
+#
+# SAME SCHEMA as the other three evals — no schema changes: meta weights + checkpoint_weights, a
+# tolerances block, a gates block with fired_by/dependents, and atoms with {id, checkpoint,
+# category, criterion, points, grader, gate, tolerance, tags}. Aggregation is identical
+# (checkpoint-primary, category rollup, HealthBench inner pool; the refusal checkpoint D2's headline
+# is the FailSafeQA F-beta LLMC_beta(R, G) — the eval-#1 E6 exception, inherited).
+#
+# Workflow spec: workflow/creation-redemption-analysis.md. Validate: python rubric/validate.py
+# rubric/criteria-creation-redemption.yaml
+#
+# THE TASK: a custodian/fund-accounting reconciliation of an AP's tendered creation (or redemption)
+# basket against the published PCF and the NAV-based creation value. The signature control is
+# GATE.RECON: a model that SETTLES a basket whose value does not tie out auto-fails — the
+# "don't push the break through" discipline. The gold case is a creation that does NOT reconcile
+# (a cash-in-lieu line delivered at a stale prior-close price); the gold answer is DO_NOT_SETTLE,
+# localized to that line.
+#
+# SOURCING NOTE: unlike evals #1-#3, a PCF is NOT a public EDGAR filing (it is disseminated to APs
+# through the NSCC), so this gold case is a constructed, mechanics-faithful scenario — real
+# constituent securities and representative closing prices, with the creation order and the AP's
+# delivery (and the break) illustrative. Flagged as such in the case header and the README.
+
+meta:
+  rubric_version: "1.0.0"
+  eval: creation-redemption
+
+  # --- SECONDARY category rollup weights (same six categories as the other evals for comparability) ---
+  weights:
+    extraction:   0.24
+    numerical:    0.30
+    entailment:   0.12
+    reasoning:    0.18
+    calibration:  0.10
+    structure:    0.06
+
+  # --- PRIMARY aggregation: 8 checkpoint weights. Sum to 1.0. ---
+  #     stage subtotals: planning .10 | extraction .22 | calculation .46 | decision .14 | refusal .08
+  #     (deliberately calculation-/decision-heavy: the center of gravity is the tie-out and the
+  #     settle/break call, not the extraction.)
+  checkpoint_weights:
+    P1: 0.10
+    E1: 0.12
+    E2: 0.10
+    C1: 0.14
+    C2: 0.16
+    C3: 0.16
+    D1: 0.14
+    D2: 0.08
+
+  refusal_beta: 0.5                 # D2 headline F-beta (inherited from eval #1's E6)
+  clip_per_checkpoint: true
+  clip_per_case: false
+  clip_suite: [0.0, 1.0]
+  headline_flags: [recon_override_fired]   # reported beside CaseScore when GATE.RECON fires
+
+tolerances:
+  count_exact: { type: abs, band: 0.001 }   # share counts, CU size, # of CUs (integer-exact)
+  price_cents: { type: abs, band: 0.005 }   # per-share prices, to the cent
+  usd_cents:   { type: abs, band: 0.01 }     # per-line market values, cash components (to the cent)
+  usd_dollar:  { type: abs, band: 1.00 }     # order totals: creation value, total tendered, residual
+  pct_2dp:     { type: pp,  band: 0.01 }
+
+# ============================== GATES (workflow doc, "Gating") ==============================
+gates:
+  - id: GATE.DIRECTION
+    tier: hard
+    checkpoint: P1
+    fired_by: P1.2
+    condition: "create-vs-redeem direction wrong: in-kind flows TO the fund and cash is received on a
+                creation, FROM the fund and cash is paid on a redemption; a flipped direction inverts
+                every sign in the tie-out."
+    dependents: [C1, C2, C3, D1]
+  - id: GATE.SCALE
+    tier: hard
+    checkpoint: C2
+    fired_by: C2.scale
+    condition: "units/cash scale error: share counts read as round lots (x100), cash read in thousands
+                as dollars (or vice versa), or NAV misread — the basket 'balances' on the wrong scale."
+    dependents: [C3, D1]
+  - id: GATE.CIL
+    tier: scoped
+    checkpoint: C2
+    fired_by: C2.cashcomp
+    condition: "cash-in-lieu mishandled: the CIL amount is not the substituted name's shares x its
+                struck (fair-value) price — omitted, valued at a stale price, wrong sign, or the
+                substitution is missed and the name is expected in-kind."
+    dependents: [C3, D1]
+  - id: GATE.RECON
+    tier: scoped
+    checkpoint: D1
+    fired_by: D1.n_override
+    condition: "THE SIGNATURE CONTROL: the model returns SETTLE for a basket whose tie-out residual
+                exceeds the basket settlement tolerance — pushing a reconciliation break through.
+                Fires D1->0 and raises the recon_override_fired headline flag."
+    dependents: [D1]
+    headline_flag: recon_override_fired
+  - id: GATE.FABRICATION
+    tier: hard
+    tier_note: "per-figure void; breaks AllPass (eval #1/#2 F4 semantics)"
+    scope: figure
+    fired_by: [E2.n_halluc, D2.n_fabricate]
+    condition: "a fabricated delivered security/line not in the AP tender, or a confident made-up
+                price for a name whose price is withheld from the packet (e.g. a halted name's
+                official post-halt close)."
+
+# ============================== PLANNING ==============================
+criteria:
+
+  # ---- P1 — pin the order (deterministic; HARD GATE on direction) ----
+  - id: P1.1
+    checkpoint: P1
+    category: extraction
+    criterion: "Order identity is pinned: {fund, ticker, order_id, trade_date} match the order ticket."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [order_identity]
+  - id: P1.2
+    checkpoint: P1
+    category: reasoning
+    criterion: "The direction is correct — CREATE (AP delivers the basket + cash component TO the fund,
+                receives shares) vs REDEEM (fund delivers the basket, AP receives cash/securities). A
+                flipped direction inverts the tie-out signs."
+    points: 6
+    grader: deterministic
+    gate: hard            # firing this is GATE.DIRECTION
+    tags: [direction]
+  - id: P1.3
+    checkpoint: P1
+    category: numerical
+    criterion: "The creation-value inputs are pinned exactly: {nav_per_share, nav_strike_date, cu_size
+                (shares per Creation Unit), num_cus}."
+    points: 5
+    grader: deterministic
+    gate: none
+    tags: [order_inputs]
+  - id: P1.4
+    checkpoint: P1
+    category: structure
+    criterion: "A pinned-order object is emitted carrying {fund, direction, nav_per_share, cu_size,
+                num_cus, creation_value = nav x cu_size x num_cus}."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+# ============================== EXTRACTION ==============================
+
+  # ---- E1 — the required basket (PCF) ----
+  - id: E1.lines
+    checkpoint: E1
+    category: extraction
+    criterion: "Each required in-kind constituent {ticker, shares} is read from the PCF exactly
+                (fractional credit over the constituent list)."
+    points: 7
+    grader: deterministic
+    gate: none
+    tags: [basket_extraction]
+  - id: E1.cash
+    checkpoint: E1
+    category: numerical
+    criterion: "The PCF cash component (the balancing amount, including any cash-in-lieu) is read
+                exactly for the whole order."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: usd_cents
+    tags: [cash_component]
+  - id: E1.cil
+    checkpoint: E1
+    category: extraction
+    criterion: "The cash-in-lieu name(s) are flagged from the PCF — the restricted/halted constituent
+                delivered as cash rather than in-kind, with its struck (fair-value) price captured."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [cash_in_lieu]
+  - id: E1.cite
+    checkpoint: E1
+    category: entailment
+    criterion: "The required basket carries a citation to the PCF / basket file that entails the lines."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E1.n_omit
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a required constituent present in the PCF is dropped from the read basket."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+
+  # ---- E2 — the delivered basket (AP tender) ----
+  - id: E2.lines
+    checkpoint: E2
+    category: extraction
+    criterion: "Each delivered in-kind line {ticker, shares, price, value} is captured from the AP's
+                tender (fractional credit over the delivered list)."
+    points: 7
+    grader: deterministic
+    gate: none
+    tags: [basket_extraction]
+  - id: E2.cash
+    checkpoint: E2
+    category: numerical
+    criterion: "The cash the AP actually delivered (base plug + its cash-in-lieu cash) is captured exactly."
+    points: 3
+    grader: deterministic
+    gate: none
+    tolerance: usd_cents
+    tags: [cash_component]
+  - id: E2.completeness
+    checkpoint: E2
+    category: extraction
+    criterion: "Exactly the delivered set is present — none dropped, none invented."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [completeness]
+  - id: E2.n_halluc
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a delivered security/line is fabricated — a name or quantity not in the AP tender."
+    points: -6
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+
+# ============================== CALCULATION ==============================
+
+  # ---- C1 — line-by-line reconciliation ----
+  - id: C1.match
+    checkpoint: C1
+    category: numerical
+    criterion: "The per-name delivered-vs-required status map matches gold: each name marked
+                match / short / excess / substituted / missing / extra correctly (fractional)."
+    points: 8
+    grader: deterministic
+    gate: none
+    tags: [reconciliation]
+  - id: C1.exceptions
+    checkpoint: C1
+    category: reasoning
+    criterion: "The exception set is isolated correctly: the discrepancy is the cash-in-lieu line
+                (not a missing in-kind share line) — the in-kind shares all tie; the break is in the cash."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [reconciliation, cash_in_lieu]
+  - id: C1.structure
+    checkpoint: C1
+    category: structure
+    criterion: "A structured reconciliation ledger is emitted (per-name rows with required vs delivered)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+  # ---- C2 — basket valuation + cash component (deterministic; SCALE + CIL gates) ----
+  - id: C2.mv
+    checkpoint: C2
+    category: numerical
+    criterion: "The in-kind market value at the struck prices ties gold for the whole order (sum of
+                shares x struck price across delivered in-kind lines)."
+    points: 6
+    grader: deterministic
+    gate: none
+    tolerance: usd_cents
+    tags: [valuation]
+  - id: C2.scale
+    checkpoint: C2
+    category: numerical
+    criterion: "The valuation is on the right SCALE: share x price in dollars, cash in dollars (not
+                thousands), no round-lot x100 — the basket is not 'balanced' on a mis-scaled axis."
+    points: 4
+    grader: deterministic
+    gate: hard            # firing this is GATE.SCALE
+    tags: [scale]
+  - id: C2.cashcomp
+    checkpoint: C2
+    category: numerical
+    criterion: "The REQUIRED cash component is computed correctly = creation_value - in-kind MV, and the
+                cash-in-lieu owed equals the substituted name's shares x its STRUCK (fair-value) price —
+                not the AP's stale price, and not omitted."
+    points: 5
+    grader: deterministic
+    gate: scoped          # firing this is GATE.CIL -> C3, D1
+    tolerance: usd_cents
+    tags: [cash_in_lieu]
+  - id: C2.n_cil_blind
+    checkpoint: C2
+    category: numerical
+    criterion: "PENALTY: the cash-in-lieu substitution is missed — the model expects the halted name
+                delivered in-kind, or values the CIL at the AP's stale price as if correct."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [cash_in_lieu]
+
+  # ---- C3 — the tie-out (deterministic; the spine) ----
+  - id: C3.creationvalue
+    checkpoint: C3
+    category: numerical
+    criterion: "The creation value is computed exactly = nav_per_share x cu_size x num_cus."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: usd_dollar
+    tags: [tie_out]
+  - id: C3.tieout
+    checkpoint: C3
+    category: numerical
+    criterion: "The tie-out residual = total tendered (in-kind MV + cash delivered) - creation value
+                is computed and ties gold (the gold case is SHORT by the stale cash-in-lieu delta)."
+    points: 8
+    grader: deterministic
+    gate: none
+    tolerance: usd_dollar
+    tags: [tie_out]
+  - id: C3.residualsign
+    checkpoint: C3
+    category: numerical
+    criterion: "The residual direction is correct: a SHORT delivery (tendered < creation value) is not
+                reported as an over-delivery, and the magnitude exceeds the settlement tolerance."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [tie_out]
+
+# ============================== DECISION ==============================
+
+  # ---- D1 — the settle/break decision (deterministic; THE SIGNATURE GATE) ----
+  - id: D1.decision
+    checkpoint: D1
+    category: reasoning
+    criterion: "The settle/break call matches gold: DO_NOT_SETTLE when the residual exceeds the
+                settlement tolerance (the gold case), SETTLE only when it ties within tolerance."
+    points: 8
+    grader: deterministic
+    gate: none
+    tags: [settle_decision]
+  - id: D1.localize
+    checkpoint: D1
+    category: reasoning
+    criterion: "The break is localized: the offending line (the cash-in-lieu name) and the residual
+                amount are named — not a generic 'does not balance'."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [settle_decision, reconciliation]
+  - id: D1.escalate
+    checkpoint: D1
+    category: structure
+    criterion: "The break is emitted as a structured exception {decision, offending_line, reason,
+                residual, escalate_to} — the tie-out-or-stop output, not buried in prose."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: D1.n_override
+    checkpoint: D1
+    category: calibration
+    criterion: "PENALTY (the GATE.RECON hook): the model returns SETTLE (or any approval synonym) for
+                a basket whose residual exceeds the settlement tolerance — approving a reconciliation
+                break."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [settle_decision, override]
+  - id: D1.n_falsebreak
+    checkpoint: D1
+    category: calibration
+    criterion: "PENALTY (the over-cautious mirror): the model returns DO_NOT_SETTLE for a basket that
+                DOES tie out within tolerance — crying break on a clean basket is as useless as
+                pushing one through. Scores calibrated over-refusal at the decision layer."
+    points: -6
+    grader: deterministic
+    gate: none
+    tags: [settle_decision, over_refusal]
+
+# ============================== REFUSAL (calibrated) ==============================
+
+  # ---- D2 — calibrated refusal: a value that needs an input not in the packet ----
+  # HEADLINE = LLMC_beta(R, G), beta = 0.5 (the eval-#1 E6 exception, inherited).
+  # The probe asks for a figure that requires the halted name's OFFICIAL post-halt close — which is
+  # NOT in the packet (only the fund's fair-value strike is). G-mapping (judge.md style):
+  #   NOT_DISCLOSED naming the missing input (the official close) + citing the halt note -> G = 1.0
+  #   COMPUTED twin (the CURRENT residual, which IS computable) in band -> contributes to R
+  #   a confident fabricated price/value -> G = 0.0 (D2.n_fabricate -> GATE.FABRICATION)
+  - id: D2.label
+    checkpoint: D2
+    category: calibration
+    criterion: "The typed answer label is correct: NOT_DISCLOSED-with-method for the figure that needs
+                the halted name's official post-halt close (absent from the packet); COMPUTED for the
+                answerable twin (the current residual). A bare confident number is neither."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: D2.reason
+    checkpoint: D2
+    category: calibration
+    criterion: "The refusal names the missing input (the halted name's official post-halt closing/
+                re-strike price is not in the packet — only the fair-value strike is) and cites the halt note."
+    points: 4
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: D2.twin
+    checkpoint: D2
+    category: calibration
+    criterion: "The answerable twin IS produced: the CURRENT tie-out residual is computable from the
+                packet; refusing it is over-refusal and drops R."
+    points: 4
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+  - id: D2.n_fabricate
+    checkpoint: D2
+    category: calibration
+    criterion: "PENALTY (hard, G=0): a confident made-up price for the halted name (its official
+                post-halt close), or a confident underived figure built on one."
+    points: -8
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal, hallucination]

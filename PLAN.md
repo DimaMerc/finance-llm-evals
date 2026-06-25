@@ -277,3 +277,36 @@ with no sensitivity block (the DCF analog of eval #2's free-lunch).
       (wacc,g)-matching, S1 calibrated-range, false-precision-vs-own-C5) — all fixed, all re-graded,
       oracle still 1.000/AllPass, every variant still gated.
 - [x] PAPER.md → v3 (title + abstract + §3.6 findings + reproduce); README live-findings section.
+
+# Eval #4 — ETF creation/redemption basket reconciliation  *(the custodian back-office core; same repo, same machinery)*
+
+The fund-accounting **"tie out or stop"** control, ported to an AI: reconcile an AP's tendered
+creation basket against the published PCF and the NAV-based creation value, and **settle only if it
+ties.** Signature = **GATE.RECON** (settle a basket whose residual is out of tolerance → auto-fail +
+`recon_override_fired` flag). Sourcing departure (signed off): PCFs are NSCC-disseminated, not public,
+so the gold is a **constructed, mechanics-faithful** scenario — real constituents/representative
+prices, fictional fund (GRIN), illustrative order/break.
+
+## Phase 1 — Workflow decomposition  → `workflow/creation-redemption-analysis.md`  ✅ done
+- [x] 8 checkpoints (P1 pin/direction · E1 PCF · E2 delivery · C1 line recon · C2 valuation+CIL ·
+      C3 tie-out · D1 settle/break decision · D2 calibrated refusal). New **decision** stage (D).
+
+## Phase 2 — Rubric  → `rubric/criteria-creation-redemption.yaml`  ✅ done
+- [x] 32 atoms, 5 gates (DIRECTION/SCALE/CIL/RECON/FABRICATION) + the over-refusal mirror penalty
+      `D1.n_falsebreak`. Validator extended to accept the `D` (decision) stage prefix; all 4 rubrics lint.
+
+## Phase 3 — Gold cases  → `cases/`  ✅ done
+- [x] `grin-create-2026` (the $13,320 stale-cash-in-lieu break → DO_NOT_SETTLE) + `grin-create-2026-clean`
+      (delivered correctly → ties → SETTLE; closes the perma-refuser gap). Arithmetic tied to the dollar,
+      domain-validated by the user.
+
+## Phase 4 — Harness suite  → `harness/suites/creation_redemption.py`  ✅ done
+- [x] Suite module + registration (`'creation-redemption'`); 7 variants (oracle/approve_break/scale_slip/
+      cil_blind/direction_flip/fabricate_price/false_break); case-aware selftest. Evals #1–3 byte-invariant.
+- [x] **Adversarial gaming review** (6 attackers → 2 blockers + soft spots, all fixed/verified): settle/break
+      family classifier (synonyms still trip RECON, refusals still credited); fabrication-under-NOT_DISCLOSED
+      closed; tight SCALE band that fires on evidence not absence; CIL struck-price validation; paraphrase-robust
+      D2 refusal grader.
+
+## Phase 5 — Live run + write-up  ⏳ optional/next
+- [ ] Live runner + a frontier-model pass + taxonomy (mirrors evals #2–3); PAPER/README live section.

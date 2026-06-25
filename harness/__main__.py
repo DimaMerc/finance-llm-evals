@@ -244,11 +244,65 @@ def _selftest_dcf(p, name):
     return failures
 
 
+def _selftest_creation_redemption(p, name):
+    """eval #4 invariants: oracle perfection + every gate tier + the recon-override headline flag.
+    Case-aware: the break case (ties_out=false) exercises the five flaw variants; the clean-settle
+    case (ties_out=true) exercises the over-cautious false-break mirror."""
+    failures = []
+    ties_out = (((load_case(p).get("gold") or {}).get("C3") or {}).get("ties_out")) is True
+    oracle, _ = run_case(p, variant="oracle")
+    if not (oracle.allpass == 1 and abs(oracle.case_gated - 1.0) < 1e-6 and oracle.gap == 0.0
+            and not oracle.flags):
+        failures.append(f"{name}: oracle expected 1.0/AllPass/no-flags, got gated={oracle.case_gated} "
+                        f"allpass={oracle.allpass} gates={oracle.fired_gates} flags={oracle.flags}")
+    if ties_out:
+        # clean-settle case: a perma-refuser (cries break on a basket that ties) must be caught
+        fb, _ = run_case(p, variant="false_break")
+        if not (fb.checkpoints["D1"]["score_gated"] == 0.0 and fb.allpass == 0
+                and "GATE.RECON" not in fb.fired_gates):
+            failures.append(f"{name}: false_break (clean case) expected D1->0 + allpass 0 + no RECON, "
+                            f"got D1={fb.checkpoints['D1']['score_gated']} allpass={fb.allpass} "
+                            f"gates={fb.fired_gates}")
+        return failures
+    # --- break case (ties_out=false) ---
+    ab, _ = run_case(p, variant="approve_break")
+    if not ("GATE.RECON" in ab.fired_gates and "recon_override_fired" in ab.flags
+            and ab.checkpoints["D1"]["score_gated"] == 0.0 and ab.allpass == 0):
+        failures.append(f"{name}: approve_break expected GATE.RECON + flag + D1->0, got "
+                        f"gates={ab.fired_gates} flags={ab.flags} D1={ab.checkpoints['D1']['score_gated']}")
+    # synonym regression (gaming-review RECON-1): a natural-language approval must STILL fire GATE.RECON
+    import harness.suites.creation_redemption as _cr
+    m_nl = _cr.oracle(load_case(p)); m_nl.setdefault("D1", {})["decision"] = "approve and release for settlement"
+    nl, _ = run_case(p, model_output=m_nl)
+    if not ("GATE.RECON" in nl.fired_gates and "recon_override_fired" in nl.flags):
+        failures.append(f"{name}: approve-synonym must fire GATE.RECON, got gates={nl.fired_gates}")
+    ss, _ = run_case(p, variant="scale_slip")
+    if not ("GATE.SCALE" in ss.fired_gates and ss.allpass == 0):
+        failures.append(f"{name}: scale_slip expected GATE.SCALE, got gates={ss.fired_gates}")
+    cb, _ = run_case(p, variant="cil_blind")
+    if not ("GATE.CIL" in cb.fired_gates and "GATE.RECON" not in cb.fired_gates and cb.allpass == 0):
+        failures.append(f"{name}: cil_blind expected GATE.CIL (and NOT GATE.RECON), got gates={cb.fired_gates}")
+    df, _ = run_case(p, variant="direction_flip")
+    if not ("GATE.DIRECTION" in df.fired_gates and df.checkpoints["C3"]["score_gated"] == 0.0
+            and df.checkpoints["D1"]["score_gated"] == 0.0 and df.allpass == 0):
+        failures.append(f"{name}: direction_flip expected GATE.DIRECTION + C3/D1->0, got "
+                        f"gates={df.fired_gates} C3={df.checkpoints['C3']['score_gated']}")
+    fp, _ = run_case(p, variant="fabricate_price")
+    if not (fp.e6[1] == 0.0 and fp.checkpoints["D2"]["score_gated"] == 0.0
+            and "GATE.FABRICATION" in fp.fired_gates and fp.allpass == 0):
+        failures.append(f"{name}: fabricate_price expected D2->0 (G=0) + GATE.FABRICATION, got "
+                        f"D2={fp.checkpoints['D2']['score_gated']} gates={fp.fired_gates}")
+    return failures
+
+
 def cmd_selftest(_):
     """Regression guard, per suite: oracle must AllPass at 1.0; the gate tiers must open the
-    expected GAPs; eval #2 adds the free-lunch headline flag, eval #3 the false-precision flag."""
-    failures, n1 = [], {"earnings-analysis": 0, "defined-outcome-etf": 0, "dcf-valuation": 0}
-    dispatch = {"defined-outcome-etf": _selftest_defined_outcome, "dcf-valuation": _selftest_dcf}
+    expected GAPs; eval #2 adds the free-lunch headline flag, eval #3 the false-precision flag,
+    eval #4 the recon-override flag."""
+    failures, n1 = [], {"earnings-analysis": 0, "defined-outcome-etf": 0, "dcf-valuation": 0,
+                        "creation-redemption": 0}
+    dispatch = {"defined-outcome-etf": _selftest_defined_outcome, "dcf-valuation": _selftest_dcf,
+                "creation-redemption": _selftest_creation_redemption}
     for p in _cases():
         case = load_case(p)
         name = os.path.basename(p).replace(".case.yaml", "")
@@ -264,8 +318,9 @@ def cmd_selftest(_):
           f"oracle/scale_slip/fabricate_probe/basis_mismatch + {n1.get('defined-outcome-etf', 0)} "
           f"defined-outcome cases x oracle/vintage_slip/refscale_slip/feebasis_mix/free_lunch/"
           f"fabricate_probe/c6_flip + {n1.get('dcf-valuation', 0)} dcf cases x oracle/basis_mix/"
-          f"scale_slip/wacc_slip/bridge_omit/false_precision/g_explode/c7_sign/c1_fcf/fabricate_probe "
-          f"invariants hold.")
+          f"scale_slip/wacc_slip/bridge_omit/false_precision/g_explode/c7_sign/c1_fcf/fabricate_probe + "
+          f"{n1.get('creation-redemption', 0)} creation/redemption cases x oracle/approve_break/"
+          f"scale_slip/cil_blind/direction_flip/fabricate_price invariants hold.")
 
 
 def cmd_demo(_):
@@ -287,7 +342,8 @@ def main():
     r = sub.add_parser("run"); r.add_argument("--case", required=True); r.add_argument("--model", default="oracle",
         help="eval #1: oracle | scale_slip | fabricate_probe | flip_eps_beat | basis_mismatch | live ; "
              "eval #2: oracle | vintage_slip | refscale_slip | feebasis_mix | free_lunch | fabricate_probe | c6_flip ; "
-             "eval #3: oracle | basis_mix | basis_late | scale_slip | wacc_slip | bridge_omit | false_precision | g_explode | c7_sign | c1_fcf | fabricate_probe")
+             "eval #3: oracle | basis_mix | basis_late | scale_slip | wacc_slip | bridge_omit | false_precision | g_explode | c7_sign | c1_fcf | fabricate_probe ; "
+             "eval #4: oracle | approve_break | scale_slip | cil_blind | direction_flip | fabricate_price")
     r.add_argument("--all", action="store_true"); r.add_argument("--judge", default="mock", choices=["mock", "llm"])
     r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
     r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")

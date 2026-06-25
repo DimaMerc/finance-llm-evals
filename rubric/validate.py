@@ -44,7 +44,8 @@ def _minimal_load(_path):  # pragma: no cover - best-effort fallback, not the pr
 # ---------------------------------------------------------------------------
 # The checkpoint set is DERIVED from meta.checkpoint_weights (insertion order preserved), so this
 # linter validates any eval in the suite (eval #1's 17 checkpoints, eval #2's 18, ...).
-STAGE_PREFIX = {"P": "planning", "E": "extraction", "C": "calculation", "S": "synthesis"}
+STAGE_PREFIX = {"P": "planning", "E": "extraction", "C": "calculation", "S": "synthesis",
+                "D": "decision"}   # eval #4 (creation/redemption) adds a decision stage (D1 settle/break, D2 refusal)
 CATEGORIES = ["extraction", "numerical", "entailment", "reasoning", "calibration", "structure"]
 GRADERS = ["deterministic", "entailment", "judge", "refusal"]
 

@@ -22,6 +22,7 @@ SUITE_RUBRICS = {
     "earnings-analysis": "criteria.yaml",
     "defined-outcome-etf": "criteria-defined-outcome.yaml",
     "dcf-valuation": "criteria-dcf.yaml",
+    "creation-redemption": "criteria-creation-redemption.yaml",
 }
 DEFAULT_SUITE = "earnings-analysis"
 

@@ -17,5 +17,8 @@ def for_case(case: dict):
     if s == "dcf-valuation":
         from . import dcf
         return dcf
+    if s == "creation-redemption":
+        from . import creation_redemption
+        return creation_redemption
     from . import earnings
     return earnings

@@ -12,7 +12,7 @@ Most finance-LLM demos show a polished answer. This shows the **scoring system**
 answer: the workflow broken into checkpoints, a gating-plus-weighted rubric, gold cases cited to
 SEC filings, and a grader that surfaces exactly *where* — and how badly — a model fails.
 
-**Three evals, one scoring engine:**
+**Four evals, one scoring engine:**
 
 - **Eval #1 — Quarterly earnings analysis.** Digest a 10-Q/earnings release, reconcile the figures,
   benchmark versus consensus, flag what moved. 17 checkpoints, 109 criteria, three gold cases
@@ -36,14 +36,27 @@ SEC filings, and a grader that surfaces exactly *where* — and how badly — a 
   auto-fails). 18 checkpoints, 107 criteria, one real-10-K gold case, **run live against three
   frontier models**: the two strong ones do textbook DCF correctly (no gate, ~0.96); the weak one
   trips the FCF-definition gate on a real arithmetic error the eval localizes to one checkpoint.
+- **Eval #4 — ETF creation/redemption basket reconciliation** *(the custodian back-office core,
+  authored by someone who ran it)*. Given an Authorized Participant's tendered creation basket, the
+  published PCF, and the NAV-based creation value, reconcile it line-by-line, value the basket and
+  cash-in-lieu, compute the tie-out — and **settle only if it ties.** The signature is **GATE.RECON**:
+  a model that returns SETTLE for a basket whose residual is out of tolerance auto-fails — the
+  fund-accounting "tie out or stop" control, ported to an AI. The gold case is a creation that does
+  not reconcile (a halted name's cash-in-lieu delivered at a stale prior-close price, short $13,320 on
+  a $3.075M order — every in-kind line matches, only the cash plug is short); the gold answer is
+  DO_NOT_SETTLE, localized to that line. A clean-settle counterweight case catches the over-cautious
+  mirror (crying break on a basket that ties). 8 checkpoints, ~31 criteria, two gold cases. *(PCFs are
+  NSCC-disseminated, not public filings, so this case is a constructed, mechanics-faithful scenario —
+  real constituent securities and representative prices; fund, order, and break illustrative.)*
 
 ## Quickstart (no API key, no setup)
 
 ```bash
-python -m harness suite       # score every gold case across all three evals
+python -m harness suite       # score every gold case across all four evals
 python -m harness demo        # grade a known-good and a known-broken answer, side by side
 python -m harness selftest    # sanity check — prints PASSED
-python -m harness run --case mcd-fy2025-dcf --model bridge_omit   # the DCF "looks right, is wrong" gate
+python -m harness run --case mcd-fy2025-dcf --model bridge_omit              # the DCF "looks right, is wrong" gate
+python -m harness run --case cases/grin-create-2026.case.yaml --model approve_break   # settle a basket that doesn't tie
 ```
 
 The only dependency is `pyyaml`; the demo and the entire deterministic scoring core run offline.
@@ -56,9 +69,9 @@ A real model is one flag/command away — see [`outputs/eval2-live/`](outputs/ev
 
 | Path | Contents |
 |---|---|
-| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18 · DCF: 18) |
+| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18 · DCF: 18 · creation/redemption: 8) |
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
-| [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** |
+| [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** (the creation/redemption case is the one exception: PCFs are not public, so it is a constructed, mechanics-faithful scenario over real securities) |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
 | [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration) and [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval) |
 
@@ -122,6 +135,27 @@ Reproduce any row: `python -m harness run --case mcd-fy2025-dcf --model <name>`.
 the McDonald's FY2025 gold case are in [`workflow/dcf-analysis.md`](workflow/dcf-analysis.md) and
 [`cases/mcd-fy2025-dcf.case.yaml`](cases/mcd-fy2025-dcf.case.yaml).
 
+## What the gate taxonomy shows (eval #4, creation/redemption)
+
+The signature here is the one every fund-accounting desk runs on: **a basket that does not reconcile
+does not settle.** The gold case is a creation that is short $13,320 — every in-kind share line ties,
+only the cash-in-lieu plug is stale — so the most dangerous failure is also the highest-scoring one:
+
+| Flawed answer | Gate | Gated score | What it shows |
+|---|---|---|---|
+| `approve_break` — all numbers right, **SETTLES the break** | **GATE.RECON** + flag | **0.86** | the signature: the highest-scoring failure is the catastrophic one — the control switched off |
+| `scale_slip` — delivered cash read in thousands | **GATE.SCALE** (hard) | 0.66 | a mis-scaled tie-out |
+| `cil_blind` — misses the cash-in-lieu substitution | **GATE.CIL** (scoped) | 0.55 | right *stop*, wrong root cause; RECON does **not** fire |
+| `direction_flip` — creation read as redemption | **GATE.DIRECTION** (hard) | 0.36 | the whole order on the wrong footing — the biggest cascade |
+| `fabricate_price` — invents the halted name's close | **GATE.FABRICATION** | 0.92 | the calibrated-refusal probe → G = 0 |
+
+A second **clean-settle** gold case (the same order delivered correctly, so it ties) catches the
+over-cautious mirror — a model that cries break on a basket that reconciles. The suite was hardened
+by an adversarial gaming review (an approval *synonym* still trips GATE.RECON; a fabricated price
+under a refusal label still trips GATE.FABRICATION). Design + gold:
+[`workflow/creation-redemption-analysis.md`](workflow/creation-redemption-analysis.md),
+[`cases/grin-create-2026.case.yaml`](cases/grin-create-2026.case.yaml).
+
 ## What the demo shows
 
 `python -m harness demo` grades a model that does Snowflake's analysis **correctly** but misreads
@@ -136,8 +170,9 @@ Before any firm lets an AI do analyst work, it needs to know *whether — and ex
 trust it.* A blended accuracy number can't answer that. This suite catches the errors that quietly
 poison a memo (scale, period, fabrication, GAAP-vs-non-GAAP for earnings; wrong fund vintage,
 strike-scale, stated-vs-remaining terms, and the free lunch for buffer ETFs; the levered/unlevered
-basis mix, the missing net-debt bridge, and false precision for a DCF), localizes each to the
-checkpoint that owns it, and tells "looks right" apart from "is right." A firm uses it as an
+basis mix, the missing net-debt bridge, and false precision for a DCF; the create/redeem direction,
+a stale cash-in-lieu, and **settling a basket that does not reconcile** for fund servicing), localizes
+each to the checkpoint that owns it, and tells "looks right" apart from "is right." A firm uses it as an
 **acceptance test** (which model is deployable, and where it needs a guardrail) and a **regression
 test** (did a model/prompt change help or hurt, and where).
 
