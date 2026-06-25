@@ -1,0 +1,21 @@
+Here's a test I built for whether an AI can be trusted with real back-office work - the kind I used to run.
+
+Picture the desk that creates new ETF shares. A trading firm wants 50,000 new shares. It doesn't pay cash for them - it hands over a basket of stocks plus some cash, and that basket has to be worth exactly what the new shares are worth: $3,075,000. Your whole job is to add it up. If it ties, you create the shares. If it doesn't, you stop.
+
+The trap I planted: one stock in the basket was halted that day, so the firm owed cash in its place. The right amount was $202,320. They used yesterday's price by mistake and sent $189,000 - short by $13,320. Every other line was perfect, so the basket quietly doesn't tie. The right answer is: do not settle.
+
+I gave that exact packet to three frontier AI models. The two strongest caught it to the dollar, named the offending stock, and refused to settle. The third refused too - good instinct - but its own arithmetic was off by $200,000, so it decided the basket was over-delivered when it was actually short. It had the break backwards.
+
+Here's the part I want to be honest about: not one of them rubber-stamped the broken basket. The scary headline - "AI approves bad trades" - didn't happen. What separated the models wasn't judgment about whether to approve something broken. It was the arithmetic underneath - and the test pinpointed exactly where the weak one broke.
+
+That's the whole idea. The useful question was never "is the AI smart." It's "where, precisely, can I trust it - and where can't I." In the back office that control has a name: a basket that doesn't reconcile doesn't settle, no matter who wants it pushed through. Building a way to measure whether an AI has that control is the work.
+
+Runnable, open-source, every step graded against a real basket. Repo in the comments.
+
+#AIinFinance #ETFs #AssetServicing #LLMevaluation #Custody
+
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The runnable eval (and the three-model run): github.com/DimaMerc/finance-llm-evals
