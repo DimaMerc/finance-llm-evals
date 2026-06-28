@@ -32,10 +32,18 @@ def _cases():
 def _resolve(case_arg: str) -> str:
     if os.path.exists(case_arg):
         return case_arg
-    for p in _cases():
-        if case_arg in os.path.basename(p):
+    matches = [p for p in _cases() if case_arg in os.path.basename(p)]
+    # prefer an EXACT case-id match so e.g. 'grin-create-2026' picks the break case, not the
+    # substring-shorter '-clean' sibling; fall back to a unique substring; error on ambiguity
+    for p in matches:
+        if os.path.basename(p).replace(".case.yaml", "") == case_arg:
             return p
-    raise SystemExit(f"case not found: {case_arg}\navailable: {[os.path.basename(p) for p in _cases()]}")
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise SystemExit(f"case not found: {case_arg}\navailable: {[os.path.basename(p) for p in _cases()]}")
+    raise SystemExit(f"ambiguous case '{case_arg}' matches {[os.path.basename(p) for p in matches]} — "
+                     f"use the full name")
 
 
 def cmd_list(_):

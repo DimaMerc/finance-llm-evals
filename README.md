@@ -12,7 +12,56 @@ Most finance-LLM demos show a polished answer. This shows the **scoring system**
 answer: the workflow broken into checkpoints, a gating-plus-weighted rubric, gold cases cited to
 SEC filings, and a grader that surfaces exactly *where* — and how badly — a model fails.
 
-**Four evals, one scoring engine:**
+## See it in 30 seconds (no API key, no setup)
+
+```bash
+pip install -r requirements.txt     # one dependency: pyyaml
+python -m harness demo              # grade a correct answer and a subtly-broken one, side by side
+```
+
+The demo runs a model that does Snowflake's quarter **correctly** but misreads one statement header
+("in thousands" as "in millions"). Watch what the scoring does:
+
+```
+CASE snow-2026q2   model=oracle       gated 1.000   AllPass 1   gates: none
+CASE snow-2026q2   model=scale_slip   gated 0.452   AllPass 0   gates: GATE.P2   (ungated 0.951)
+```
+
+The arithmetic is internally consistent, so the naive (**ungated**) score stays ~0.95. But one hard
+**gate** fires on the scale misread and the **gated score collapses to 0.45.** That ~0.50 gap *is*
+the finding: *can do the math, cannot be trusted to read a statement header.* Measuring that gap —
+across four analyst workflows — is the whole repo.
+
+## How the scoring works (30 more seconds)
+
+Every workflow is broken into **checkpoints** (plan → extract → calculate → decide). Each checkpoint
+has scored criteria, and a few are **gates** — auto-fail conditions for the errors that quietly
+poison a memo (a unit/scale slip, a wrong fiscal period, a fabricated number, settling a basket that
+doesn't reconcile). A normal mistake costs a few points; a **gate collapses the score and flags
+exactly where and how badly** the model failed. Every gold figure is traced to a real SEC filing;
+nothing is invented. Models also earn credit for **calibrated uncertainty** — saying "not
+determinable from this packet" instead of guessing.
+
+## The four evals — and how to run each
+
+| Eval | What it tests | Run it (the perfect "oracle") | See it fail |
+|---|---|---|---|
+| **#1 — Earnings** | digest a 10-Q, reconcile the figures, flag what moved | `python -m harness run --case snow-fy2026q2` | `--model scale_slip` — thousands-vs-millions → **GATE.P2** |
+| **#2 — Buffer ETF** | recompute a buffer ETF's cap & buffer **from the option strikes**; price the protection | `python -m harness run --case koct-op2026-anchor` | `--model free_lunch` — protection asserted with no cost → **GATE.FREELUNCH** |
+| **#3 — DCF** | project FCFF, discount at WACC, **bridge EV→equity**, per share | `python -m harness run --case mcd-fy2025-dcf` | `--model bridge_omit` — EV÷shares, net-debt bridge skipped → **GATE.BRIDGE** |
+| **#4 — Creation/redemption** | reconcile an AP's creation basket vs the PCF & NAV; **settle only if it ties** | `python -m harness run --case grin-create-2026` | `--model approve_break` — settle a basket that's $13,320 short → **GATE.RECON** |
+
+Every `run` defaults to a perfect answer (scores 1.000); add `--model <name>` to watch a designed
+flaw trip its gate. `python -m harness list` shows every case and variant ·
+`python -m harness suite` scores them all · `python -m harness selftest` prints PASSED.
+
+**Run a real model** (optional, needs an API key): add `--model live --endpoint <url> --model-id
+<model>` with `OPENAI_API_KEY` set. The graded frontier-model runs are in [`outputs/`](outputs/).
+
+> 📄 **Prefer prose?** [`PAPER.md`](PAPER.md) is the methodology write-up. Each eval also has a
+> plain-language write-up in [`content/`](content/).
+
+## The four evals in detail
 
 - **Eval #1 — Quarterly earnings analysis.** Digest a 10-Q/earnings release, reconcile the figures,
   benchmark versus consensus, flag what moved. 17 checkpoints, 109 criteria, three gold cases
@@ -48,22 +97,6 @@ SEC filings, and a grader that surfaces exactly *where* — and how badly — a 
   mirror (crying break on a basket that ties). 8 checkpoints, ~31 criteria, two gold cases. *(PCFs are
   NSCC-disseminated, not public filings, so this case is a constructed, mechanics-faithful scenario —
   real constituent securities and representative prices; fund, order, and break illustrative.)*
-
-## Quickstart (no API key, no setup)
-
-```bash
-python -m harness suite       # score every gold case across all four evals
-python -m harness demo        # grade a known-good and a known-broken answer, side by side
-python -m harness selftest    # sanity check — prints PASSED
-python -m harness run --case mcd-fy2025-dcf --model bridge_omit              # the DCF "looks right, is wrong" gate
-python -m harness run --case cases/grin-create-2026.case.yaml --model approve_break   # settle a basket that doesn't tie
-```
-
-The only dependency is `pyyaml`; the demo and the entire deterministic scoring core run offline.
-A real model is one flag/command away — see [`outputs/eval2-live/`](outputs/eval2-live/).
-
-> 📄 **Prefer prose?** [`PAPER.md`](PAPER.md) is the methodology write-up (v2 covers the suite, the
-> two-model run matrix, the failure taxonomy, and the judge-vs-expert calibration).
 
 ## What's here
 

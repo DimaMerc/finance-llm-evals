@@ -1,0 +1,3 @@
+# finance-llm-evals — the deterministic scoring core + demo run fully offline on this alone.
+# (Live model runs use only the Python standard library; no extra packages needed.)
+pyyaml>=6.0
