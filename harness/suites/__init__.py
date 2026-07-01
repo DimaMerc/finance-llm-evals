@@ -20,5 +20,8 @@ def for_case(case: dict):
     if s == "creation-redemption":
         from . import creation_redemption
         return creation_redemption
+    if s == "confirmation-matching":
+        from . import confirmation_matching
+        return confirmation_matching
     from . import earnings
     return earnings

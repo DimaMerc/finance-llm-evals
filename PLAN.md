@@ -318,3 +318,40 @@ prices, fictional fund (GRIN), illustrative order/break.
       refuses to settle, error pinned to the valuation. Clean-settle case: all three correctly SETTLE
       (no false break). **Honest negative: GATE.RECON never fired — no model approved the break.**
       `outputs/eval4-live/TAXONOMY.md`; README live-findings section. n=1/case, single family (cross-family next).
+
+# Eval #5 — OTC derivative confirmation matching  *(the derivatives sibling of #4; GROUNDED in a real public message)*
+
+The affirmation-desk **"affirm only if it ties"** control. Signature = **GATE.MATCH** (affirm a trade
+whose economic terms do not tie → auto-fail + `match_override_fired` flag). Key win over #4: the gold
+"our side" is a REAL, publicly-downloadable FpML 5.10 sample confirmation
+(`ird-ex01-vanilla-swap.xml`, fpml.org), so the gold is **cited, not constructed**. Research
+established public back-office AI benchmarking is a **green field** (all named benchmarks are
+analyst-facing) — this extends the category eval #4 opened, into derivatives (the author's other moat).
+
+## Phase 1 — Workflow  → `workflow/confirmation-matching-analysis.md`  ✅ done
+- [x] 8 checkpoints (P1 pin · E1 our terms · E2 cpty terms · C1 match grid + direction · C2 materiality +
+      scale · C3 localize · D1 affirm/mismatch decision · D2 calibrated refusal). New product family; same
+      D decision stage.
+
+## Phase 2 — Rubric  → `rubric/criteria-confirmation-matching.yaml`  ✅ done
+- [x] 33 atoms, 5 gates (DIRECTION/SCALE/MATERIALITY/MATCH/FABRICATION) + over-refusal mirror
+      `D1.n_falsemismatch`. All 5 rubrics lint 18/18.
+
+## Phase 3 — Gold cases  → `cases/`  ✅ done
+- [x] `irs-confirm-2026` (fixed-rate break 6.00 vs 6.05, ~EUR 25k/yr → MISMATCHED, do not affirm;
+      trade-ids differ by design = the materiality foil) + `irs-confirm-2026-clean` (rates tie → AFFIRMED).
+      Our-side terms extracted verbatim from the real FpML message; break type + framing + scope
+      domain-validated by the user.
+
+## Phase 4 — Harness suite  → `harness/suites/confirmation_matching.py`  ✅ done
+- [x] Suite + registration (`'confirmation-matching'`); 7 variants (oracle/affirm_match/scale_slip/
+      direction_flip/materiality_blind/fabricate_probe/false_mismatch); case-aware selftest + live
+      round-trip; `harness/live_confirmation_matching.py`. Evals #1–4 byte-invariant (selftest 3+3+1+2+2).
+- [x] **Adversarial gaming review** (6 attackers → 4 blockers + soft spots, all fixed/verified):
+      settlement-desk family classifier + negation-aware regex (go-ahead synonyms trip MATCH; negated
+      affirms are breaks; negated breaks are affirms); order-of-magnitude SCALE check (catches 10× rate
+      slip); DIRECTION derived from extracted legs; fabricated MTM-in-prose trips FABRICATION; two-prong
+      paraphrase-robust D2 reason; fail-closed override backstop.
+
+## Phase 5 — Live run + write-up  ⏳ optional/next
+- [ ] Live runner exists; a frontier-model pass + taxonomy (mirrors evals #3–4) is the optional next step.

@@ -30,7 +30,7 @@ CASE snow-2026q2   model=scale_slip   gated 0.452   AllPass 0   gates: GATE.P2  
 The arithmetic is internally consistent, so the naive (**ungated**) score stays ~0.95. But one hard
 **gate** fires on the scale misread and the **gated score collapses to 0.45.** That ~0.50 gap *is*
 the finding: *can do the math, cannot be trusted to read a statement header.* Measuring that gap —
-across four analyst workflows — is the whole repo.
+across five analyst and back-office workflows — is the whole repo.
 
 ## How the scoring works (30 more seconds)
 
@@ -42,7 +42,7 @@ exactly where and how badly** the model failed. Every gold figure is traced to a
 nothing is invented. Models also earn credit for **calibrated uncertainty** — saying "not
 determinable from this packet" instead of guessing.
 
-## The four evals — and how to run each
+## The five evals — and how to run each
 
 | Eval | What it tests | Run it (the perfect "oracle") | See it fail |
 |---|---|---|---|
@@ -50,6 +50,7 @@ determinable from this packet" instead of guessing.
 | **#2 — Buffer ETF** | recompute a buffer ETF's cap & buffer **from the option strikes**; price the protection | `python -m harness run --case koct-op2026-anchor` | `--model free_lunch` — protection asserted with no cost → **GATE.FREELUNCH** |
 | **#3 — DCF** | project FCFF, discount at WACC, **bridge EV→equity**, per share | `python -m harness run --case mcd-fy2025-dcf` | `--model bridge_omit` — EV÷shares, net-debt bridge skipped → **GATE.BRIDGE** |
 | **#4 — Creation/redemption** | reconcile an AP's creation basket vs the PCF & NAV; **settle only if it ties** | `python -m harness run --case grin-create-2026` | `--model approve_break` — settle a basket that's $13,320 short → **GATE.RECON** |
+| **#5 — Confirmation matching** | match two OTC swap confirmations field-by-field; **affirm only if the economics tie** | `python -m harness run --case irs-confirm-2026` | `--model affirm_match` — affirm a trade with a material rate break → **GATE.MATCH** |
 
 Every `run` defaults to a perfect answer (scores 1.000); add `--model <name>` to watch a designed
 flaw trip its gate. `python -m harness list` shows every case and variant ·
@@ -61,7 +62,7 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
 > 📄 **Prefer prose?** [`PAPER.md`](PAPER.md) is the methodology write-up. Each eval also has a
 > plain-language write-up in [`content/`](content/).
 
-## The four evals in detail
+## The five evals in detail
 
 - **Eval #1 — Quarterly earnings analysis.** Digest a 10-Q/earnings release, reconcile the figures,
   benchmark versus consensus, flag what moved. 17 checkpoints, 109 criteria, three gold cases
@@ -97,12 +98,23 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
   mirror (crying break on a basket that ties). 8 checkpoints, ~31 criteria, two gold cases. *(PCFs are
   NSCC-disseminated, not public filings, so this case is a constructed, mechanics-faithful scenario —
   real constituent securities and representative prices; fund, order, and break illustrative.)*
+- **Eval #5 — OTC derivative confirmation matching** *(the derivatives sibling of #4 — and grounded in
+  a real public message)*. Two counterparties each book their side of an interest-rate swap and send
+  confirmations; the affirmation desk matches the economic terms field-by-field and **affirms only if
+  they tie.** The signature is **GATE.MATCH**: a model that affirms ("matched") a trade whose economic
+  terms do not tie auto-fails — the same "tie out or stop" control as reconciliation. The gold "our
+  side" is the **real, publicly-downloadable FpML 5.10 sample confirmation** (`ird-ex01-vanilla-swap.xml`
+  from fpml.org), so unlike #4 the gold is *cited, not constructed*. The counterparty confirmation
+  carries a material break — a fixed rate of **6.05% where ours says 6.00%** (~5 bp, ~EUR 25,000/yr on
+  EUR 50MM); every other term ties, and the two parties' trade ids differ *by design* (the materiality
+  foil). Gold answer: MISMATCHED, do not affirm, localized to the fixed rate. A clean-match counterweight
+  catches the over-cautious mirror. 8 checkpoints, ~33 criteria, two gold cases.
 
 ## What's here
 
 | Path | Contents |
 |---|---|
-| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18 · DCF: 18 · creation/redemption: 8) |
+| [`workflow/`](workflow/) | Each workflow decomposed into measurable checkpoints (earnings: 17 · defined-outcome: 18 · DCF: 18 · creation/redemption: 8 · confirmation-matching: 8) |
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
 | [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** (the creation/redemption case is the one exception: PCFs are not public, so it is a constructed, mechanics-faithful scenario over real securities) |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
@@ -212,6 +224,28 @@ Haiku's $200k arithmetic slip, localized to one checkpoint, not as the marquee f
 family, n=1 per case — a cross-family run is the honest next step. Full matrix + traces:
 [`outputs/eval4-live/`](outputs/eval4-live/).
 
+## What the gate taxonomy shows (eval #5, confirmation matching)
+
+The derivatives sibling of #4 — and the gold "our side" is a **real, publicly-downloadable FpML
+message**, so the case is *cited, not constructed*. The break: a counterparty confirmation that ties
+on every term except a **6.05% vs 6.00% fixed rate**. The signature is again the highest-scoring
+failure:
+
+| Flawed answer | Gate | Gated score | What it shows |
+|---|---|---|---|
+| `affirm_match` — all terms compared right, **affirms the broken trade** | **GATE.MATCH** + flag | **0.84** | the signature: the highest-scoring failure is the catastrophic one — the control switched off |
+| `scale_slip` — notional read in thousands | **GATE.SCALE** (hard) | 0.64 | a mis-scaled comparison |
+| `materiality_blind` — flags the *expected* trade-id diff as a break | **GATE.MATERIALITY** (scoped) | 0.61 | right verdict, wrong reason; MATCH does **not** fire |
+| `direction_flip` — fixed payer/receiver inverted | **GATE.DIRECTION** (hard) | 0.47 | the trade read backwards — the biggest cascade |
+| `fabricate_probe` — invents a mark-to-market | **GATE.FABRICATION** | 0.92 | the calibrated-refusal probe → G = 0 |
+
+A clean-match counterweight case catches the over-cautious mirror (crying "mismatch" on a trade that
+ties). The suite was hardened by an adversarial gaming review — a settlement-desk *go-ahead synonym*
+("release for settlement", "book it") still trips GATE.MATCH; a fabricated mark-to-market asserted in
+prose still trips GATE.FABRICATION. Design + gold:
+[`workflow/confirmation-matching-analysis.md`](workflow/confirmation-matching-analysis.md),
+[`cases/irs-confirm-2026.case.yaml`](cases/irs-confirm-2026.case.yaml).
+
 ## What the demo shows
 
 `python -m harness demo` grades a model that does Snowflake's analysis **correctly** but misreads
@@ -227,8 +261,10 @@ trust it.* A blended accuracy number can't answer that. This suite catches the e
 poison a memo (scale, period, fabrication, GAAP-vs-non-GAAP for earnings; wrong fund vintage,
 strike-scale, stated-vs-remaining terms, and the free lunch for buffer ETFs; the levered/unlevered
 basis mix, the missing net-debt bridge, and false precision for a DCF; the create/redeem direction,
-a stale cash-in-lieu, and **settling a basket that does not reconcile** for fund servicing), localizes
-each to the checkpoint that owns it, and tells "looks right" apart from "is right." A firm uses it as an
+a stale cash-in-lieu, and **settling a basket that does not reconcile** for fund servicing; a trade
+direction, day-count, or rate break, and **affirming a confirmation that does not tie** for
+derivatives ops), localizes each to the checkpoint that owns it, and tells "looks right" apart from
+"is right." A firm uses it as an
 **acceptance test** (which model is deployable, and where it needs a guardrail) and a **regression
 test** (did a model/prompt change help or hurt, and where).
 

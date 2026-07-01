@@ -77,6 +77,10 @@ def cmd_run(a):
                 from . import live_creation_redemption as lcr
                 print(f"[live] building the order/PCF/delivery packet and calling the model at {a.endpoint} ...")
                 ans = lcr.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
+            elif suite_of(case) == "confirmation-matching":
+                from . import live_confirmation_matching as lcm
+                print(f"[live] building the two-confirmation packet and calling the model at {a.endpoint} ...")
+                ans = lcm.answer(case, endpoint=a.endpoint, model_id=a.model_id, max_tokens=a.max_tokens)
             else:
                 from . import live
                 print(f"[live] fetching the press release{' + 10-Q excerpt' if a.tenq else ''} and calling LM Studio at {a.endpoint} ...")
@@ -317,14 +321,72 @@ def _selftest_creation_redemption(p, name):
     return failures
 
 
+def _selftest_confirmation_matching(p, name):
+    """eval #5 invariants: oracle perfection + every gate tier + the match-override headline flag.
+    Case-aware: the break case (matches=false) exercises the flaw variants; the clean-match case
+    (matches=true) exercises the over-cautious false-mismatch mirror."""
+    failures = []
+    is_clean = (((load_case(p).get("gold") or {}).get("C3") or {}).get("matches")) is True
+    oracle, _ = run_case(p, variant="oracle")
+    if not (oracle.allpass == 1 and abs(oracle.case_gated - 1.0) < 1e-6 and oracle.gap == 0.0
+            and not oracle.flags):
+        failures.append(f"{name}: oracle expected 1.0/AllPass/no-flags, got gated={oracle.case_gated} "
+                        f"allpass={oracle.allpass} gates={oracle.fired_gates} flags={oracle.flags}")
+    # live-schema round-trip (no network): schema-perfect answer must grade 1.000/AllPass
+    import json as _json
+    from . import live_confirmation_matching as _lcm
+    from .live import parse_answer as _parse
+    rt, _ = run_case(p, model_output=_parse(_json.dumps(_lcm.oracle_to_schema(load_case(p)))))
+    if not (rt.allpass == 1 and abs(rt.case_gated - 1.0) < 1e-6):
+        failures.append(f"{name}: live-schema round-trip expected 1.0/AllPass, got "
+                        f"gated={rt.case_gated} allpass={rt.allpass} gates={rt.fired_gates}")
+    if is_clean:
+        fm, _ = run_case(p, variant="false_mismatch")
+        if not (fm.checkpoints["D1"]["score_gated"] == 0.0 and fm.allpass == 0
+                and "GATE.MATCH" not in fm.fired_gates):
+            failures.append(f"{name}: false_mismatch (clean case) expected D1->0 + allpass 0 + no MATCH, "
+                            f"got D1={fm.checkpoints['D1']['score_gated']} gates={fm.fired_gates}")
+        return failures
+    # --- break case (matches=false) ---
+    am, _ = run_case(p, variant="affirm_match")
+    if not ("GATE.MATCH" in am.fired_gates and "match_override_fired" in am.flags
+            and am.checkpoints["D1"]["score_gated"] == 0.0 and am.allpass == 0):
+        failures.append(f"{name}: affirm_match expected GATE.MATCH + flag + D1->0, got "
+                        f"gates={am.fired_gates} flags={am.flags} D1={am.checkpoints['D1']['score_gated']}")
+    import harness.suites.confirmation_matching as _cm
+    for syn in ("release for settlement", "book it", "good to go", "green - proceed to settle"):
+        m_nl = _cm.oracle(load_case(p)); m_nl.setdefault("D1", {})["decision"] = syn
+        nl, _ = run_case(p, model_output=m_nl)
+        if not ("GATE.MATCH" in nl.fired_gates and "match_override_fired" in nl.flags):
+            failures.append(f"{name}: affirm-synonym '{syn}' must fire GATE.MATCH, got gates={nl.fired_gates}")
+    ss, _ = run_case(p, variant="scale_slip")
+    if not ("GATE.SCALE" in ss.fired_gates and ss.allpass == 0):
+        failures.append(f"{name}: scale_slip expected GATE.SCALE, got gates={ss.fired_gates}")
+    df, _ = run_case(p, variant="direction_flip")
+    if not ("GATE.DIRECTION" in df.fired_gates and df.checkpoints["C3"]["score_gated"] == 0.0
+            and df.checkpoints["D1"]["score_gated"] == 0.0 and df.allpass == 0):
+        failures.append(f"{name}: direction_flip expected GATE.DIRECTION + C3/D1->0, got "
+                        f"gates={df.fired_gates} C3={df.checkpoints['C3']['score_gated']}")
+    mb, _ = run_case(p, variant="materiality_blind")
+    if not ("GATE.MATERIALITY" in mb.fired_gates and "GATE.MATCH" not in mb.fired_gates and mb.allpass == 0):
+        failures.append(f"{name}: materiality_blind expected GATE.MATERIALITY (not MATCH), got {mb.fired_gates}")
+    fp, _ = run_case(p, variant="fabricate_probe")
+    if not (fp.e6[1] == 0.0 and fp.checkpoints["D2"]["score_gated"] == 0.0
+            and "GATE.FABRICATION" in fp.fired_gates and fp.allpass == 0):
+        failures.append(f"{name}: fabricate_probe expected D2->0 (G=0) + GATE.FABRICATION, got "
+                        f"D2={fp.checkpoints['D2']['score_gated']} gates={fp.fired_gates}")
+    return failures
+
+
 def cmd_selftest(_):
     """Regression guard, per suite: oracle must AllPass at 1.0; the gate tiers must open the
     expected GAPs; eval #2 adds the free-lunch headline flag, eval #3 the false-precision flag,
-    eval #4 the recon-override flag."""
+    eval #4 the recon-override flag, eval #5 the match-override flag."""
     failures, n1 = [], {"earnings-analysis": 0, "defined-outcome-etf": 0, "dcf-valuation": 0,
-                        "creation-redemption": 0}
+                        "creation-redemption": 0, "confirmation-matching": 0}
     dispatch = {"defined-outcome-etf": _selftest_defined_outcome, "dcf-valuation": _selftest_dcf,
-                "creation-redemption": _selftest_creation_redemption}
+                "creation-redemption": _selftest_creation_redemption,
+                "confirmation-matching": _selftest_confirmation_matching}
     for p in _cases():
         case = load_case(p)
         name = os.path.basename(p).replace(".case.yaml", "")
@@ -342,7 +404,9 @@ def cmd_selftest(_):
           f"fabricate_probe/c6_flip + {n1.get('dcf-valuation', 0)} dcf cases x oracle/basis_mix/"
           f"scale_slip/wacc_slip/bridge_omit/false_precision/g_explode/c7_sign/c1_fcf/fabricate_probe + "
           f"{n1.get('creation-redemption', 0)} creation/redemption cases x oracle/approve_break/"
-          f"scale_slip/cil_blind/direction_flip/fabricate_price invariants hold.")
+          f"scale_slip/cil_blind/direction_flip/fabricate_price + {n1.get('confirmation-matching', 0)} "
+          f"confirmation-matching cases x oracle/affirm_match/scale_slip/direction_flip/"
+          f"materiality_blind/fabricate_probe/false_mismatch invariants hold.")
 
 
 def cmd_demo(_):
@@ -365,7 +429,8 @@ def main():
         help="eval #1: oracle | scale_slip | fabricate_probe | flip_eps_beat | basis_mismatch | live ; "
              "eval #2: oracle | vintage_slip | refscale_slip | feebasis_mix | free_lunch | fabricate_probe | c6_flip ; "
              "eval #3: oracle | basis_mix | basis_late | scale_slip | wacc_slip | bridge_omit | false_precision | g_explode | c7_sign | c1_fcf | fabricate_probe ; "
-             "eval #4: oracle | approve_break | scale_slip | cil_blind | direction_flip | fabricate_price")
+             "eval #4: oracle | approve_break | scale_slip | cil_blind | direction_flip | fabricate_price ; "
+             "eval #5: oracle | affirm_match | scale_slip | direction_flip | materiality_blind | fabricate_probe | false_mismatch")
     r.add_argument("--all", action="store_true"); r.add_argument("--judge", default="mock", choices=["mock", "llm"])
     r.add_argument("--endpoint", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible server (--model live)")
     r.add_argument("--model-id", default=None, help="LM Studio model id (default: the loaded one)")

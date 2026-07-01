@@ -1,0 +1,371 @@
+# rubric/criteria-confirmation-matching.yaml — machine-readable atomic scoring criteria for EVAL #5:
+# OTC DERIVATIVE CONFIRMATION MATCHING (the affirmation-desk "affirm only if it ties" control, the
+# derivatives sibling of eval #4's reconciliation). Phase-2 deliverable of eval #5.
+#
+# SAME SCHEMA as the other four evals — meta weights + checkpoint_weights, a tolerances block, a
+# gates block with fired_by/dependents, and atoms with {id, checkpoint, category, criterion, points,
+# grader, gate, tolerance, tags}. Aggregation is identical (checkpoint-primary, category rollup,
+# HealthBench inner pool; the refusal checkpoint D2's headline is the FailSafeQA F-beta LLMC_beta(R,G)).
+#
+# THE TASK: two counterparties each book their side of an OTC interest-rate swap and send
+# confirmations. The ops / affirmation desk matches the economic terms field-by-field and AFFIRMS
+# only if they tie — otherwise it is a mismatch (do not affirm; escalate). Signature control =
+# GATE.MATCH: a model that AFFIRMS ("matched") a trade with a material economic mismatch auto-fails.
+#
+# GROUNDED (unlike eval #4's constructed PCF): the gold "our side" is a REAL, publicly-downloadable
+# FpML 5.10 sample confirmation — ird-ex01-vanilla-swap.xml from fpml.org (ISDA's official standards
+# site). The counterparty confirmation is the same trade with a planted material break (the fixed
+# rate: 6.00% vs 6.05%). Trade ids differ by design (each party assigns its own) — the materiality foil.
+#
+# Workflow spec: workflow/confirmation-matching-analysis.md. Validate: python rubric/validate.py
+# rubric/criteria-confirmation-matching.yaml
+
+meta:
+  rubric_version: "1.0.0"
+  eval: confirmation-matching
+
+  weights:
+    extraction:   0.24
+    numerical:    0.28
+    entailment:   0.12
+    reasoning:    0.20
+    calibration:  0.10
+    structure:    0.06
+
+  # 8 checkpoint weights. Sum to 1.0. Calculation-/decision-heavy: the match grid + materiality +
+  # the affirm/mismatch call are the center of gravity.
+  checkpoint_weights:
+    P1: 0.10
+    E1: 0.12
+    E2: 0.10
+    C1: 0.16
+    C2: 0.14
+    C3: 0.14
+    D1: 0.16
+    D2: 0.08
+
+  refusal_beta: 0.5
+  clip_per_checkpoint: true
+  clip_per_case: false
+  clip_suite: [0.0, 1.0]
+  headline_flags: [match_override_fired]   # reported beside CaseScore when GATE.MATCH fires
+
+tolerances:
+  count_exact: { type: abs, band: 0.001 }    # frequencies, integer fields
+  rate_exact:  { type: abs, band: 0.0000001 } # the fixed rate as a decimal (0.06 vs 0.0605 = a mismatch)
+  money:       { type: abs, band: 1.00 }      # notional to the currency unit
+  money_est:   { type: rel, band: 0.06 }      # economic-impact estimate (an approximation)
+  pp:          { type: pp,  band: 0.01 }
+
+# ============================== GATES ==============================
+gates:
+  - id: GATE.DIRECTION
+    tier: hard
+    checkpoint: C1
+    fired_by: C1.direction
+    condition: "trade direction inverted: the fixed payer/receiver (equivalently who pays the float)
+                is read backwards, so the whole economic comparison is on the wrong footing."
+    dependents: [C2, C3, D1]
+  - id: GATE.SCALE
+    tier: hard
+    checkpoint: C2
+    fired_by: C2.scale
+    condition: "notional or rate mis-scaled: EUR 50,000,000 read as 50,000 or 5,000,000, or the fixed
+                rate 0.06 read as 6.0 (600%) or 6 bp — the comparison 'ties' on the wrong scale."
+    dependents: [C3, D1]
+  - id: GATE.MATERIALITY
+    tier: scoped
+    checkpoint: C2
+    fired_by: C2.material
+    condition: "the material-vs-expected judgment is wrong: an EXPECTED representational difference
+                (each party's own trade id) is flagged as an economic break, or a MATERIAL economic
+                difference (the fixed rate) is dismissed as cosmetic."
+    dependents: [C3, D1]
+  - id: GATE.MATCH
+    tier: scoped
+    checkpoint: D1
+    fired_by: D1.n_override
+    condition: "THE SIGNATURE CONTROL: the model AFFIRMS ('matched') a trade whose economic terms do
+                NOT tie (a material mismatch) — confirming a broken trade. Fires D1->0 and raises the
+                match_override_fired headline flag."
+    dependents: [D1]
+    headline_flag: match_override_fired
+  - id: GATE.FABRICATION
+    tier: hard
+    tier_note: "per-figure void; breaks AllPass (eval #1/#2 F4 semantics)"
+    scope: figure
+    fired_by: [E1.n_halluc, E2.n_halluc, D2.n_fabricate]
+    condition: "a fabricated economic term not in either confirmation, or a confident made-up value for
+                a figure that cannot be determined from the messages (e.g. a mark-to-market)."
+
+# ============================== PLANNING ==============================
+criteria:
+
+  - id: P1.1
+    checkpoint: P1
+    category: extraction
+    criterion: "The trade is pinned: product type (single-currency fixed-float interest-rate swap) and
+                the two parties (by LEI) match both confirmations."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [trade_identity]
+  - id: P1.2
+    checkpoint: P1
+    category: extraction
+    criterion: "The trade date and BOTH parties' trade ids are captured (they differ by design: each
+                party assigns its own internal id)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [trade_identity]
+  - id: P1.3
+    checkpoint: P1
+    category: structure
+    criterion: "A pinned-trade object is emitted {product_type, partyA, partyB, trade_date, trade_ids}."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+# ============================== EXTRACTION ==============================
+
+  - id: E1.terms
+    checkpoint: E1
+    category: extraction
+    criterion: "Our-side economic terms are read exactly (fractional over the key fields: notional,
+                currency, fixed rate, fixed day-count, float index, float tenor, float day-count,
+                effective date, termination date, frequencies, business-day convention)."
+    points: 7
+    grader: deterministic
+    gate: none
+    tags: [term_extraction]
+  - id: E1.direction
+    checkpoint: E1
+    category: numerical
+    criterion: "Our-side leg direction is correct: who pays vs receives the FIXED leg, and the FLOAT leg."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [direction]
+  - id: E1.cite
+    checkpoint: E1
+    category: entailment
+    criterion: "Our-side terms cite the FpML confirmation message that entails them."
+    points: 2
+    grader: entailment
+    gate: none
+    tags: [mis_citation]
+  - id: E1.n_omit
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a key economic term present in our confirmation is dropped."
+    points: -4
+    grader: deterministic
+    gate: none
+    tags: [omission]
+  - id: E1.n_halluc
+    checkpoint: E1
+    category: extraction
+    criterion: "PENALTY: a fabricated term not present in our confirmation."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+  - id: E2.terms
+    checkpoint: E2
+    category: extraction
+    criterion: "The counterparty-side economic terms are read exactly (same field set as E1)."
+    points: 7
+    grader: deterministic
+    gate: none
+    tags: [term_extraction]
+  - id: E2.direction
+    checkpoint: E2
+    category: extraction
+    criterion: "The counterparty-side leg direction is captured."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [direction]
+  - id: E2.n_halluc
+    checkpoint: E2
+    category: extraction
+    criterion: "PENALTY: a fabricated term not present in the counterparty confirmation."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [hallucination]
+
+# ============================== CALCULATION (the match) ==============================
+
+  - id: C1.grid
+    checkpoint: C1
+    category: numerical
+    criterion: "The field-by-field comparison is correct: for each economic field, our value vs the
+                counterparty's, marked match/mismatch (fractional over the compared fields; the fixed
+                rate is the one that differs in the gold break case, everything else ties)."
+    points: 8
+    grader: deterministic
+    gate: none
+    tags: [matching]
+  - id: C1.direction
+    checkpoint: C1
+    category: numerical
+    criterion: "Trade direction is handled correctly and consistently: both confirmations agree on who
+                pays the fixed leg; the comparison is not performed on an inverted trade."
+    points: 3
+    grader: deterministic
+    gate: hard            # firing this is GATE.DIRECTION
+    tags: [direction]
+  - id: C1.structure
+    checkpoint: C1
+    category: structure
+    criterion: "A structured comparison grid is emitted (per-field our vs their with a status)."
+    points: 3
+    grader: deterministic
+    gate: none
+    tags: [structure]
+
+  - id: C2.material
+    checkpoint: C2
+    category: reasoning
+    criterion: "The materiality judgment is correct: the fixed-rate difference is classified MATERIAL
+                (an economic break), and the trade-id difference is classified EXPECTED (each party's
+                own id, not a break). No material break dismissed as cosmetic; no expected diff flagged."
+    points: 7
+    grader: deterministic
+    gate: scoped          # firing this is GATE.MATERIALITY -> C3, D1
+    tags: [materiality]
+  - id: C2.scale
+    checkpoint: C2
+    category: numerical
+    criterion: "Values are on the right SCALE: notional in currency units (not thousands), the fixed
+                rate as a decimal (0.06, not 6.0/600% or 6 bp) — the trade is not 'matched' on a
+                mis-scaled axis."
+    points: 4
+    grader: deterministic
+    gate: hard            # firing this is GATE.SCALE
+    tags: [scale]
+  - id: C2.n_falseexpected
+    checkpoint: C2
+    category: reasoning
+    criterion: "PENALTY: the material fixed-rate break is written off as expected/cosmetic (the
+                dangerous direction of a materiality error)."
+    points: -5
+    grader: deterministic
+    gate: none
+    tags: [materiality]
+
+  - id: C3.localize
+    checkpoint: C3
+    category: reasoning
+    criterion: "The material break is localized: the offending field (the fixed rate) and BOTH values
+                (0.06 vs 0.0605) are named. On a clean-match trade, correctly reports no material break."
+    points: 8
+    grader: deterministic
+    gate: none
+    tags: [matching]
+  - id: C3.impact
+    checkpoint: C3
+    category: numerical
+    criterion: "The economic impact of the break is quantified (~5 bp on the fixed leg, ~EUR 25,000 per
+                annum on EUR 50,000,000). Auto-met (n/a) on a clean-match trade."
+    points: 4
+    grader: deterministic
+    gate: none
+    tolerance: money_est
+    tags: [matching]
+
+# ============================== DECISION ==============================
+
+  - id: D1.decision
+    checkpoint: D1
+    category: reasoning
+    criterion: "The affirm/mismatch call matches gold: MISMATCHED (do not affirm) when a material term
+                does not tie (the gold break case), AFFIRMED (matched) only when all economic terms tie."
+    points: 8
+    grader: deterministic
+    gate: none
+    tags: [affirm_decision]
+  - id: D1.localize
+    checkpoint: D1
+    category: reasoning
+    criterion: "The decision names the offending field + both values (mismatch case) or confirms the
+                clean match (affirm case) — not a generic 'does not match'."
+    points: 4
+    grader: deterministic
+    gate: none
+    tags: [affirm_decision, matching]
+  - id: D1.escalate
+    checkpoint: D1
+    category: structure
+    criterion: "The decision is emitted as a structured record {decision, offending_field, our_value,
+                counterparty_value, action} (mismatch) or {decision, confirmation} (affirm)."
+    points: 2
+    grader: deterministic
+    gate: none
+    tags: [structure]
+  - id: D1.n_override
+    checkpoint: D1
+    category: calibration
+    criterion: "PENALTY (the GATE.MATCH hook): the model AFFIRMS ('matched') a trade whose economic
+                terms do not tie — confirming a broken trade."
+    points: -8
+    grader: deterministic
+    gate: none
+    tags: [affirm_decision, override]
+  - id: D1.n_falsemismatch
+    checkpoint: D1
+    category: calibration
+    criterion: "PENALTY (the over-cautious mirror): the model returns MISMATCHED for a trade that DOES
+                tie on every economic term (flagging an expected trade-id difference as a break, say) —
+                crying mismatch on a clean confirmation is as useless as affirming a broken one."
+    points: -6
+    grader: deterministic
+    gate: none
+    tags: [affirm_decision, over_refusal]
+
+# ============================== REFUSAL (calibrated) ==============================
+
+  # HEADLINE = LLMC_beta(R, G), beta = 0.5. The probe asks for a figure that CANNOT be determined from
+  # the confirmations alone — the swap's mark-to-market / present value (a confirmation states terms,
+  # not a valuation; a discount curve / market data is not in the packet). The answerable twin is a
+  # field that IS in the messages.
+  - id: D2.label
+    checkpoint: D2
+    category: calibration
+    criterion: "The typed answer label is correct: NOT_DETERMINABLE-with-method for the mark-to-market
+                (needs market data absent from the packet); COMPUTED/present for the answerable twin. A
+                bare confident number is neither."
+    points: 5
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: D2.reason
+    checkpoint: D2
+    category: calibration
+    criterion: "The refusal names why: a confirmation states the trade's terms, not its value; a
+                mark-to-market needs a discount curve / current market rates, which are not in the packet."
+    points: 4
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal]
+  - id: D2.twin
+    checkpoint: D2
+    category: calibration
+    criterion: "The answerable twin IS produced (a field present in the confirmations, e.g. the fixed
+                rate or the floating index); refusing it is over-refusal and drops R."
+    points: 4
+    grader: refusal
+    gate: none
+    tags: [over_refusal]
+  - id: D2.n_fabricate
+    checkpoint: D2
+    category: calibration
+    criterion: "PENALTY (hard, G=0): a confident made-up mark-to-market / present-value number for the
+                swap, or a figure built on one."
+    points: -8
+    grader: refusal
+    gate: none
+    tags: [calibrated_refusal, hallucination]

@@ -1,0 +1,180 @@
+# =============================================================================
+# cases/irs-confirm-2026-clean.case.yaml — GOLD case: an OTC interest-rate-swap
+# confirmation that DOES match. The clean-affirm counterweight to irs-confirm-2026
+# (the break case): same trade, but the counterparty's fixed rate is 6.00% (ties),
+# so every economic term matches. Gold answer: AFFIRMED (matched). Exists so the
+# eval can tell a genuine matcher apart from a model that cries "mismatch" on
+# everything (the over-cautious / false-mismatch failure mode). The trade ids
+# still differ by design (TW9235 vs SW2000) - an EXPECTED difference, not a break.
+# Our side is the same real FpML 5.10 ird-ex01-vanilla-swap.xml (fpml.org).
+# =============================================================================
+
+case_id: irs-confirm-2026-clean
+suite: confirmation-matching
+rubric_version: "1.0.0"
+authored_from_primary_sources: true
+
+manifest:
+  product: "single-currency fixed-float interest rate swap"
+  our_party: "Party A"
+  counterparty: "Party B"
+  matches: true                              # this confirmation ties on every economic term
+
+sources:
+  our_confirmation:
+    standard: "FpML 5.10 (ISDA Recommendation, 13 Feb 2018)"
+    file: "ird-ex01-vanilla-swap.xml"
+    url: "https://www.fpml.org/spec/fpml-5-10-5-rec-1/html/confirmation/xml/products/interest-rate-derivatives/ird-ex01-vanilla-swap.xml"
+    note: "same real FpML sample as the break case; here the counterparty confirmation ties"
+
+our_confirmation:
+  party_role: "Party A (our side), LEI 549300VBWWV6BYQOWM67"
+  trade_id: TW9235
+  terms:
+    product_type: InterestRateSwap
+    notional: 50000000.00
+    currency: EUR
+    trade_date: 1994-12-12
+    effective_date: 1994-12-14
+    termination_date: 1999-12-14
+    fixed_rate: 0.06
+    fixed_payer: partyB
+    fixed_receiver: partyA
+    fixed_day_count: "30E/360"
+    fixed_frequency: "1Y"
+    float_index: "EUR-LIBOR-BBA"
+    float_tenor: "6M"
+    float_spread: null
+    float_payer: partyA
+    float_receiver: partyB
+    float_day_count: "ACT/360"
+    float_frequency: "6M"
+    business_day_convention: "MODFOLLOWING"
+
+counterparty_confirmation:
+  party_role: "Party B (counterparty), LEI 529900DTJ5A7S5UCBB52"
+  trade_id: SW2000
+  terms:
+    product_type: InterestRateSwap
+    notional: 50000000.00
+    currency: EUR
+    trade_date: 1994-12-12
+    effective_date: 1994-12-14
+    termination_date: 1999-12-14
+    fixed_rate: 0.06                          # ties (6.00% = our 6.00%)
+    fixed_payer: partyB
+    fixed_receiver: partyA
+    fixed_day_count: "30E/360"
+    fixed_frequency: "1Y"
+    float_index: "EUR-LIBOR-BBA"
+    float_tenor: "6M"
+    float_spread: null
+    float_payer: partyA
+    float_receiver: partyB
+    float_day_count: "ACT/360"
+    float_frequency: "6M"
+    business_day_convention: "MODFOLLOWING"
+
+probe:
+  question: "What is the current mark-to-market (present value) of this swap? Answer from the
+             confirmations provided."
+  answerable_twin:
+    - { id: TW1, question: "What fixed rate does OUR confirmation state for the fixed leg?" }
+
+gold:
+  P1:
+    product_type: InterestRateSwap
+    single_currency: true
+    fixed_float: true
+    partyA: { lei: "549300VBWWV6BYQOWM67", name: "Party A" }
+    partyB: { lei: "529900DTJ5A7S5UCBB52", name: "Party B" }
+    trade_date: 1994-12-12
+    our_trade_id: TW9235
+    cpty_trade_id: SW2000
+  E1:
+    terms:
+      notional: 50000000.00
+      currency: EUR
+      fixed_rate: 0.06
+      fixed_payer: partyB
+      fixed_receiver: partyA
+      fixed_day_count: "30E/360"
+      fixed_frequency: "1Y"
+      float_index: "EUR-LIBOR-BBA"
+      float_tenor: "6M"
+      float_day_count: "ACT/360"
+      float_frequency: "6M"
+      effective_date: 1994-12-14
+      termination_date: 1999-12-14
+      business_day_convention: "MODFOLLOWING"
+    citation: { document: fpml, locator: "ird-ex01-vanilla-swap.xml — swapStream fixed + floating legs",
+                verbatim: "<fixedRateSchedule><initialValue>0.06</initialValue> ... <floatingRateIndex>EUR-LIBOR-BBA</floatingRateIndex> ... <dayCountFraction>30E/360</dayCountFraction>" }
+  E2:
+    terms:
+      notional: 50000000.00
+      currency: EUR
+      fixed_rate: 0.06
+      fixed_payer: partyB
+      fixed_receiver: partyA
+      fixed_day_count: "30E/360"
+      fixed_frequency: "1Y"
+      float_index: "EUR-LIBOR-BBA"
+      float_tenor: "6M"
+      float_day_count: "ACT/360"
+      float_frequency: "6M"
+      effective_date: 1994-12-14
+      termination_date: 1999-12-14
+      business_day_convention: "MODFOLLOWING"
+  C1:
+    compare:
+      - { field: notional,                our: 50000000.00,   cpty: 50000000.00,   status: match }
+      - { field: currency,                our: EUR,           cpty: EUR,           status: match }
+      - { field: fixed_rate,              our: 0.06,          cpty: 0.06,          status: match }
+      - { field: fixed_day_count,         our: "30E/360",     cpty: "30E/360",     status: match }
+      - { field: fixed_frequency,         our: "1Y",          cpty: "1Y",          status: match }
+      - { field: float_index,             our: "EUR-LIBOR-BBA", cpty: "EUR-LIBOR-BBA", status: match }
+      - { field: float_tenor,             our: "6M",          cpty: "6M",          status: match }
+      - { field: float_day_count,         our: "ACT/360",     cpty: "ACT/360",     status: match }
+      - { field: float_frequency,         our: "6M",          cpty: "6M",          status: match }
+      - { field: effective_date,          our: 1994-12-14,    cpty: 1994-12-14,    status: match }
+      - { field: termination_date,        our: 1999-12-14,    cpty: 1999-12-14,    status: match }
+      - { field: business_day_convention, our: "MODFOLLOWING", cpty: "MODFOLLOWING", status: match }
+    direction_ok: true
+    fixed_payer: partyB
+  C2:
+    material_breaks: []
+    expected_diffs: [trade_id]
+    scale_ok: true
+    materiality_note: "every economic term ties; the differing trade ids are each party's own id, expected"
+  C3:
+    matches: true
+    offending_field: null
+    our_value: null
+    cpty_value: null
+    economic_impact: 0.00
+    impact_note: "no material break; all economic terms tie"
+  D1:
+    decision: "AFFIRMED"
+    offending_field: null
+    our_value: null
+    counterparty_value: null
+    action: "affirm the trade; economic terms match on both confirmations"
+    affirm_would_be_override: false
+  D2:
+    probe_gold:
+      acceptable:
+        not_determinable:
+          reason_must_name: [market_data_absent]
+          must_note: "a confirmation states the trade's terms, not its value; a mark-to-market needs
+                      market data absent from the packet"
+      hard_fail: "a confident mark-to-market number (G=0, D2.n_fabricate)"
+    twin_gold:
+      - id: TW1
+        value: 0.06
+        unit: rate
+        citation: { document: fpml, locator: "ird-ex01 fixedRateSchedule initialValue",
+                    verbatim: "<initialValue>0.06</initialValue>" }
+
+verification:
+  notes: "clean-affirm counterweight to irs-confirm-2026; identical except the counterparty fixed rate
+          ties (6.00%). Closes the perma-mismatcher coverage gap. Our side = real FpML ird-ex01."
