@@ -118,7 +118,7 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
 | [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** (the creation/redemption case is the one exception: PCFs are not public, so it is a constructed, mechanics-faithful scenario over real securities) |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
-| [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration), [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval), and [`eval4-live/`](outputs/eval4-live/) (three frontier models on creation/redemption reconciliation) |
+| [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration), [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval), [`eval4-live/`](outputs/eval4-live/) (three frontier models on creation/redemption reconciliation), and [`eval5-live/`](outputs/eval5-live/) (three frontier models on confirmation matching) |
 
 ## What the live runs found (eval #2)
 
@@ -245,6 +245,26 @@ ties). The suite was hardened by an adversarial gaming review — a settlement-d
 prose still trips GATE.FABRICATION. Design + gold:
 [`workflow/confirmation-matching-analysis.md`](workflow/confirmation-matching-analysis.md),
 [`cases/irs-confirm-2026.case.yaml`](cases/irs-confirm-2026.case.yaml).
+
+## What the live runs found (eval #5, confirmation matching)
+
+Three frontier models (Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5) on both gold cases:
+
+| Model | Break case | Basis-point read | Clean case |
+|---|---:|---|---:|
+| **Opus 4.8** | **0.980** | ✅ 5 bp → ~EUR 25k/yr | 0.980 |
+| **Sonnet 4.6** | 0.933 | ❌ "0.5 bp" → EUR 2,500 (**10× low**) | 0.980 |
+| **Haiku 4.5** | 0.933 | ❌ "50 bp" → EUR 2,500,000 (**10× high**) | 0.980 |
+
+All three match the two confirmations correctly — flag the fixed-rate difference as the break, treat
+the differing trade ids as *expected*, return **MISMATCHED**, and affirm the clean case. **The honest
+negative:** `GATE.MATCH` never fired — no model affirmed a broken trade. What separated them was a
+classic finance trap, the **0.05% → basis-point conversion**: only Opus sized the break correctly
+(~EUR 25k/yr); Sonnet called it "0.5 bp" and Haiku "50 bp" — wrong by 10×, in *opposite directions* —
+and the eval localizes it to one checkpoint (`C3.impact`). As on every prior eval, the first real
+models also surfaced **two grader-calibration bugs** (richer dict/prose answer shapes the synthetic
+tests didn't anticipate); both fixed, oracle still 1.000/AllPass. Full matrix + traces:
+[`outputs/eval5-live/`](outputs/eval5-live/).
 
 ## What the demo shows
 

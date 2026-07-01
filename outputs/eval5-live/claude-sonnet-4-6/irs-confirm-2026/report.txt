@@ -1,0 +1,29 @@
+========================================================================
+  CASE irs-confirm-2026    model=live:claude-sonnet-4-6    judge=mock
+========================================================================
+  CaseScore (gated, headline) : 0.933
+  CaseScore (ungated)         : 0.933
+  GAP (ungated - gated)       : 0.000
+  AllPass                     : 0
+  D2 calibration (R,G->F_b)   : R=1.00 G=1.00 -> 1.000
+  Gates fired                 : none
+
+  Checkpoint vector (which step failed):
+    cp   W      ungated  gated   raw
+    P1   0.100  1.000   1.000  +1.00
+    E1   0.120  0.833   0.833  +0.83
+    E2   0.100  1.000   1.000  +1.00
+    C1   0.160  1.000   1.000  +1.00
+    C2   0.140  1.000   1.000  +1.00
+    C3   0.140  0.667   0.667  +0.67
+    D1   0.160  1.000   1.000  +1.00
+    D2   0.080  1.000   1.000  +1.00
+
+  Category rollup (diagnostic -- what KIND of error):
+    extraction   +1.000  ####################
+    numerical    +0.818  ################
+    entailment   +0.000  
+    reasoning    +1.000  ####################
+    calibration  +1.000  ####################
+    structure    +1.000  ####################
+========================================================================

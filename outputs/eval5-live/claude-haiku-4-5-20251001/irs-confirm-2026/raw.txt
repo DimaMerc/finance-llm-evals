@@ -1,0 +1,200 @@
+```json
+{
+  "P1": {
+    "product_type": "InterestRateSwap",
+    "single_currency": true,
+    "fixed_float": true,
+    "partyA": {
+      "lei": "549300VBWWV6BYQOWM67",
+      "name": "Our Side"
+    },
+    "partyB": {
+      "lei": "529900DTJ5A7S5UCBB52"
+    },
+    "trade_date": "1994-12-12",
+    "our_trade_id": "TW9235",
+    "cpty_trade_id": "SW2000"
+  },
+  "E1": {
+    "terms": {
+      "notional": 50000000.0,
+      "currency": "EUR",
+      "fixed_rate": 0.06,
+      "fixed_payer": "partyB",
+      "fixed_receiver": "partyA",
+      "fixed_day_count": "30E/360",
+      "fixed_frequency": "1Y",
+      "float_index": "EUR-LIBOR-BBA",
+      "float_tenor": "6M",
+      "float_day_count": "ACT/360",
+      "float_frequency": "6M",
+      "effective_date": "1994-12-14",
+      "termination_date": "1999-12-14",
+      "business_day_convention": "MODFOLLOWING"
+    },
+    "citation": {
+      "document": "our_confirmation",
+      "locator": "fixed_rate field",
+      "verbatim": "fixed_rate = 0.06"
+    }
+  },
+  "E2": {
+    "terms": {
+      "notional": 50000000.0,
+      "currency": "EUR",
+      "fixed_rate": 0.0605,
+      "fixed_payer": "partyB",
+      "fixed_receiver": "partyA",
+      "fixed_day_count": "30E/360",
+      "fixed_frequency": "1Y",
+      "float_index": "EUR-LIBOR-BBA",
+      "float_tenor": "6M",
+      "float_day_count": "ACT/360",
+      "float_frequency": "6M",
+      "effective_date": "1994-12-14",
+      "termination_date": "1999-12-14",
+      "business_day_convention": "MODFOLLOWING"
+    }
+  },
+  "C1": {
+    "compare": [
+      {
+        "field": "notional",
+        "our": 50000000.0,
+        "cpty": 50000000.0,
+        "status": "match"
+      },
+      {
+        "field": "currency",
+        "our": "EUR",
+        "cpty": "EUR",
+        "status": "match"
+      },
+      {
+        "field": "fixed_rate",
+        "our": 0.06,
+        "cpty": 0.0605,
+        "status": "mismatch"
+      },
+      {
+        "field": "fixed_payer",
+        "our": "partyB",
+        "cpty": "partyB",
+        "status": "match"
+      },
+      {
+        "field": "fixed_receiver",
+        "our": "partyA",
+        "cpty": "partyA",
+        "status": "match"
+      },
+      {
+        "field": "fixed_day_count",
+        "our": "30E/360",
+        "cpty": "30E/360",
+        "status": "match"
+      },
+      {
+        "field": "fixed_frequency",
+        "our": "1Y",
+        "cpty": "1Y",
+        "status": "match"
+      },
+      {
+        "field": "float_index",
+        "our": "EUR-LIBOR-BBA",
+        "cpty": "EUR-LIBOR-BBA",
+        "status": "match"
+      },
+      {
+        "field": "float_tenor",
+        "our": "6M",
+        "cpty": "6M",
+        "status": "match"
+      },
+      {
+        "field": "float_day_count",
+        "our": "ACT/360",
+        "cpty": "ACT/360",
+        "status": "match"
+      },
+      {
+        "field": "float_frequency",
+        "our": "6M",
+        "cpty": "6M",
+        "status": "match"
+      },
+      {
+        "field": "effective_date",
+        "our": "1994-12-14",
+        "cpty": "1994-12-14",
+        "status": "match"
+      },
+      {
+        "field": "termination_date",
+        "our": "1999-12-14",
+        "cpty": "1999-12-14",
+        "status": "match"
+      },
+      {
+        "field": "business_day_convention",
+        "our": "MODFOLLOWING",
+        "cpty": "MODFOLLOWING",
+        "status": "match"
+      }
+    ],
+    "direction_ok": true,
+    "fixed_payer": "partyB"
+  },
+  "C2": {
+    "material_breaks": [
+      {
+        "field": "fixed_rate",
+        "our_value": 0.06,
+        "cpty_value": 0.0605,
+        "description": "Fixed rate mismatch: 0.06 vs 0.0605 (50 basis points difference)"
+      }
+    ],
+    "expected_diffs": [
+      {
+        "field": "trade_id",
+        "our_value": "TW9235",
+        "cpty_value": "SW2000",
+        "description": "Each party assigns its own internal trade ID — expected and immaterial"
+      }
+    ]
+  },
+  "C3": {
+    "matches": false,
+    "offending_field": "fixed_rate",
+    "our_value": 0.06,
+    "cpty_value": 0.0605,
+    "economic_impact": "On a EUR 50,000,000 notional 5-year swap, a 50 basis point (0.005) difference in the fixed rate creates a material present-value discrepancy. Over 5 years with annual fixed payments, the cumulative cash-flow difference is approximately EUR 2,500,000 (50 bps × 50M × 5 years), which is economically significant and must be resolved before affirmation."
+  },
+  "D1": {
+    "decision": "MISMATCHED",
+    "offending_field": "fixed_rate",
+    "our_value": 0.06,
+    "counterparty_value": 0.0605,
+    "action": "DO NOT AFFIRM. Escalate to trading desk and counterparty immediately. The fixed rate differs by 50 basis points (0.005). Confirm which rate was agreed verbally or in the term sheet. This is a material economic break and must be resolved before trade affirmation."
+  },
+  "D2": {
+    "probe": {
+      "label": "NOT_DETERMINABLE",
+      "value": null,
+      "derivation": "The mark-to-market (present value) of this swap cannot be determined from the confirmations alone. Confirmations state the TERMS of the trade (notional, fixed rate, dates, indices) but not its VALUE. Computing mark-to-market requires: (1) current market interest rates for the EUR-LIBOR-BBA 6M index and the EUR discount curve as of the valuation date; (2) the current date (to compute accrued interest and remaining time to maturity); and (3) the counterparty credit spread. None of these market data are provided in the packet. Therefore, the answer is NOT_DETERMINABLE."
+    },
+    "twins": [
+      {
+        "id": "TW1",
+        "value": 0.06,
+        "citation": {
+          "document": "our_confirmation",
+          "locator": "fixed_rate field",
+          "verbatim": "fixed_rate = 0.06"
+        }
+      }
+    ]
+  }
+}
+```

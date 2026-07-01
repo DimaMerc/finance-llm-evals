@@ -105,6 +105,19 @@ def _term_match(mterms, gterms, field, tol) -> bool:
     return _eq(str(mv), str(gv))
 
 
+def _impact_magnitudes(s):
+    """pull currency magnitudes out of a prose economic-impact estimate (models return prose, not a
+    bare number), dropping the notional so a 'per annum' / 'over 5 years' figure can be graded."""
+    nums = set()
+    for mt in re.finditer(r"(?:[€$]|eur|usd|gbp)?\s?(\d[\d,]{2,}(?:\.\d+)?)", str(s or "").lower()):
+        try:
+            nums.add(float(mt.group(1).replace(",", "")))     # _num does not parse numeric strings
+        except ValueError:
+            pass
+    nums.discard(50000000.0)          # the notional itself is not the impact
+    return nums
+
+
 def _matches_clean(gold) -> bool:
     m = _g(gold, "C3", "matches")
     if m is None:
@@ -114,6 +127,29 @@ def _matches_clean(gold) -> bool:
 
 def _as_set(x):
     return set(x) if isinstance(x, (list, tuple, set)) else (set() if x is None else {x})
+
+
+# material_breaks / expected_diffs may arrive as bare field strings ('fixed_rate'), rich dicts
+# ({'field': 'fixed_rate', ...}), or descriptive strings ('our_trade_id vs cpty_trade_id ...') — a
+# live model legitimately uses any of these. Normalize to a set of canonical field tokens by scanning
+# each entry for a known field name (our_/cpty_ trade-id variants fold to 'trade_id').
+_FIELD_NAMES = KEY_FIELDS + DIRECTION_FIELDS + ["trade_id", "our_trade_id", "cpty_trade_id"]
+
+
+def _field_tokens(x):
+    items = x if isinstance(x, (list, tuple, set)) else ([] if x is None else [x])
+    out = set()
+    for it in items:
+        if isinstance(it, dict):
+            src = " ".join(str(it.get(k)) for k in ("field", "name", "term") if it.get(k)) \
+                or " ".join(str(v) for v in it.values())
+        else:
+            src = str(it)
+        s = src.lower().replace(" ", "_").replace("-", "_")
+        for f in _FIELD_NAMES:
+            if f in s:
+                out.add("trade_id" if f in ("our_trade_id", "cpty_trade_id") else f)
+    return out
 
 
 # ---------------- the handler chain ----------------
@@ -186,8 +222,8 @@ def handle(a, ctx):
         rows = _g(model, "C1", "compare", default=[])
         return det(isinstance(rows, list) and len(rows) >= 5, "structured compare grid")
     if aid == "C2.material":   # GATE.MATERIALITY
-        gmb, mmb = _as_set(_g(gold, "C2", "material_breaks")), _as_set(_g(model, "C2", "material_breaks"))
-        ged, med = _as_set(_g(gold, "C2", "expected_diffs")), _as_set(_g(model, "C2", "expected_diffs"))
+        gmb, mmb = _field_tokens(_g(gold, "C2", "material_breaks")), _field_tokens(_g(model, "C2", "material_breaks"))
+        ged, med = _field_tokens(_g(gold, "C2", "expected_diffs")), _field_tokens(_g(model, "C2", "expected_diffs"))
         ok = (mmb == gmb) and ("trade_id" not in mmb) and \
              ("trade_id" in med if "trade_id" in ged else True)
         return det(ok, "materiality: material vs expected (scoped gate)")
@@ -223,8 +259,17 @@ def handle(a, ctx):
     if aid == "C3.impact":
         if _matches_clean(gold):
             return det(1.0, "auto-met: clean match")
-        return det(within(_num(_g(model, "C3", "economic_impact")),
-                          _num(_g(gold, "C3", "economic_impact")), "money_est", tol), "economic impact")
+        gi = _num(_g(gold, "C3", "economic_impact"))                       # 25,000 per annum
+        ev = _g(model, "C3", "economic_impact")
+        v = _num(ev)
+        if v is not None:                                                  # a bare number
+            return det(within(v, gi, "money_est", tol), "economic impact")
+        # prose estimate: accept the per-annum (gi) or the 5-year undiscounted total (5*gi). This is
+        # what catches the basis-point conversion error (5 bp -> 25k/yr; 0.5 bp -> 2.5k; 50 bp -> 2.5M)
+        mags = _impact_magnitudes(ev)
+        ok = gi is not None and any(within(x, gi, "money_est", tol) or within(x, gi * 5, "money_est", tol)
+                                    for x in mags)
+        return det(ok, "economic impact (from prose)")
 
     # ============================== DECISION ==============================
     if aid == "D1.decision":
@@ -265,9 +310,9 @@ def penalty_present(a, model, gold) -> bool:
         return any(k not in _ALLOWED_TERM_KEYS for k in mt) or "E2.n_halluc" in inj
     if a.id == "C2.n_falseexpected":
         # the material fixed-rate break written off as expected/cosmetic
-        gmb = _as_set(_g(gold, "C2", "material_breaks"))
-        med = _as_set(_g(model, "C2", "expected_diffs"))
-        mmb = _as_set(_g(model, "C2", "material_breaks"))
+        gmb = _field_tokens(_g(gold, "C2", "material_breaks"))
+        med = _field_tokens(_g(model, "C2", "expected_diffs"))
+        mmb = _field_tokens(_g(model, "C2", "material_breaks"))
         if "fixed_rate" in gmb and ("fixed_rate" in med or "fixed_rate" not in mmb):
             return True
         return "C2.n_falseexpected" in inj
@@ -285,7 +330,7 @@ def penalty_present(a, model, gold) -> bool:
         # treated as an override, so a future unlisted go-ahead synonym still trips the gate
         if dec is None and (_g(model, "C3", "matches") is True
                             or _g(model, "D1", "offending_field") in (None, "", "null")
-                            or not _as_set(_g(model, "C2", "material_breaks"))):
+                            or not _field_tokens(_g(model, "C2", "material_breaks"))):
             return True
         return False
     if a.id == "D1.n_falsemismatch":

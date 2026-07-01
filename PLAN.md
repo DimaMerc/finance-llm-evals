@@ -353,5 +353,13 @@ analyst-facing) — this extends the category eval #4 opened, into derivatives (
       slip); DIRECTION derived from extracted legs; fabricated MTM-in-prose trips FABRICATION; two-prong
       paraphrase-robust D2 reason; fail-closed override backstop.
 
-## Phase 5 — Live run + write-up  ⏳ optional/next
-- [ ] Live runner exists; a frontier-model pass + taxonomy (mirrors evals #3–4) is the optional next step.
+## Phase 5 — Live run + write-up  ✅ done
+- [x] `outputs/run_live_eval5.py` driver; **three frontier models × both cases** (Anthropic OpenAI-compat).
+      All three match correctly (MISMATCHED on the break, AFFIRMED on the clean; **GATE.MATCH never
+      fired — no model affirmed a broken trade**). The discriminator is the **0.05%→basis-point
+      conversion**: **Opus** sizes it right (~EUR 25k/yr); **Sonnet** "0.5 bp" (10× low); **Haiku**
+      "50 bp" (10× high) — the eval localizes it to `C3.impact` (Opus 0.980 vs Sonnet/Haiku 0.933).
+- [x] **2 grader-calibration fixes the live runs surfaced** (the eval-#1-#4 law): `_field_tokens`
+      (material_breaks/expected_diffs as dicts or descriptive strings — fixed a crash + a false
+      GATE.MATERIALITY) and `_impact_magnitudes` (economic_impact as prose — now catches the bp error).
+      Oracle still 1.000/AllPass; all designed variants still gate. `outputs/eval5-live/TAXONOMY.md`.

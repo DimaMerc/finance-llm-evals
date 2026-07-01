@@ -1,0 +1,205 @@
+{
+  "P1": {
+    "product_type": "InterestRateSwap",
+    "single_currency": true,
+    "fixed_float": true,
+    "partyA": {
+      "lei": "549300VBWWV6BYQOWM67",
+      "name": "our side"
+    },
+    "partyB": {
+      "lei": "529900DTJ5A7S5UCBB52"
+    },
+    "trade_date": "1994-12-12",
+    "our_trade_id": "TW9235",
+    "cpty_trade_id": "SW2000"
+  },
+  "E1": {
+    "terms": {
+      "notional": 50000000.0,
+      "currency": "EUR",
+      "fixed_rate": 0.06,
+      "fixed_payer": "partyB",
+      "fixed_receiver": "partyA",
+      "fixed_day_count": "30E/360",
+      "fixed_frequency": "1Y",
+      "float_index": "EUR-LIBOR-BBA",
+      "float_tenor": "6M",
+      "float_day_count": "ACT/360",
+      "float_frequency": "6M",
+      "effective_date": "1994-12-14",
+      "termination_date": "1999-12-14",
+      "business_day_convention": "MODFOLLOWING"
+    },
+    "citation": {
+      "document": "our confirmation",
+      "locator": "fixed_rate field",
+      "verbatim": "fixed_rate = 0.06"
+    }
+  },
+  "E2": {
+    "terms": {
+      "notional": 50000000.0,
+      "currency": "EUR",
+      "fixed_rate": 0.0605,
+      "fixed_payer": "partyB",
+      "fixed_receiver": "partyA",
+      "fixed_day_count": "30E/360",
+      "fixed_frequency": "1Y",
+      "float_index": "EUR-LIBOR-BBA",
+      "float_tenor": "6M",
+      "float_day_count": "ACT/360",
+      "float_frequency": "6M",
+      "effective_date": "1994-12-14",
+      "termination_date": "1999-12-14",
+      "business_day_convention": "MODFOLLOWING"
+    }
+  },
+  "C1": {
+    "compare": [
+      {
+        "field": "notional",
+        "our": 50000000.0,
+        "cpty": 50000000.0,
+        "status": "match"
+      },
+      {
+        "field": "currency",
+        "our": "EUR",
+        "cpty": "EUR",
+        "status": "match"
+      },
+      {
+        "field": "fixed_rate",
+        "our": 0.06,
+        "cpty": 0.0605,
+        "status": "mismatch"
+      },
+      {
+        "field": "fixed_payer",
+        "our": "partyB",
+        "cpty": "partyB",
+        "status": "match"
+      },
+      {
+        "field": "fixed_receiver",
+        "our": "partyA",
+        "cpty": "partyA",
+        "status": "match"
+      },
+      {
+        "field": "fixed_day_count",
+        "our": "30E/360",
+        "cpty": "30E/360",
+        "status": "match"
+      },
+      {
+        "field": "fixed_frequency",
+        "our": "1Y",
+        "cpty": "1Y",
+        "status": "match"
+      },
+      {
+        "field": "float_index",
+        "our": "EUR-LIBOR-BBA",
+        "cpty": "EUR-LIBOR-BBA",
+        "status": "match"
+      },
+      {
+        "field": "float_tenor",
+        "our": "6M",
+        "cpty": "6M",
+        "status": "match"
+      },
+      {
+        "field": "float_day_count",
+        "our": "ACT/360",
+        "cpty": "ACT/360",
+        "status": "match"
+      },
+      {
+        "field": "float_frequency",
+        "our": "6M",
+        "cpty": "6M",
+        "status": "match"
+      },
+      {
+        "field": "effective_date",
+        "our": "1994-12-14",
+        "cpty": "1994-12-14",
+        "status": "match"
+      },
+      {
+        "field": "termination_date",
+        "our": "1999-12-14",
+        "cpty": "1999-12-14",
+        "status": "match"
+      },
+      {
+        "field": "business_day_convention",
+        "our": "MODFOLLOWING",
+        "cpty": "MODFOLLOWING",
+        "status": "match"
+      },
+      {
+        "field": "trade_id",
+        "our": "TW9235",
+        "cpty": "SW2000",
+        "status": "match"
+      }
+    ],
+    "direction_ok": true,
+    "fixed_payer": "partyB"
+  },
+  "C2": {
+    "material_breaks": [
+      {
+        "field": "fixed_rate",
+        "our": 0.06,
+        "cpty": 0.0605,
+        "delta": 0.0005,
+        "economic_impact": "On a notional of EUR 50,000,000 with annual fixed payments over a 5-year tenor, a 0.5 bp difference in fixed rate equates to approximately EUR 2,500 per year in fixed cash-flow difference (50,000,000 x 0.0005 x 1), totalling approximately EUR 12,500 undiscounted over the life of the swap. Present value impact depends on the discount curve (not available), but the rate discrepancy is material and must be resolved."
+      }
+    ],
+    "expected_diffs": [
+      {
+        "field": "trade_id",
+        "our": "TW9235",
+        "cpty": "SW2000",
+        "note": "Each party assigns its own internal trade identifier; this difference is expected and not a material break."
+      }
+    ]
+  },
+  "C3": {
+    "matches": false,
+    "offending_field": "fixed_rate",
+    "our_value": 0.06,
+    "cpty_value": 0.0605,
+    "economic_impact": "A 0.5 bp fixed rate discrepancy on EUR 50,000,000 notional generates approximately EUR 2,500 per annum in mismatched fixed cash flows (~EUR 12,500 undiscounted over 5 years). Present value is NOT_DETERMINABLE without a discount curve, but the break is material and requires escalation."
+  },
+  "D1": {
+    "decision": "MISMATCHED",
+    "offending_field": "fixed_rate",
+    "our_value": 0.06,
+    "counterparty_value": 0.0605,
+    "action": "Do NOT affirm. Escalate immediately to the trading desk and counterparty operations to resolve the fixed rate discrepancy (0.06 vs 0.0605). Trade must be placed on hold pending resolution and amended confirmation from one or both parties."
+  },
+  "D2": {
+    "probe": {
+      "label": "NOT_DETERMINABLE",
+      "value": null,
+      "derivation": "The current mark-to-market (present value) of this swap is NOT determinable from the confirmations provided. A confirmation states only the contractual economic terms of the trade. Computing present value requires (at minimum) a current market discount curve (e.g., OIS or ESTR curve), current floating rate fixings or forward rates for EUR-LIBOR-BBA, and a valuation date \u2014 none of which are present in this packet. No number has been invented."
+    },
+    "twins": [
+      {
+        "id": "TW1",
+        "value": 0.06,
+        "citation": {
+          "document": "our confirmation",
+          "locator": "fixed_rate field",
+          "verbatim": "fixed_rate = 0.06"
+        }
+      }
+    ]
+  }
+}
