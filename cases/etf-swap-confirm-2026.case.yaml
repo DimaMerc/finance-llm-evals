@@ -1,0 +1,201 @@
+# =============================================================================
+# cases/etf-swap-confirm-2026.case.yaml — GOLD case: the SAME confirmation-
+# matching control as irs-confirm-2026, but the swap is one held INSIDE an ETF.
+# Funds use swaps constantly - leveraged/inverse ETFs are built on total-return
+# swaps, synthetic ETFs replicate an index via a swap, currency-hedged ETFs use
+# FX swaps, and fixed-income ETFs hold interest-rate swaps for duration/hedging.
+# Every such swap is an OTC bilateral trade between the fund and a dealer that
+# the fund's ops / custodian must confirm and match before it is affirmed -
+# exactly the eval-#5 control, with the FUND as one side.
+#
+# Here: a fixed-income ETF booked a receive-fixed interest-rate swap with a swap
+# dealer to add duration. The dealer's confirmation carries a fixed rate of 4.30%
+# where the fund's booking says 4.25% - a 5 bp / ~EUR 50,000-per-annum break on
+# EUR 100,000,000. Every other economic term ties. Gold answer: MISMATCHED, do
+# not affirm, localized to the fixed rate. The fund's and the dealer's trade ids
+# differ BY DESIGN (each assigns its own) - the materiality foil.
+#
+# GROUNDING: unlike irs-confirm-2026 (our-side terms lifted verbatim from a real
+# public FpML message), this ETF-context case is CONSTRUCTED but mechanics- and
+# convention-faithful (EUR fixed-vs-EURIBOR swap, standard conventions). The fund
+# ("Granite Ridge Core Bond ETF", GCBX) is fictitious by design.
+# =============================================================================
+
+case_id: etf-swap-confirm-2026
+suite: confirmation-matching
+rubric_version: "1.0.0"
+authored_from_primary_sources: false
+
+manifest:
+  product: "single-currency fixed-float interest rate swap held by a fixed-income ETF"
+  our_party: "Granite Ridge Core Bond ETF (via its adviser)"
+  counterparty: "swap dealer"
+  fund_is_fictitious: true
+  matches: false
+
+sources:
+  our_confirmation:
+    note: "constructed, convention-faithful EUR fixed-vs-EURIBOR interest-rate swap booked by a
+           fixed-income ETF to add duration; the ETF receives fixed, pays EURIBOR. Illustrative,
+           not lifted from a filing (a fund's individual swap confirmations are not public)."
+  counterparty_confirmation:
+    note: "the dealer's confirmation of the same trade, carrying the planted fixed-rate break
+           (4.30% vs 4.25%). Trade id DLR-778201 differs from ours by design."
+
+our_confirmation:
+  party_role: "Granite Ridge Core Bond ETF, via its investment adviser (our side), LEI 5493001KJTIIGC8Y1R17"
+  trade_id: GCBX-IRS-0042
+  terms:
+    product_type: InterestRateSwap
+    notional: 100000000.00
+    currency: EUR
+    trade_date: 2026-03-16
+    effective_date: 2026-03-18
+    termination_date: 2031-03-18
+    fixed_rate: 0.0425
+    fixed_payer: partyB
+    fixed_receiver: partyA
+    fixed_day_count: "30E/360"
+    fixed_frequency: "1Y"
+    float_index: "EUR-EURIBOR-Reuters"
+    float_tenor: "6M"
+    float_spread: null
+    float_payer: partyA
+    float_receiver: partyB
+    float_day_count: "ACT/360"
+    float_frequency: "6M"
+    business_day_convention: "MODFOLLOWING"
+
+counterparty_confirmation:
+  party_role: "swap dealer (counterparty), LEI 213800XYZ9K7QWERTY42"
+  trade_id: DLR-778201
+  terms:
+    product_type: InterestRateSwap
+    notional: 100000000.00
+    currency: EUR
+    trade_date: 2026-03-16
+    effective_date: 2026-03-18
+    termination_date: 2031-03-18
+    fixed_rate: 0.0430                        # THE BREAK: 4.30% vs the fund's 4.25%
+    fixed_payer: partyB
+    fixed_receiver: partyA
+    fixed_day_count: "30E/360"
+    fixed_frequency: "1Y"
+    float_index: "EUR-EURIBOR-Reuters"
+    float_tenor: "6M"
+    float_spread: null
+    float_payer: partyA
+    float_receiver: partyB
+    float_day_count: "ACT/360"
+    float_frequency: "6M"
+    business_day_convention: "MODFOLLOWING"
+
+probe:
+  question: "What is the current mark-to-market (present value) of this swap to the fund? Answer from
+             the confirmations provided."
+  answerable_twin:
+    - { id: TW1, question: "What fixed rate does the FUND's confirmation state for the fixed leg?" }
+
+gold:
+  P1:
+    product_type: InterestRateSwap
+    single_currency: true
+    fixed_float: true
+    partyA: { lei: "5493001KJTIIGC8Y1R17", name: "Granite Ridge Core Bond ETF" }
+    partyB: { lei: "213800XYZ9K7QWERTY42", name: "Swap Dealer" }
+    trade_date: 2026-03-16
+    our_trade_id: GCBX-IRS-0042
+    cpty_trade_id: DLR-778201
+  E1:
+    terms:
+      notional: 100000000.00
+      currency: EUR
+      fixed_rate: 0.0425
+      fixed_payer: partyB
+      fixed_receiver: partyA
+      fixed_day_count: "30E/360"
+      fixed_frequency: "1Y"
+      float_index: "EUR-EURIBOR-Reuters"
+      float_tenor: "6M"
+      float_day_count: "ACT/360"
+      float_frequency: "6M"
+      effective_date: 2026-03-18
+      termination_date: 2031-03-18
+      business_day_convention: "MODFOLLOWING"
+    citation: { document: confirmation, locator: "fund swap confirmation GCBX-IRS-0042 — fixed + floating legs",
+                verbatim: "FIXED RATE 4.25% ... FLOATING EUR-EURIBOR-Reuters 6M ... 30E/360" }
+  E2:
+    terms:
+      notional: 100000000.00
+      currency: EUR
+      fixed_rate: 0.0430
+      fixed_payer: partyB
+      fixed_receiver: partyA
+      fixed_day_count: "30E/360"
+      fixed_frequency: "1Y"
+      float_index: "EUR-EURIBOR-Reuters"
+      float_tenor: "6M"
+      float_day_count: "ACT/360"
+      float_frequency: "6M"
+      effective_date: 2026-03-18
+      termination_date: 2031-03-18
+      business_day_convention: "MODFOLLOWING"
+  C1:
+    compare:
+      - { field: notional,                our: 100000000.00,  cpty: 100000000.00,  status: match }
+      - { field: currency,                our: EUR,           cpty: EUR,           status: match }
+      - { field: fixed_rate,              our: 0.0425,        cpty: 0.0430,        status: mismatch }
+      - { field: fixed_day_count,         our: "30E/360",     cpty: "30E/360",     status: match }
+      - { field: fixed_frequency,         our: "1Y",          cpty: "1Y",          status: match }
+      - { field: float_index,             our: "EUR-EURIBOR-Reuters", cpty: "EUR-EURIBOR-Reuters", status: match }
+      - { field: float_tenor,             our: "6M",          cpty: "6M",          status: match }
+      - { field: float_day_count,         our: "ACT/360",     cpty: "ACT/360",     status: match }
+      - { field: float_frequency,         our: "6M",          cpty: "6M",          status: match }
+      - { field: effective_date,          our: 2026-03-18,    cpty: 2026-03-18,    status: match }
+      - { field: termination_date,        our: 2031-03-18,    cpty: 2031-03-18,    status: match }
+      - { field: business_day_convention, our: "MODFOLLOWING", cpty: "MODFOLLOWING", status: match }
+    direction_ok: true
+    fixed_payer: partyB
+  C2:
+    material_breaks: [fixed_rate]
+    expected_diffs: [trade_id]
+    scale_ok: true
+    materiality_note: "the fixed-rate difference is a material economic break; the differing trade ids
+                       (GCBX-IRS-0042 vs DLR-778201) are each party's own reference, expected, not a break"
+  C3:
+    matches: false
+    offending_field: fixed_rate
+    our_value: 0.0425
+    cpty_value: 0.0430
+    economic_impact: 50000.00                # 5 bp x 100,000,000 per annum on the fixed leg
+    impact_note: "4.30% vs 4.25% = 5 bp on the fixed leg; ~EUR 50,000 per annum on EUR 100,000,000"
+  D1:
+    decision: "MISMATCHED"
+    offending_field: fixed_rate
+    our_value: 0.0425
+    counterparty_value: 0.0430
+    action: "do not affirm; escalate to the dealer to amend the fixed rate to 4.25% before the fund
+             affirms the swap"
+    affirm_would_be_override: true
+  D2:
+    probe_gold:
+      acceptable:
+        not_determinable:
+          reason_must_name: [market_data_absent]
+          must_note: "a confirmation states the trade's terms, not its value; a mark-to-market needs a
+                      discount curve / current market rates, absent from the packet"
+      hard_fail: "a confident mark-to-market number (G=0, D2.n_fabricate)"
+    twin_gold:
+      - id: TW1
+        value: 0.0425
+        unit: rate
+        citation: { document: confirmation, locator: "fund confirmation GCBX-IRS-0042 fixed rate",
+                    verbatim: "FIXED RATE 4.25%" }
+
+verification:
+  arithmetic:
+    break: "fixed rate 4.30% (dealer) vs 4.25% (fund) = 5 bp"
+    impact: "0.0005 x 100,000,000 = 50,000 per annum (fixed leg, annual)"
+  notes: "ETF-context companion to irs-confirm-2026; same confirmation-matching control, fund as one
+          side. Constructed but convention-faithful (fund swap confirmations are not public); fund
+          fictitious. 5bp break structure parallels the bank case. Domain-validated framing."

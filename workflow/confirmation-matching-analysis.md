@@ -41,6 +41,18 @@ That's the materiality judgment.
 Gold answer: **AFFIRMED.** It closes the perma-mismatcher gap — a model that cries "mismatch" on
 everything (e.g. flagging the expected trade-id difference) is caught here.
 
+## The same control, inside an ETF
+
+Funds are among the biggest users of swaps — leveraged/inverse ETFs are built on **total-return
+swaps**, synthetic ETFs replicate an index via a swap, currency-hedged ETFs use FX swaps, and
+fixed-income ETFs hold **interest-rate swaps** for duration/hedging. Every one of those is an OTC
+bilateral trade between the fund and a dealer that the fund's ops/custodian must confirm and match
+before it is affirmed — *exactly this control, with the fund as one side.* A second case pair,
+`etf-swap-confirm-2026` (break) and `-clean`, is a fixed-income ETF's receive-fixed interest-rate swap
+with a **4.30% vs 4.25% break (~EUR 50,000/yr on EUR 100M)** — same rubric, same gates, the fund as
+Party A. (Constructed and convention-faithful: a fund's individual swap confirmations are not public,
+so it is illustrative over standard conventions, unlike the FpML-grounded bank case.)
+
 ## Checkpoints (8)
 
 | CP | Grades | Gate |

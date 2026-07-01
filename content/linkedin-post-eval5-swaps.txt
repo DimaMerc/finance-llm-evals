@@ -1,0 +1,23 @@
+Most people picture an ETF as a basket of stocks. A lot of them are quietly full of something else: swaps.
+
+Leveraged and inverse ETFs are built almost entirely on them. Synthetic funds replicate an index through one. Currency-hedged funds use them. Bond funds hold them to manage risk. And every one of those swaps is a private deal between the fund and a bank - agreed bilaterally, booked separately on each side.
+
+That creates a quiet risk a stock trade doesn't have: the two sides can disagree about what they agreed. One books the fixed rate at 6.00%, the other has 6.05%. Before the trade is locked in, someone in operations has to check the two confirmations line up - and affirm it only if they tie. Get that wrong and you've legally committed the fund to a trade it doesn't actually agree with.
+
+So I built a test for whether an AI can do that job.
+
+I gave it two confirmations of the same swap and asked: do the economics match? In the hard case the two sides agreed on everything - notional, dates, index, direction - except one number: 6.05% on one side, 6.00% on the other. Five basis points. On the notional, that's real money every year. The right answer is: do not affirm, the rate doesn't tie, escalate.
+
+There's a subtlety that separates someone who knows this work from someone who doesn't: the two firms also used different internal trade ids. That is NOT a break - each firm assigns its own reference, always. The skill is telling a real economic break apart from a difference that's supposed to be there.
+
+Here's what three frontier AI models did. All three caught the rate break and refused to affirm - none rubber-stamped it. But when I asked how big the break was, only the strongest got it right. One called five basis points "half a basis point." Another called it "fifty." Ten times too small and ten times too big - same trade, opposite errors, on a conversion a junior gets taught in week one. The test caught it and pinned it to the exact step.
+
+That's the whole idea. The useful question was never "is the AI smart." It's "where, precisely, can I trust it - and where can't I." Runnable, open-source, and grounded in a real industry message. Repo in the comments.
+
+#AIinFinance #ETFs #Derivatives #AssetServicing #LLMevaluation
+
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The runnable eval (a bank swap and a swap inside an ETF, both graded): github.com/DimaMerc/finance-llm-evals

@@ -108,7 +108,10 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
   carries a material break — a fixed rate of **6.05% where ours says 6.00%** (~5 bp, ~EUR 25,000/yr on
   EUR 50MM); every other term ties, and the two parties' trade ids differ *by design* (the materiality
   foil). Gold answer: MISMATCHED, do not affirm, localized to the fixed rate. A clean-match counterweight
-  catches the over-cautious mirror. 8 checkpoints, ~33 criteria, two gold cases.
+  catches the over-cautious mirror. And because funds are among the biggest users of swaps (leveraged
+  ETFs are built on total-return swaps, fixed-income ETFs hold interest-rate swaps), a second case pair
+  runs the *same control on a swap held inside an ETF* — the fund as one side. 8 checkpoints, ~33
+  criteria, four gold cases (a bank swap and an ETF's swap, each with a break and a clean match).
 
 ## What's here
 
