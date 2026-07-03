@@ -296,7 +296,7 @@ test** (did a model/prompt change help or hurt, and where).
 The design follows the public state of the art — OpenAI's **HealthBench** (expert rubric criteria
 graded by an LLM judge), **FinanceBench** (every answer tied to an evidence string), **FinQA /
 TAT-QA** (executed numeric tolerance), the **Vals AI Finance Agent Benchmark** (checkpoint scoring
-of an end-to-end analyst task), and **FailSafeQA** (rewarding calibrated refusal) — and composes
+of an end-to-end analyst task), and **FailSafeQA** (rewarding calibrated refusal), and **[Helium Market Resolution](https://huggingface.co/datasets/HeliumTrades/helium-market-resolution-benchmark)** (frozen live option-chain prompts with market ground truth for IV/delta/parity literacy — complementary to earnings/SEC workflows covered here) — and composes
 them into a runnable whole, then extends it to a derivatives-overlay product that the public
 benchmarks don't cover.
 
