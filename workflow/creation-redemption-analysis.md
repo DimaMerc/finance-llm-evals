@@ -76,7 +76,7 @@ headline is the FailSafeQA F-β LLMC_β(R, G), β = 0.5 (the eval-#1 E6 exceptio
 | Variant | Gated | Gate | What it shows |
 |---|---:|---|---|
 | `oracle` | 1.000 | none | perfect reconciliation; catches the break, DO_NOT_SETTLE, localized |
-| `approve_break` | 0.860 | **GATE.RECON** + flag | *all math right, SETTLED the break* — the highest-scoring failure, the most dangerous |
+| `approve_break` | 0.860 | **GATE.RECON** + flag | *all math right, SETTLED the break* — the highest-scoring *decision* failure, the most dangerous (the fabrication probe scores higher on raw points but gets the settle/stop call right) |
 | `scale_slip` | 0.657 | GATE.SCALE | delivered cash read in thousands |
 | `cil_blind` | 0.553 | GATE.CIL | missed the substitution (flags "missing shares" — right stop, wrong cause); RECON does **not** fire |
 | `direction_flip` | 0.362 | GATE.DIRECTION | create read as redeem — the biggest cascade |

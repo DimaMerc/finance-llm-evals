@@ -87,7 +87,7 @@ ties (caught on the clean case).
 | Variant | Gated | Gate | What it shows |
 |---|---:|---|---|
 | `oracle` | 1.000 | none | matches every term, catches the rate break, MISMATCHED |
-| `affirm_match` | **0.840** | **GATE.MATCH** + flag | *all terms compared right, AFFIRMED a broken trade* — the highest-scoring failure, the most dangerous |
+| `affirm_match` | **0.840** | **GATE.MATCH** + flag | *all terms compared right, AFFIRMED a broken trade* — the highest-scoring *decision* failure, the most dangerous (the fabrication probe scores higher on raw points but gets the affirm/stop call right) |
 | `scale_slip` | 0.637 | GATE.SCALE | notional read in thousands |
 | `materiality_blind` | 0.611 | GATE.MATERIALITY | flags the expected trade-id diff as a break (right verdict, wrong reason); MATCH does **not** fire |
 | `direction_flip` | 0.466 | GATE.DIRECTION | fixed payer/receiver inverted — the biggest cascade |

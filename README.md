@@ -187,11 +187,12 @@ the McDonald's FY2025 gold case are in [`workflow/dcf-analysis.md`](workflow/dcf
 
 The signature here is the one every fund-accounting desk runs on: **a basket that does not reconcile
 does not settle.** The gold case is a creation that is short $13,320 — every in-kind share line ties,
-only the cash-in-lieu plug is stale — so the most dangerous failure is also the highest-scoring one:
+only the cash-in-lieu plug is stale — so the most dangerous way to get the settle/stop decision
+wrong is also the highest-scoring:
 
 | Flawed answer | Gate | Gated score | What it shows |
 |---|---|---|---|
-| `approve_break` — all numbers right, **SETTLES the break** | **GATE.RECON** + flag | **0.86** | the signature: the highest-scoring failure is the catastrophic one — the control switched off |
+| `approve_break` — all numbers right, **SETTLES the break** | **GATE.RECON** + flag | **0.86** | the signature: the highest-scoring *decision* failure is the catastrophic one — the control switched off |
 | `scale_slip` — delivered cash read in thousands | **GATE.SCALE** (hard) | 0.66 | a mis-scaled tie-out |
 | `cil_blind` — misses the cash-in-lieu substitution | **GATE.CIL** (scoped) | 0.55 | right *stop*, wrong root cause; RECON does **not** fire |
 | `direction_flip` — creation read as redemption | **GATE.DIRECTION** (hard) | 0.36 | the whole order on the wrong footing — the biggest cascade |
@@ -232,11 +233,11 @@ family, n=1 per case — a cross-family run is the honest next step. Full matrix
 The derivatives sibling of #4 — and the gold "our side" is a **real, publicly-downloadable FpML
 message**, so the case is *cited, not constructed*. The break: a counterparty confirmation that ties
 on every term except a **6.05% vs 6.00% fixed rate**. The signature is again the highest-scoring
-failure:
+*decision* failure:
 
 | Flawed answer | Gate | Gated score | What it shows |
 |---|---|---|---|
-| `affirm_match` — all terms compared right, **affirms the broken trade** | **GATE.MATCH** + flag | **0.84** | the signature: the highest-scoring failure is the catastrophic one — the control switched off |
+| `affirm_match` — all terms compared right, **affirms the broken trade** | **GATE.MATCH** + flag | **0.84** | the signature: the highest-scoring *decision* failure is the catastrophic one — the control switched off |
 | `scale_slip` — notional read in thousands | **GATE.SCALE** (hard) | 0.64 | a mis-scaled comparison |
 | `materiality_blind` — flags the *expected* trade-id diff as a break | **GATE.MATERIALITY** (scoped) | 0.61 | right verdict, wrong reason; MATCH does **not** fire |
 | `direction_flip` — fixed payer/receiver inverted | **GATE.DIRECTION** (hard) | 0.47 | the trade read backwards — the biggest cascade |
