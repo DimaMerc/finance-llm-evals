@@ -9,8 +9,16 @@ errors that quietly poison a memo, and credit for *calibrated uncertainty* rathe
 guessing.
 
 Most finance-LLM demos show a polished answer. This shows the **scoring system** behind the
-answer: the workflow broken into checkpoints, a gating-plus-weighted rubric, gold cases cited to
-SEC filings, and a grader that surfaces exactly *where* — and how badly — a model fails.
+answer: the workflow broken into checkpoints, a gating-plus-weighted rubric, expert-authored gold
+cases cited to SEC filings, and a grader that surfaces exactly *where* — and how badly — a model
+fails.
+
+Three of the five workflows are the analyst's (earnings, buffer-ETF diligence, DCF). Two are the
+**back office's** (ETF creation/redemption reconciliation, OTC swap confirmation matching) — and
+as of July 2026, those two appear to be the **only public LLM evals of capital-markets post-trade
+operations anywhere** (see [where this sits in the 2026 benchmark
+landscape](#where-this-sits-in-the-2026-benchmark-landscape)). Every live model run is
+consolidated in [**LEADERBOARD.md**](LEADERBOARD.md).
 
 ## See it in 30 seconds (no API key, no setup)
 
@@ -35,7 +43,7 @@ across five analyst and back-office workflows — is the whole repo.
 ## How the scoring works (30 more seconds)
 
 Every workflow is broken into **checkpoints** (plan → extract → calculate → decide). Each checkpoint
-has scored criteria, and a few are **gates** — auto-fail conditions for the errors that quietly
+has point-weighted, tiered criteria, and a few are **gates** — auto-fail conditions for the errors that quietly
 poison a memo (a unit/scale slip, a wrong fiscal period, a fabricated number, settling a basket that
 doesn't reconcile). A normal mistake costs a few points; a **gate collapses the score and flags
 exactly where and how badly** the model failed. Every gold figure is traced to a real SEC filing;
@@ -57,7 +65,8 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
 `python -m harness suite` scores them all · `python -m harness selftest` prints PASSED.
 
 **Run a real model** (optional, needs an API key): add `--model live --endpoint <url> --model-id
-<model>` with `OPENAI_API_KEY` set. The graded frontier-model runs are in [`outputs/`](outputs/).
+<model>` with `OPENAI_API_KEY` set. The graded frontier-model runs are in [`outputs/`](outputs/),
+consolidated in [`LEADERBOARD.md`](LEADERBOARD.md).
 
 > 📄 **Prefer prose?** [`PAPER.md`](PAPER.md) is the methodology write-up. Each eval also has a
 > plain-language write-up in [`content/`](content/).
@@ -121,6 +130,7 @@ flaw trip its gate. `python -m harness list` shows every case and variant ·
 | [`rubric/`](rubric/) | Gating + weighted, tiered rubrics — machine-readable atoms (`criteria*.yaml`), the frozen judge prompt (`judge.md`), and a `validate.py` linter |
 | [`cases/`](cases/) | Gold cases — every figure cited to a real SEC filing (10-K / 10-Q / 8-K / 497K / N-PORT); **no invented numbers** (the creation/redemption case is the one exception: PCFs are not public, so it is a constructed, mechanics-faithful scenario over real securities) |
 | [`harness/`](harness/) | The runnable scorer: one suite-agnostic engine + a module per eval; deterministic checks + gating + a pluggable LLM-judge interface; a live path for real models |
+| [`LEADERBOARD.md`](LEADERBOARD.md) | Every live model run on one page — frontier (evals #3–#5) and open-weight (#1–#2), with the discriminating findings and the honest caveats |
 | [`outputs/`](outputs/) | The real graded model runs + failure taxonomies — [`eval2-live/`](outputs/eval2-live/) (two local models, the judge-vs-expert calibration), [`eval3-live/`](outputs/eval3-live/) (three frontier models on the DCF eval), [`eval4-live/`](outputs/eval4-live/) (three frontier models on creation/redemption reconciliation), and [`eval5-live/`](outputs/eval5-live/) (three frontier models on confirmation matching) |
 
 ## What the live runs found (eval #2)
@@ -292,14 +302,35 @@ derivatives ops), localizes each to the checkpoint that owns it, and tells "look
 **acceptance test** (which model is deployable, and where it needs a guardrail) and a **regression
 test** (did a model/prompt change help or hurt, and where).
 
-## Why it's built this way
+## Where this sits in the 2026 benchmark landscape
 
-The design follows the public state of the art — OpenAI's **HealthBench** (expert rubric criteria
-graded by an LLM judge), **FinanceBench** (every answer tied to an evidence string), **FinQA /
-TAT-QA** (executed numeric tolerance), the **Vals AI Finance Agent Benchmark** (checkpoint scoring
-of an end-to-end analyst task), and **FailSafeQA** (rewarding calibrated refusal) — and composes
-them into a runnable whole, then extends it to a derivatives-overlay product that the public
-benchmarks don't cover.
+The methodology here is the same family the frontier now uses — expert-authored tasks decomposed
+into checkpoints, point-weighted rubric criteria with **gating conditions**, LLM-judge grading,
+all-pass alongside partial credit. What's different is the **domain**. Every prominent finance
+benchmark tests the front office; none covers post-trade operations:
+
+| Benchmark | Built by | Format | Finance slice covered | Post-trade ops? |
+|---|---|---|---|---|
+| [GDPval](https://arxiv.org/abs/2510.04374) (2025) | OpenAI | static real-work tasks | analyst / advisor / sales occupations | ✗ |
+| [Finance Agent v2](https://www.vals.ai/benchmarks/fabv2) (2026) | Vals AI | agentic filings QA | entry-level analyst research | ✗ |
+| [APEX / APEX-Agents](https://www.mercor.com/apex/) (2025–26) | Mercor | expert-rubric agentic worlds | IB associate work (models, pitch materials) | ✗ |
+| [BigFinanceBench](https://arxiv.org/abs/2606.03829) (2026) | Rogo + OpenAI | point-weighted-rubric QA | public-equity research (52 expert authors) | ✗ |
+| [FrontierFinance](https://arxiv.org/abs/2604.05912) (2026) | Kensho / S&P / MIT | long-horizon computer use | 3-statement / LBO / DCF / M&A model building | ✗ |
+| [FinBalance](https://arxiv.org/abs/2606.15949) (2026) | academic | static reconciliation | corporate bookkeeping (invoices → journals) | ✗ (accounting, not securities) |
+| **this suite** (2025–26) | one domain expert | rubric-gated, runnable, live-graded | analyst workflows **+ ETF creation/redemption + OTC confirmation matching** | **✓** |
+
+A July 2026 meta-survey mapping 452 public financial-services benchmarks onto banking-industry
+domains ([arXiv 2607.01740](https://arxiv.org/abs/2607.01740)) reports the same picture: coverage
+concentrates in information-processing and analysis, with "a genuine gap in the public evaluation
+landscape for regulated domain tasks." To our knowledge, evals #4 and #5 are the first public,
+runnable LLM evals of capital-markets post-trade workflows — the asset-servicing back office that
+clears, settles, and reconciles what the front office trades.
+
+The design lineage, for the record: OpenAI's **HealthBench** (expert rubric criteria graded by an
+LLM judge), **FinanceBench** (every answer tied to an evidence string), **FinQA / TAT-QA**
+(executed numeric tolerance), the **Vals AI Finance Agent Benchmark** (checkpoint scoring of an
+end-to-end analyst task), and **FailSafeQA** (rewarding calibrated refusal) — composed into a
+runnable whole, then pointed at the workflows none of them cover.
 
 See [`PLAN.md`](PLAN.md) for the phase roadmap and [`CLAUDE.md`](CLAUDE.md) for full project context.
 
