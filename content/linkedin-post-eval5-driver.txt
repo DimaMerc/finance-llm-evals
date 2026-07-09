@@ -1,0 +1,35 @@
+DRIVER POST for the eval-5 article (post Tuesday ~8-9:30am ET; article link goes in the
+FIRST COMMENT, pasted right after you publish the article and grab its URL).
+
+==================================================================
+
+Last week I showed a test I built: give an AI the two sides of a swap confirmation - the fund's version and the bank's - and ask one question. Do we affirm this trade?
+
+All three frontier models I ran made the right call. The fixed rate didn't tie (6.00% on one side, 6.05% on the other), and every one of them refused to affirm and escalated. None of them were fooled by the two firms using different trade IDs - that's normal, not a break.
+
+So the headline is "AI passed"?
+
+Not quite. I also asked how big the break was. Five basis points on EUR 50 million - about EUR 25,000 a year. Only the strongest model got that number. One model read five basis points as half of one. Another read them as fifty. Ten times too small and ten times too big - same two documents, opposite errors, on a conversion juniors learn in week one.
+
+Right decision, wrong number. And that's a real problem for anyone deploying this. An assistant that escalates a break sized at EUR 2,500 gets ignored. The same break sized at EUR 2.5 million starts a fire drill. The decision was trustworthy; the number attached to it wasn't.
+
+Because the test grades every step separately, it doesn't just hand back a score - it points at the exact step that still needs a human.
+
+I wrote up the full story - how the test is built from a real industry message, what the models actually said, and where I'd draw the trust line today. Link in the first comment.
+
+#AIinFinance #ETFs #Derivatives #AssetServicing #LLMevaluation
+
+==================================================================
+FIRST COMMENT (links go here, not in the post body):
+
+The full write-up: [PASTE ARTICLE URL HERE AFTER PUBLISHING]
+The runnable eval itself: github.com/DimaMerc/finance-llm-evals
+
+==================================================================
+NOTES:
+- No image needed - the goal is clicks to the article, and LinkedIn shows a preview
+  card if you later paste the article link in comments. If you want a visual anyway,
+  use receipts-eval5.png (the hero already ran on the original post).
+- Publish order Tuesday morning: (1) article first, copy its URL; (2) this post;
+  (3) first comment with the two links; (4) also drop the article link as a new
+  comment on the ORIGINAL swaps post to bump it.
